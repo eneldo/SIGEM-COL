@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { PasswordChangeModal } from '../PasswordChangeModal'
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024)
@@ -17,6 +18,8 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      <PasswordChangeModal />
     </div>
   )
 }

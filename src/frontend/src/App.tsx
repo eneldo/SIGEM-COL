@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuthStore } from './stores/authStore'
 import { Layout } from './components/layout/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
-import { ChangePasswordPage } from './pages/auth/ChangePasswordPage'
 import { DashboardAdmin } from './pages/admin/DashboardAdmin'
 import { GestoresPage } from './pages/admin/GestoresPage'
 import { LineasPage } from './pages/admin/LineasPage'
@@ -30,20 +29,14 @@ const isAdmin = (roles: string[]) => roles.some((role) => adminRoles.includes(ro
 function ProtectedRoute({
   children,
   requiredRole,
-  requirePasswordChange = false,
 }: {
   children: React.ReactNode
   requiredRole?: string
-  requirePasswordChange?: boolean
 }) {
-  const { isAuthenticated, user, mustChangePassword } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
-  }
-
-  if (mustChangePassword && !requirePasswordChange) {
-    return <Navigate to="/change-password" replace />
   }
 
   if (requiredRole && user && !user.roles.includes(requiredRole)) {
@@ -55,10 +48,9 @@ function ProtectedRoute({
 }
 
 function RootRedirect() {
-  const { isAuthenticated, user, mustChangePassword } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (mustChangePassword) return <Navigate to="/change-password" replace />
 
   const role = user?.roles?.[0]
   if (role && adminRoles.includes(role)) return <Navigate to="/admin/dashboard" replace />
@@ -70,15 +62,6 @@ export default function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-
-        <Route
-          path="/change-password"
-          element={
-            <ProtectedRoute requirePasswordChange>
-              <ChangePasswordPage />
-            </ProtectedRoute>
-          }
-        />
 
         <Route
           path="/admin"

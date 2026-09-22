@@ -8,11 +8,15 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   mustChangePassword: boolean
+  loginTimestamp: number | null
+  passwordChangeDismissed: boolean
   login: (username: string, password: string, municipioCodigo?: string) => Promise<void>
   logout: () => Promise<void>
   setToken: (token: string) => void
   checkAuth: () => Promise<void>
   setUser: (user: User) => void
+  dismissPasswordChange: () => void
+  resetPasswordChange: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -22,6 +26,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       mustChangePassword: false,
+      loginTimestamp: null,
+      passwordChangeDismissed: false,
 
       login: async (username: string, password: string, municipioCodigo?: string) => {
         const payload: { username: string; password: string; municipio_codigo?: string } = {
@@ -42,6 +48,8 @@ export const useAuthStore = create<AuthState>()(
           user,
           isAuthenticated: true,
           mustChangePassword: must_change_password,
+          loginTimestamp: Date.now(),
+          passwordChangeDismissed: false,
         })
       },
 
@@ -58,6 +66,8 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             mustChangePassword: false,
+            loginTimestamp: null,
+            passwordChangeDismissed: false,
           })
         }
       },
@@ -87,6 +97,7 @@ export const useAuthStore = create<AuthState>()(
             user,
             isAuthenticated: true,
             mustChangePassword: user.must_change_password ?? false,
+            loginTimestamp: get().loginTimestamp || Date.now(),
           })
         } catch {
           localStorage.removeItem('token')
@@ -96,8 +107,18 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             mustChangePassword: false,
+            loginTimestamp: null,
+            passwordChangeDismissed: false,
           })
         }
+      },
+
+      dismissPasswordChange: () => {
+        set({ passwordChangeDismissed: true })
+      },
+
+      resetPasswordChange: () => {
+        set({ passwordChangeDismissed: false, loginTimestamp: Date.now() })
       },
     }),
     {
@@ -107,6 +128,8 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         mustChangePassword: state.mustChangePassword,
+        loginTimestamp: state.loginTimestamp,
+        passwordChangeDismissed: state.passwordChangeDismissed,
       }),
     },
   ),
