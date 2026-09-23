@@ -16,6 +16,7 @@ services:
       - APP_NAME=SIGEM Colombia
       - DATABASE_URL=postgresql+asyncpg://sigem:sigem_password@postgres:5432/sigem_db
       - REDIS_URL=redis://redis:6379/0
+      - RATE_LIMIT_LOGIN_ATTEMPTS=200
     volumes:
       - storage_data:/data/evidencias
     depends_on:
