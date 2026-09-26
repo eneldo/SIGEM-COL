@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Icon } from '../../components/ui/icons'
+import { Fragment, useEffect, useState } from 'react'
 import { gestorDashboard } from '../../lib/api'
+import { Button } from '../../components/ui/Button'
+import { Icon, ModalShell, formatDateOnly, selectClass } from '../../components/ui/icons'
+import EvidenciasModal from '../../components/EvidenciasModal'
 import { clsx } from 'clsx'
 
 interface AvanceRevision {
@@ -22,6 +24,7 @@ interface AvanceRevision {
   evidencia_tipo: string | null
   evidencia_url: string | null
   observaciones: string | null
+  observaciones_revision?: string | null
   created_at: string | null
 }
 
@@ -41,21 +44,64 @@ const estadoTone: Record<string, string> = {
   EN_REVISION: 'bg-[#E9EEF5] text-[#3D5D7A]',
   APROBADO: 'bg-forest-soft text-forest',
   RECHAZADO: 'bg-warn-soft text-warn',
+  DEVUELTO: 'bg-warn-soft text-warn',
+}
+
+const estadoLabel: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  BORRADOR: 'Borrador',
+  EN_REVISION: 'En revisión',
+  APROBADO: 'Aprobado',
+  RECHAZADO: 'Devuelto',
+  DEVUELTO: 'Devuelto',
+}
+
+function EstadoBadge({ estado }: { estado: string }) {
+  return (
+    <span className={clsx('inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-bold', estadoTone[estado] || 'bg-line/60 text-ink-soft')}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {estadoLabel[estado] || estado}
+    </span>
+  )
 }
 
 export default function RevisionAvancesPage() {
   const [avances, setAvances] = useState<AvanceRevision[]>([])
   const [stats, setStats] = useState({ pendientes: 0, aprobados_semana: 0, devueltos: 0 })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [observaciones, setObservaciones] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroPeriodo, setFiltroPeriodo] = useState('')
+  const [modalEvidencia, setModalEvidencia] = useState<AvanceRevision | null>(null)
+  const [showEvidenciasModal, setShowEvidenciasModal] = useState<AvanceRevision | null>(null)
+  const [downloadLoading, setDownloadLoading] = useState(false)
+
+  const downloadEvidencia = async (avance: AvanceRevision) => {
+    setDownloadLoading(true)
+    try {
+      const res = await gestorDashboard.descargarEvidencia(avance.id)
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = avance.evidencia_nombre || 'evidencia'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No fue posible descargar la evidencia.')
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     setLoading(true)
+    setError('')
     try {
       const [avancesRes, statsRes] = await Promise.all([
         gestorDashboard.revisionAvances(filtroEstado || undefined, search || undefined, filtroPeriodo || undefined),
@@ -64,7 +110,7 @@ export default function RevisionAvancesPage() {
       setAvances(avancesRes.data)
       setStats(statsRes.data)
     } catch {
-      // silent
+      setError('No fue posible cargar los avances pendientes de revisión.')
     } finally {
       setLoading(false)
     }
@@ -86,9 +132,10 @@ export default function RevisionAvancesPage() {
     setSaving(avance.id)
     try {
       await gestorDashboard.revisarAvance(avance.id, { nuevo_estado: 'APROBADO' })
+      setExpandedId(null)
       await fetchData()
     } catch {
-      // silent
+      setError('No fue posible aprobar el avance.')
     } finally {
       setSaving(null)
     }
@@ -97,7 +144,7 @@ export default function RevisionAvancesPage() {
   const handleDevolver = async (avance: AvanceRevision) => {
     const obs = observaciones[avance.id]
     if (!obs || obs.trim().length < 5) {
-      alert('La observación es obligatoria al devolver un avance (mínimo 5 caracteres).')
+      setError('La observación es obligatoria al devolver un avance (mínimo 5 caracteres).')
       return
     }
     setSaving(avance.id)
@@ -106,219 +153,304 @@ export default function RevisionAvancesPage() {
       setExpandedId(null)
       await fetchData()
     } catch {
-      // silent
+      setError('No fue posible devolver el avance.')
     } finally {
       setSaving(null)
     }
   }
 
+  const total = avances.length
+
   return (
-    <div className="space-y-0 pb-8">
-      <section className="relative overflow-hidden bg-pine px-6 py-7 text-white shadow-lg sm:px-8 sm:py-9">
-        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-white/10" aria-hidden="true" />
-        <div className="relative flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            <Icon name="check" className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-ochre-soft">Panel administrativo</p>
-            <h1 className="text-2xl font-bold leading-tight sm:text-3xl">Revisión y aprobación de avances</h1>
-          </div>
+    <div className="space-y-6 pb-8">
+      <section className="flex flex-col gap-5 rounded-[28px] bg-pine px-6 py-7 text-white shadow-[0_18px_40px_rgba(10,43,41,.16)] sm:flex-row sm:items-end sm:justify-between sm:px-8">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-ochre-soft">Panel administrativo</p>
+          <h1 className="mt-2 text-3xl font-bold">Revisión y aprobación de avances</h1>
+          <p className="mt-2 max-w-2xl text-sm text-white/70">
+            Revisa los avances reportados por los gestores de tu sector, verifica la evidencia adjunta y aprueba o devuelve cada registro con una observación.
+          </p>
         </div>
-        <p className="relative mt-3 max-w-2xl text-sm leading-6 text-white/70">
-          Revisa los avances reportados por los gestores de tu sector, verifica la evidencia adjunta y aprueba o devuelve cada registro con una observación.
-        </p>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={fetchData} className="border border-white/20 text-white hover:bg-white/10">
+            <Icon name="refresh" />
+            Actualizar
+          </Button>
+        </div>
       </section>
 
-      <div className="mx-auto max-w-5xl px-4 -mt-4">
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-            <p className="text-3xl font-black text-ochre-deep">{stats.pendientes}</p>
-            <p className="mt-1 text-sm font-bold text-ink-soft">Pendientes de revisión</p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          ['Total avances', total, 'text-pine'],
+          ['Pendientes', stats.pendientes, 'text-ochre-deep'],
+          ['Aprobados esta semana', stats.aprobados_semana, 'text-forest'],
+          ['Devueltos al gestor', stats.devueltos, 'text-warn'],
+        ].map(([label, value, tone]) => (
+          <div key={String(label)} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-wider text-ink-faint">{label}</p>
+            <p className={`mt-2 text-3xl font-bold ${tone}`}>{value}</p>
           </div>
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-            <p className="text-3xl font-black text-forest">{stats.aprobados_semana}</p>
-            <p className="mt-1 text-sm font-bold text-ink-soft">Aprobados esta semana</p>
-          </div>
-          <div className="rounded-2xl border border-line bg-white p-5 shadow-sm">
-            <p className="text-3xl font-black text-warn">{stats.devueltos}</p>
-            <p className="mt-1 text-sm font-bold text-ink-soft">Devueltos al gestor</p>
-          </div>
-        </div>
+        ))}
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3 mb-5">
-          <div className="relative flex-1 min-w-[240px]">
-            <Icon name="search" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+      {error && (
+        <div role="alert" className="rounded-xl border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
+          {error}
+        </div>
+      )}
+
+      <section className="overflow-visible rounded-2xl border border-line bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-3 text-ink-faint">
+              <Icon name="search" />
+            </span>
             <input
-              type="text"
+              aria-label="Buscar avances"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Buscar por gestor o código de indicador"
-              className="w-full rounded-xl border border-line bg-white py-2.5 pl-10 pr-4 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/10"
+              placeholder="Buscar por gestor o código de indicador..."
+              className={`${selectClass} pl-10`}
             />
           </div>
           <select
+            aria-label="Filtrar por estado"
+            className={`${selectClass} lg:w-44`}
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-pine"
           >
-            <option value="">Estado: Todos</option>
+            <option value="">Todos los estados</option>
             <option value="PENDIENTE">Pendiente</option>
             <option value="APROBADO">Aprobado</option>
             <option value="RECHAZADO">Devuelto</option>
           </select>
           <select
+            aria-label="Filtrar por período"
+            className={`${selectClass} lg:w-56`}
             value={filtroPeriodo}
             onChange={(e) => setFiltroPeriodo(e.target.value)}
-            className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-pine"
           >
-            <option value="">Periodo: Todos</option>
-            {PERIODOS.map((p) => <option key={p} value={p}>{p}</option>)}
+            <option value="">Todos los períodos</option>
+            {PERIODOS.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
           </select>
         </div>
 
-        <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-sm font-bold text-ink">Avances pendientes</h2>
-          <span className="rounded-full bg-ochre-soft px-2.5 py-0.5 text-xs font-bold text-ochre-deep">{avances.length}</span>
-        </div>
-
-        {loading ? (
-          <div className="rounded-2xl border border-line bg-white p-12 text-center text-sm text-ink-faint">
-            Cargando avances...
-          </div>
-        ) : avances.length === 0 ? (
-          <div className="rounded-2xl border border-line bg-white p-12 text-center text-sm text-ink-faint">
-            No hay avances para mostrar.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {avances.map((avance) => {
-              const isExpanded = expandedId === avance.id
-              const isDevuelto = avance.estado_revision === 'RECHAZADO'
-              const isAprobado = avance.estado_revision === 'APROBADO'
-
-              return (
-                <div
-                  key={avance.id}
-                  className={clsx(
-                    'rounded-2xl border bg-white shadow-sm transition-shadow',
-                    isExpanded ? 'border-pine shadow-md' : 'border-line',
-                  )}
-                >
-                  <div
-                    className="flex flex-wrap items-center gap-4 px-5 py-4 cursor-pointer"
-                    onClick={() => handleExpand(avance.id)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-ink">
-                        {avance.gestor_codigo} · {avance.gestor_nombre}
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-faint">
-                        Indicador {avance.codigo_indicador || '—'} — {avance.periodo || 'Sin período'} · id_cumplimiento {avance.id.slice(0, 8)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-6 text-center text-xs">
-                      <div>
-                        <p className="font-bold text-ink">{avance.avance_valor ?? '—'}</p>
-                        <p className="text-ink-faint">Avance</p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-ink">{avance.avance_porcentaje}%</p>
-                        <p className="text-ink-faint">Cumplimiento</p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-ink">{avance.fecha_registro ? new Date(avance.fecha_registro).toLocaleDateString('es-CO') : '—'}</p>
-                        <p className="text-ink-faint">Registrado</p>
-                      </div>
-                    </div>
-                    <span className={clsx('inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold', estadoTone[avance.estado_revision] || 'bg-line/60 text-ink-soft')}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {avance.estado_revision === 'PENDIENTE' ? 'Pendiente' :
-                       avance.estado_revision === 'APROBADO' ? 'Aprobado' :
-                       avance.estado_revision === 'RECHAZADO' ? 'Devuelto' : avance.estado_revision}
-                    </span>
-                    {!isExpanded && (isDevuelto || isAprobado) && (
-                      <button className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink-soft hover:bg-paper">
-                        Ver evidencia
-                      </button>
-                    )}
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-line px-5 py-4 space-y-4">
-                      {avance.evidencia_nombre && (
-                        <div className="flex items-center gap-3 rounded-xl bg-paper p-3">
-                          <Icon name="document" className="h-5 w-5 text-pine" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-bold text-ink">{avance.evidencia_nombre}</p>
-                            <p className="text-xs text-ink-faint">
-                              Adjuntado {avance.fecha_registro ? new Date(avance.fecha_registro).toLocaleDateString('es-CO') : '—'}
-                              {avance.evidencia_tipo?.startsWith('image/') ? ' · Ver archivo completo' : ''}
-                            </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1100px] text-left text-sm">
+            <thead className="bg-paper/70 text-xs uppercase tracking-wider text-ink-faint">
+              <tr>
+                <th className="px-5 py-3">Gestor</th>
+                <th className="px-4 py-3">Producto / Indicador</th>
+                <th className="hidden md:table-cell px-4 py-3">Período</th>
+                <th className="px-4 py-3 text-right">Avance</th>
+                <th className="px-4 py-3 text-right">Cumplimiento</th>
+                <th className="hidden lg:table-cell px-4 py-3">Registrado</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-5 py-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-5 py-16 text-center text-ink-faint">
+                    Cargando avances...
+                  </td>
+                </tr>
+              ) : avances.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-5 py-16 text-center text-ink-faint">
+                    No hay avances que coincidan con la búsqueda.
+                  </td>
+                </tr>
+              ) : (
+                avances.map((avance) => {
+                  const isExpanded = expandedId === avance.id
+                  return (
+                    <Fragment key={avance.id}>
+                      <tr className={clsx('hover:bg-paper/45', isExpanded && 'bg-paper/60')}>
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-ink">{avance.gestor_nombre}</p>
+                          <p className="mt-0.5 font-mono text-xs text-ink-faint">{avance.gestor_codigo}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="font-bold text-ink">{avance.producto_nombre}</p>
+                          <p className="mt-0.5 max-w-[240px] truncate text-xs text-ink-faint">
+                            {avance.codigo_indicador || '—'} · {avance.indicador || 'Sin indicador'}
+                          </p>
+                        </td>
+                        <td className="hidden md:table-cell px-4 py-4 text-ink-soft">{avance.periodo || '—'}</td>
+                        <td className="px-4 py-4 text-right font-bold text-ink">{avance.avance_valor ?? '—'}</td>
+                        <td className="px-4 py-4 text-right">
+                          <span className="rounded-lg bg-forest-soft px-2.5 py-1 text-xs font-bold text-forest">
+                            {avance.avance_porcentaje}%
+                          </span>
+                        </td>
+                        <td className="hidden lg:table-cell px-4 py-4 text-xs text-ink-faint">
+                          {avance.fecha_registro ? formatDateOnly(avance.fecha_registro) : '—'}
+                        </td>
+                        <td className="px-4 py-4">
+                          <EstadoBadge estado={avance.estado_revision} />
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="inline-flex items-center justify-end gap-0.5" aria-label={`Acciones para ${avance.gestor_nombre}`}>
+                            <button
+                              type="button"
+                              title="Revisar avance"
+                              aria-label="Revisar avance"
+                              onClick={() => handleExpand(avance.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line text-pine transition-colors hover:border-pine/30 hover:bg-forest-soft"
+                            >
+                              <span className="sr-only">Revisar avance</span>
+                              <Icon name={isExpanded ? 'close' : 'edit'} />
+                            </button>
+                            {avance.evidencia_nombre && (
+                              <button
+                                type="button"
+                                title="Ver evidencias"
+                                aria-label="Ver evidencias"
+                                onClick={() => setShowEvidenciasModal(avance)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line text-pine transition-colors hover:border-pine/30 hover:bg-forest-soft"
+                              >
+                                <span className="sr-only">Ver evidencias</span>
+                                <Icon name="document" />
+                              </button>
+                            )}
                           </div>
-                          {avance.evidencia_nombre.match(/\.(jpg|jpeg|png)$/i) && (
-                            <div className="h-10 w-10 rounded-lg bg-forest-soft flex items-center justify-center">
-                              <Icon name="document" className="h-5 w-5 text-forest" />
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${avance.id}-detail`}>
+                          <td colSpan={8} className="bg-paper/40 px-5 py-5">
+                            <div className="space-y-4">
+                              {avance.evidencia_nombre && (
+                                <div className="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-forest-soft">
+                                    <Icon name="document" className="h-5 w-5 text-forest" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-bold text-ink">{avance.evidencia_nombre}</p>
+                                    <p className="text-xs text-ink-faint">
+                                      Adjuntado {avance.fecha_registro ? formatDateOnly(avance.fecha_registro) : '—'}
+                                    </p>
+                                  </div>
+                                  <Button variant="ghost" size="sm" onClick={() => setShowEvidenciasModal(avance)}>
+                                    Ver evidencias
+                                  </Button>
+                                </div>
+                              )}
+
+                              <div>
+                                <label className="text-sm font-bold text-ink" htmlFor={`obs-${avance.id}`}>
+                                  Observación <span className="font-normal text-ink-faint">(obligatoria si se devuelve)</span>
+                                </label>
+                                <textarea
+                                  id={`obs-${avance.id}`}
+                                  value={observaciones[avance.id] || ''}
+                                  onChange={(e) => handleObservacion(avance.id, e.target.value)}
+                                  placeholder="Ej: La evidencia no corresponde al período reportado..."
+                                  rows={2}
+                                  className={`${selectClass} mt-1 resize-none`}
+                                />
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-end gap-3">
+                                {avance.estado_revision === 'PENDIENTE' && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      onClick={() => handleDevolver(avance)}
+                                      disabled={saving === avance.id}
+                                      className="border border-warn/40 text-warn hover:bg-warn-soft"
+                                    >
+                                      Devolver al gestor
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleAprobar(avance)}
+                                      loading={saving === avance.id}
+                                    >
+                                      Aprobar avance
+                                    </Button>
+                                  </>
+                                )}
+                                {(avance.estado_revision === 'RECHAZADO' || avance.estado_revision === 'DEVUELTO') && (
+                                  <span className="text-sm font-bold text-warn">Devuelto al gestor</span>
+                                )}
+                                {avance.estado_revision === 'APROBADO' && (
+                                  <span className="text-sm font-bold text-forest">Avance aprobado</span>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          </td>
+                        </tr>
                       )}
+                    </Fragment>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-                      <div>
-                        <label className="text-xs font-bold text-ink">
-                          Observación <span className="font-normal text-ink-faint">(obligatoria si se devuelve)</span>
-                        </label>
-                        <textarea
-                          value={observaciones[avance.id] || ''}
-                          onChange={(e) => handleObservacion(avance.id, e.target.value)}
-                          placeholder="Ej: La evidencia no corresponde al período reportado..."
-                          rows={2}
-                          className="mt-1 w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/10 resize-none"
-                        />
-                      </div>
+      {showEvidenciasModal && (
+        <EvidenciasModal
+          avanceId={showEvidenciasModal.id}
+          avanceNombre={showEvidenciasModal.producto_nombre}
+          subtitle={`${showEvidenciasModal.gestor_nombre} · ${showEvidenciasModal.producto_nombre}`}
+          canEdit={false}
+          onClose={() => setShowEvidenciasModal(null)}
+        />
+      )}
 
-                      <div className="flex items-center justify-end gap-3">
-                        {avance.estado_revision === 'PENDIENTE' && (
-                          <>
-                            <button
-                              onClick={() => handleDevolver(avance)}
-                              disabled={saving === avance.id}
-                              className="rounded-xl border border-warn/40 px-5 py-2.5 text-sm font-bold text-warn transition-colors hover:bg-warn-soft disabled:opacity-50"
-                            >
-                              Devolver al gestor
-                            </button>
-                            <button
-                              onClick={() => handleAprobar(avance)}
-                              disabled={saving === avance.id}
-                              className="rounded-xl bg-pine px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-pine-deep disabled:opacity-50"
-                            >
-                              {saving === avance.id ? 'Procesando...' : 'Aprobar avance'}
-                            </button>
-                          </>
-                        )}
-                        {avance.estado_revision === 'RECHAZADO' && (
-                          <>
-                            <button className="rounded-xl border border-line px-5 py-2.5 text-sm font-bold text-ink-soft hover:bg-paper">
-                              Devolver
-                            </button>
-                            <button className="rounded-xl bg-pine px-5 py-2.5 text-sm font-bold text-white hover:bg-pine-deep">
-                              Aprobar
-                            </button>
-                          </>
-                        )}
-                        {avance.estado_revision === 'APROBADO' && (
-                          <span className="text-sm font-bold text-forest">✓ Avance aprobado</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+      {modalEvidencia && (
+        <ModalShell
+          title="Evidencia adjunta"
+          description={`${modalEvidencia.producto_nombre} · ${modalEvidencia.gestor_nombre}`}
+          close={() => setModalEvidencia(null)}
+        >
+          <div className="space-y-3 p-6">
+            <div className="rounded-xl border border-line bg-paper/60 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-ink-faint">Archivo</p>
+              <p className="mt-1 break-all font-bold text-pine">{modalEvidencia.evidencia_nombre || 'Sin archivo'}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-line bg-paper/60 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-ink-faint">Tipo</p>
+                <p className="mt-1 font-bold text-ink">{modalEvidencia.evidencia_tipo || '—'}</p>
+              </div>
+              <div className="rounded-xl border border-line bg-paper/60 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-ink-faint">Fecha</p>
+                <p className="mt-1 font-bold text-ink">
+                  {modalEvidencia.fecha_registro ? formatDateOnly(modalEvidencia.fecha_registro) : '—'}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-line bg-paper/60 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-ink-faint">Observaciones del gestor</p>
+              <p className="mt-1 text-sm text-ink">{modalEvidencia.observaciones || 'Sin observaciones'}</p>
+            </div>
+            {modalEvidencia.observaciones_revision && (
+              <div className="rounded-xl border border-line bg-forest-soft/40 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-forest">Comentario del revisor</p>
+                <p className="mt-1 text-sm text-ink">{modalEvidencia.observaciones_revision}</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+          <footer className="flex justify-end gap-3 border-t border-line px-6 py-4">
+            <Button variant="ghost" onClick={() => setModalEvidencia(null)}>Cerrar</Button>
+            <Button
+              loading={downloadLoading}
+              onClick={() => downloadEvidencia(modalEvidencia)}
+              disabled={!modalEvidencia.evidencia_nombre}
+            >
+              <Icon name="document" /> Descargar evidencia
+            </Button>
+          </footer>
+        </ModalShell>
+      )}
     </div>
   )
 }

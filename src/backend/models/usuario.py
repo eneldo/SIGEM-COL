@@ -1,8 +1,8 @@
 """Usuario model - Modelo para usuarios del sistema"""
-import uuid
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, DateTime, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from .base import BaseModel
 
 
@@ -19,7 +19,7 @@ class Usuario(BaseModel):
     password_hash = Column(String(500), nullable=False)
     must_change_password = Column(Boolean, default=True, nullable=False)
     activo = Column(Integer, default=1, nullable=False)
-    
+
     # Security fields
     ultimo_acceso = Column(DateTime(timezone=True), nullable=True)
     ip_ultimo_acceso = Column(String(45), nullable=True)
@@ -31,7 +31,7 @@ class Usuario(BaseModel):
     motivo_bloqueo = Column(Text, nullable=True)
     mfa_activo = Column(Boolean, default=False, nullable=False)
     mfa_secret = Column(String(500), nullable=True)
-    
+
     # Relationships
     municipio = relationship("Municipio", backref="usuarios")
     roles = relationship("UsuarioRol", backref="usuario", cascade="all, delete-orphan")

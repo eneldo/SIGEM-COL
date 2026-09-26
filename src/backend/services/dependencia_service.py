@@ -2,8 +2,9 @@
 Servicio CRUD de Dependencias - SIGEM Colombia
 """
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import select, or_, func
+from datetime import UTC, datetime
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.dependencia import Dependencia
@@ -204,7 +205,7 @@ async def update_dependencia(
         if value is not None and hasattr(dep, key):
             setattr(dep, key, value)
 
-    dep.updated_at = datetime.now(timezone.utc)
+    dep.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(dep)
 

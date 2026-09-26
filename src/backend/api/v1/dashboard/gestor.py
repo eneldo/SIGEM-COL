@@ -11,21 +11,22 @@ Versión: 1.0
 Fecha: 2026-09-20
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_db
 from ....core.rbac import require_permission
-from ..auth import get_current_user_from_token
 from ....models.gestor_lider import GestorLider
 from ....services.dashboard_gestor_service import (
     get_kpis_personales,
-    get_mis_productos,
-    get_mis_pendientes,
     get_mis_alertas,
+    get_mis_pendientes,
+    get_mis_productos,
 )
+from ..auth import get_current_user_from_token
 
 router = APIRouter(prefix="/gestor", tags=["Dashboard Gestor"])
 

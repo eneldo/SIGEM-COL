@@ -4,14 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.database import get_db, get_db_with_rls
 from ...core.security import decode_token
-from ...services.auth_service import AuthService
-from ...services.audit_service import AuditService
 from ...schemas.auth import (
-    LoginRequest,
-    TokenResponse,
     ChangePasswordRequest,
+    LoginRequest,
     UserResponse,
 )
+from ...services.audit_service import AuditService
+from ...services.auth_service import AuthService
 
 router = APIRouter()
 

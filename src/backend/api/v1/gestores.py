@@ -12,41 +12,74 @@ Versión: 1.1
 Fecha: 2026-09-20
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
 from ...core.rbac import require_permission
-from ...api.v1.auth import get_current_user_from_token
-from ...services.gestor_service import (
-    create_gestor as svc_create,
-    list_gestores as svc_list,
-    get_gestor as svc_get,
-    update_gestor as svc_update,
-    update_gestor_permissions as svc_update_permissions,
-    activate_gestor as svc_activate,
-    deactivate_gestor as svc_deactivate,
-    block_gestor as svc_block,
-    unblock_gestor as svc_unblock,
-    reset_password as svc_reset_password,
-    soft_delete_gestor as svc_soft_delete,
-    list_gestor_accesos as svc_list_accesos,
-)
-from ...services.audit_service import AuditService
 from ...schemas.gestor import (
-    GestorCreate,
-    GestorUpdate,
-    GestorPermisosUpdate,
+    GestorAccesoResponse,
     GestorAccion,
-    GestorResponse,
+    GestorCreate,
     GestorListResponse,
     GestorPasswordReset,
-    GestorAccesoResponse,
+    GestorPasswordUpdate,
+    GestorPermisosUpdate,
+    GestorResponse,
+    GestorUpdate,
+)
+from ...services.audit_service import AuditService
+from ...services.gestor_service import (
+    activate_gestor as svc_activate,
+)
+from ...services.gestor_service import (
+    block_gestor as svc_block,
+)
+from ...services.gestor_service import (
+    create_gestor as svc_create,
+)
+from ...services.gestor_service import (
+    deactivate_gestor as svc_deactivate,
+)
+from ...services.gestor_service import (
+    get_gestor as svc_get,
+)
+from ...services.gestor_service import (
+    list_gestor_accesos as svc_list_accesos,
+)
+from ...services.gestor_service import (
+    list_gestores as svc_list,
+)
+from ...services.gestor_service import (
+    reset_password as svc_reset_password,
+)
+from ...services.gestor_service import (
+    soft_delete_gestor as svc_soft_delete,
+)
+from ...services.gestor_service import (
+    unblock_gestor as svc_unblock,
+)
+from ...services.gestor_service import (
+    update_gestor as svc_update,
+)
+from ...services.gestor_service import (
+    update_gestor_permissions as svc_update_permissions,
 )
 
 router = APIRouter(prefix="/gestores", tags=["Gestores"])
+
+ADMIN_ROLE_CODES = {"SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL"}
+
+
+def _allowed_role_codes(current_user: dict) -> set[str] | None:
+    """Administradores: cualquier rol. Coordinadores al crear: solo GESTOR."""
+    role_codes = set(current_user.get("roles") or [])
+    if role_codes & ADMIN_ROLE_CODES:
+        return None
+    return {"GESTOR"}
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +112,7 @@ async def create_gestor(
             db=db,
             municipio_id=UUID(municipio_id),
             create_data=gestor_data.model_dump(),
+            allowed_role_codes=_allowed_role_codes(current_user),
         )
     except ValueError as e:
         raise HTTPException(
@@ -113,10 +147,10 @@ async def create_gestor(
     ),
 )
 async def list_gestores(
-    search: Optional[str] = Query(None, description="Búsqueda por nombre, username, email o código"),
-    cargo: Optional[str] = Query(None, description="Filtrar por cargo"),
-    rol_id: Optional[UUID] = Query(None, description="Filtrar por rol"),
-    estado: Optional[str] = Query(None, description="Filtrar por estado (ACTIVO, INACTIVO, BLOQUEADO)"),
+    search: str | None = Query(None, description="Búsqueda por nombre, username, email o código"),
+    cargo: str | None = Query(None, description="Filtrar por cargo"),
+    rol_id: UUID | None = Query(None, description="Filtrar por rol"),
+    estado: str | None = Query(None, description="Filtrar por estado (ACTIVO, INACTIVO, BLOQUEADO)"),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
     current_user: dict = Depends(get_current_user_from_token),
@@ -308,7 +342,7 @@ async def activate_gestor(
 )
 async def deactivate_gestor(
     gestor_id: UUID,
-    accion_data: Optional[GestorAccion] = None,
+    accion_data: GestorAccion | None = None,
     request: Request = None,
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
@@ -422,14 +456,17 @@ async def unblock_gestor(
 @router.post(
     "/{gestor_id}/reset-password",
     response_model=GestorPasswordReset,
-    summary="Restablecer contraseña del gestor",
+    summary="Cambiar/restablecer contraseña del gestor",
     description=(
-        "Genera una nueva contraseña temporal. La contraseña se muestra una sola vez."
+        "Si se envía `nueva_password` se establece esa contraseña; "
+        "si se omite se genera una contraseña temporal. "
+        "En ambos casos la contraseña se retorna una sola vez."
     ),
 )
 async def reset_password(
     gestor_id: UUID,
-    request: Request,
+    body: GestorPasswordUpdate | None = None,
+    request: Request = None,
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
@@ -437,11 +474,18 @@ async def reset_password(
 
     municipio_id = current_user["municipio_id"]
 
-    result = await svc_reset_password(
-        db=db,
-        municipio_id=UUID(municipio_id),
-        gestor_id=gestor_id,
-    )
+    try:
+        result = await svc_reset_password(
+            db=db,
+            municipio_id=UUID(municipio_id),
+            gestor_id=gestor_id,
+            nueva_password=body.nueva_password if body else None,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
 
     if not result:
         raise HTTPException(
@@ -451,6 +495,9 @@ async def reset_password(
 
     return GestorPasswordReset(
         nueva_password_temporal=result["temp_password"],
+        id=result.get("id"),
+        codigo=result.get("codigo"),
+        username=result.get("username"),
     )
 
 
@@ -495,7 +542,7 @@ async def delete_gestor(
 
 @router.get(
     "/{gestor_id}/accesos",
-    response_model=List[GestorAccesoResponse],
+    response_model=list[GestorAccesoResponse],
     summary="Historial de accesos del gestor",
     description=(
         "Retorna los intentos de acceso (exitosos y fallidos) de un gestor líder "

@@ -3,13 +3,12 @@ Database configuration - SIGEM Colombia
 RLS (Row-Level Security) activated via session variable.
 """
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from .config import settings
-
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -59,7 +58,6 @@ async def get_db() -> AsyncSession:
         try:
             # Activate Row-Level Security if municipio_id is available
             # This is set by RLSMiddleware before this dependency runs
-            from starlette.requests import Request
             from fastapi import Request as FastAPIRequest
             try:
                 # FastAPI dependency injection provides request context

@@ -1,9 +1,7 @@
 """Schemas Configuración - Pydantic models para el módulo de Configuración"""
-from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
 
+from pydantic import BaseModel, EmailStr, Field
 
 # --- Usuarios ---
 
@@ -12,25 +10,25 @@ class UsuarioCreate(BaseModel):
     username: str = Field(..., max_length=100)
     email: EmailStr
     nombre_completo: str = Field(..., min_length=3, max_length=300)
-    telefono: Optional[str] = Field(None, max_length=20)
-    cargo: Optional[str] = Field(None, max_length=100)
+    telefono: str | None = Field(None, max_length=20)
+    cargo: str | None = Field(None, max_length=100)
     password: str = Field(..., min_length=8)
-    rol_id: Optional[UUID] = None
-    dependencia_id: Optional[UUID] = None
+    rol_id: UUID | None = None
+    dependencia_id: UUID | None = None
 
 
 class UsuarioUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    nombre_completo: Optional[str] = Field(None, min_length=3, max_length=300)
-    telefono: Optional[str] = Field(None, max_length=20)
-    cargo: Optional[str] = Field(None, max_length=100)
-    activo: Optional[int] = None
-    must_change_password: Optional[bool] = None
-    rol_id: Optional[UUID] = None
+    email: EmailStr | None = None
+    nombre_completo: str | None = Field(None, min_length=3, max_length=300)
+    telefono: str | None = Field(None, max_length=20)
+    cargo: str | None = Field(None, max_length=100)
+    activo: int | None = None
+    must_change_password: bool | None = None
+    rol_id: UUID | None = None
 
 
 class UsuarioRolInfo(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     codigo: str
     nombre: str
 
@@ -42,20 +40,20 @@ class UsuarioResponse(BaseModel):
     username: str
     email: str
     nombre_completo: str
-    telefono: Optional[str] = None
-    cargo: Optional[str] = None
+    telefono: str | None = None
+    cargo: str | None = None
     activo: int
-    roles: List[UsuarioRolInfo] = []
+    roles: list[UsuarioRolInfo] = []
     must_change_password: bool
     mfa_activo: bool = False
-    ultimo_acceso: Optional[str] = None
+    ultimo_acceso: str | None = None
     intentos_fallidos: int = 0
     created_at: str
     updated_at: str
 
 
 class UsuarioListResponse(BaseModel):
-    items: List[UsuarioResponse]
+    items: list[UsuarioResponse]
     total: int
     page: int
     page_size: int
@@ -74,33 +72,33 @@ class PermisoInfo(BaseModel):
 class RolCreate(BaseModel):
     codigo: str = Field(..., max_length=50)
     nombre: str = Field(..., max_length=100)
-    descripcion: Optional[str] = Field(None, max_length=300)
+    descripcion: str | None = Field(None, max_length=300)
     nivel: int = 1
-    permisos_ids: List[UUID] = []
+    permisos_ids: list[UUID] = []
 
 
 class RolUpdate(BaseModel):
-    nombre: Optional[str] = Field(None, max_length=100)
-    descripcion: Optional[str] = Field(None, max_length=300)
-    nivel: Optional[int] = None
-    estado: Optional[str] = None
-    permisos_ids: Optional[List[UUID]] = None
+    nombre: str | None = Field(None, max_length=100)
+    descripcion: str | None = Field(None, max_length=300)
+    nivel: int | None = None
+    estado: str | None = None
+    permisos_ids: list[UUID] | None = None
 
 
 class RolResponse(BaseModel):
     id: str
     codigo: str
     nombre: str
-    descripcion: Optional[str] = None
+    descripcion: str | None = None
     nivel: int
     estado: str
-    permisos: List[PermisoInfo] = []
+    permisos: list[PermisoInfo] = []
     created_at: str
     updated_at: str
 
 
 class RolListResponse(BaseModel):
-    items: List[RolResponse]
+    items: list[RolResponse]
     total: int
     page: int
     page_size: int
@@ -112,14 +110,14 @@ class PermisoResponse(BaseModel):
     id: str
     codigo: str
     nombre: str
-    descripcion: Optional[str] = None
+    descripcion: str | None = None
     modulo: str
     accion: str
     estado: str
 
 
 class PermisoListResponse(BaseModel):
-    items: List[PermisoResponse]
+    items: list[PermisoResponse]
     total: int
 
 
@@ -128,30 +126,30 @@ class PermisoListResponse(BaseModel):
 class AuditoriaEventoResponse(BaseModel):
     id: str
     evento_tipo: str
-    recurso_tipo: Optional[str] = None
-    recurso_id: Optional[str] = None
+    recurso_tipo: str | None = None
+    recurso_id: str | None = None
     resultado: str
-    ip_address: Optional[str] = None
-    actor_nombre: Optional[str] = None
-    actor_id: Optional[str] = None
-    metadata_json: Optional[str] = None
+    ip_address: str | None = None
+    actor_nombre: str | None = None
+    actor_id: str | None = None
+    metadata_json: str | None = None
     fecha_evento: str
 
 
 class AuditoriaListResponse(BaseModel):
-    items: List[AuditoriaEventoResponse]
+    items: list[AuditoriaEventoResponse]
     total: int
     page: int
     page_size: int
 
 
 class AuditoriaFiltros(BaseModel):
-    evento_tipo: Optional[str] = None
-    recurso_tipo: Optional[str] = None
-    resultado: Optional[str] = None
-    usuario_id: Optional[str] = None
-    fecha_desde: Optional[str] = None
-    fecha_hasta: Optional[str] = None
+    evento_tipo: str | None = None
+    recurso_tipo: str | None = None
+    resultado: str | None = None
+    usuario_id: str | None = None
+    fecha_desde: str | None = None
+    fecha_hasta: str | None = None
     page: int = 1
     page_size: int = 20
 

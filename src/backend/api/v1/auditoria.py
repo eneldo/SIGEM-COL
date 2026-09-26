@@ -4,11 +4,12 @@ API Routes - Administración de Auditoría
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
 from ...core.rbac import require_permission
-from ...api.v1.auth import get_current_user_from_token
 from ...schemas.configuracion import (
-    AuditoriaListResponse, AuditoriaStats,
+    AuditoriaListResponse,
+    AuditoriaStats,
 )
 from ...services import audit_admin_service
 

@@ -1,7 +1,7 @@
-from typing import List
-from pydantic_settings import BaseSettings
-from pydantic import Field
 import secrets
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 def _generate_default_secret() -> str:
@@ -63,13 +63,16 @@ class Settings(BaseSettings):
     # Storage
     STORAGE_PATH: str = Field(default="/data/evidencias", alias="STORAGE_PATH")
     MAX_UPLOAD_SIZE_MB: int = Field(default=50, alias="MAX_UPLOAD_SIZE_MB")
+    EVIDENCE_IMAGE_MAX_DIMENSION: int = Field(default=2200, alias="EVIDENCE_IMAGE_MAX_DIMENSION")
+    EVIDENCE_JPEG_QUALITY: int = Field(default=82, alias="EVIDENCE_JPEG_QUALITY")
+    EVIDENCE_PDF_IMAGE_QUALITY: int = Field(default=78, alias="EVIDENCE_PDF_IMAGE_QUALITY")
 
     # URLs
     FRONTEND_URL: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
     BACKEND_URL: str = Field(default="http://localhost:8000", alias="BACKEND_URL")
 
     # CORS
-    CORS_ORIGINS: List[str] = Field(
+    CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
         alias="CORS_ORIGINS"
     )

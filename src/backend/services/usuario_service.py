@@ -4,16 +4,16 @@ Servicio de Gestión de Usuarios - SIGEM Colombia
 CRUD completo para administración de usuarios del sistema.
 """
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import select, and_, func, or_
+from datetime import UTC, datetime
+
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.usuario import Usuario
-from ..models.rol import Rol
-from ..models.usuario_rol import UsuarioRol
-from ..models.dependencia import Dependencia
-from ..models.usuario_dependencia import UsuarioDependencia
 from ..core.security import get_password_hash
+from ..models.rol import Rol
+from ..models.usuario import Usuario
+from ..models.usuario_dependencia import UsuarioDependencia
+from ..models.usuario_rol import UsuarioRol
 
 
 async def create_usuario(
@@ -64,7 +64,7 @@ async def create_usuario(
     if exists_user_result.scalar_one_or_none() is not None:
         raise ValueError(f"Ya existe un usuario con el username '{username}'.")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     usuario = Usuario(
         id=uuid.uuid4(),
         municipio_id=municipio_id,
@@ -268,7 +268,7 @@ async def update_usuario(
     if usuario is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if "email" in update_data:
         usuario.email = update_data["email"]
@@ -324,7 +324,7 @@ async def delete_usuario(
     if usuario is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     usuario.deleted_at = now
     if user_id:
         usuario.deleted_by = user_id

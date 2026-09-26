@@ -12,17 +12,15 @@ Fecha: 2026-09-20
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.producto import Producto
-from ..models.programa import Programa
-from ..models.linea_estrategica import LineaEstrategica
 from ..models.dependencia import Dependencia
 from ..models.gestor_lider import GestorLider
-
+from ..models.producto import Producto
+from ..models.programa import Programa
 
 # ---------------------------------------------------------------------------
 # Creación de producto
@@ -132,7 +130,7 @@ async def create_producto(
             f"en este programa."
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     producto = Producto(
         id=uuid.uuid4(),
@@ -149,6 +147,7 @@ async def create_producto(
         unidad_medida=unidad_medida,
         dependencia_responsable_id=dependencia_responsable_id,
         gestor_lider_id=gestor_lider_id,
+        asignado_at=now if gestor_lider_id else None,
         estado=estado,
         created_at=now,
         updated_at=now,
@@ -175,6 +174,7 @@ async def create_producto(
         "dependencia_responsable_id": str(producto.dependencia_responsable_id) if producto.dependencia_responsable_id else None,
         "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
         "estado": producto.estado,
+        "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
         "created_at": producto.created_at.isoformat(),
         "updated_at": producto.updated_at.isoformat(),
     }
@@ -315,6 +315,7 @@ async def list_productos(
             "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
             "gestor_lider_nombre": gestor_nombre,
             "estado": producto.estado,
+            "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
             "created_at": producto.created_at.isoformat(),
             "updated_at": producto.updated_at.isoformat(),
         })
@@ -409,6 +410,7 @@ async def get_producto(
         "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
         "gestor_lider_nombre": gestor_nombre,
         "estado": producto.estado,
+        "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
         "created_at": producto.created_at.isoformat(),
         "updated_at": producto.updated_at.isoformat(),
     }
@@ -457,7 +459,7 @@ async def update_producto(
     if producto is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Si se cambia el programa, validar que exista
     if "programa_id" in update_data:
@@ -513,7 +515,12 @@ async def update_producto(
                 raise ValueError(
                     "El gestor líder no existe o no pertenece a este municipio."
                 )
-        producto.gestor_lider_id = new_gestor_id
+        prev_gestor_id = producto.gestor_lider_id
+        if new_gestor_id != prev_gestor_id:
+            producto.gestor_lider_id = new_gestor_id
+            producto.asignado_at = now if new_gestor_id is not None else None
+        else:
+            producto.gestor_lider_id = new_gestor_id
 
     # Si se cambia el código, validar unicidad dentro del programa
     if "codigo" in update_data:
@@ -588,6 +595,7 @@ async def update_producto(
         "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
         "gestor_lider_nombre": gestor_nombre,
         "estado": producto.estado,
+        "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
         "created_at": producto.created_at.isoformat(),
         "updated_at": producto.updated_at.isoformat(),
     }
@@ -628,7 +636,7 @@ async def delete_producto(
     if producto is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     producto.deleted_at = now
     if user_id:
         producto.deleted_by = user_id

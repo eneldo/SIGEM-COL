@@ -1,7 +1,6 @@
 """Audit service - Event logging for security and compliance"""
 import json
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -18,14 +17,14 @@ class AuditService:
         self,
         evento_tipo: str,
         resultado: str,
-        municipio_id: Optional[UUID] = None,
-        usuario_id: Optional[UUID] = None,
-        actor_id: Optional[UUID] = None,
-        recurso_tipo: Optional[str] = None,
-        recurso_id: Optional[UUID] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        municipio_id: UUID | None = None,
+        usuario_id: UUID | None = None,
+        actor_id: UUID | None = None,
+        recurso_tipo: str | None = None,
+        recurso_id: UUID | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        metadata: dict | None = None,
     ) -> AuditoriaEvento:
         event = AuditoriaEvento(
             municipio_id=municipio_id,
@@ -38,7 +37,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent,
             metadata_json=json.dumps(metadata) if metadata else None,
-            fecha_evento=datetime.now(timezone.utc),
+            fecha_evento=datetime.now(UTC),
         )
         self.db.add(event)
         await self.db.commit()
@@ -49,10 +48,10 @@ class AuditService:
         municipio_id: UUID,
         limit: int = 100,
         offset: int = 0,
-        usuario_id: Optional[UUID] = None,
-        evento_tipo: Optional[str] = None,
-        recurso_id: Optional[UUID] = None,
-        recurso_tipo: Optional[str] = None,
+        usuario_id: UUID | None = None,
+        evento_tipo: str | None = None,
+        recurso_id: UUID | None = None,
+        recurso_tipo: str | None = None,
     ) -> list[AuditoriaEvento]:
         query = select(AuditoriaEvento).where(AuditoriaEvento.municipio_id == municipio_id)
 

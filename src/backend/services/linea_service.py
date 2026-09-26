@@ -11,14 +11,13 @@ Fecha: 2026-09-20
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.linea_estrategica import LineaEstrategica
 from ..models.plan_desarrollo import PlanDesarrollo
-
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -90,7 +89,7 @@ async def create_linea(
         existing_count += 1
         codigo = f"LE-{str(existing_count + 1).zfill(3)}"
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     linea = LineaEstrategica(
         id=uuid.uuid4(),
@@ -326,7 +325,7 @@ async def update_linea(
     if linea is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Si se cambia el plan de desarrollo, validar que exista
     if "plan_desarrollo_id" in update_data:
@@ -434,7 +433,7 @@ async def delete_linea(
     if linea is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     linea.soft_delete(user_id) if user_id else setattr(linea, "deleted_at", now)
     linea.updated_at = now
 

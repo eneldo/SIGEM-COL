@@ -1,5 +1,4 @@
 """Tests de dashboards y RBAC."""
-import pytest
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -48,8 +47,16 @@ class TestRBAC:
         resp = api.get(f"{API_PREFIX}/programas", headers=auth_header(gestor_token))
         assert resp.status_code == 403
 
-    def test_gestor_no_acceso_productos(self, api, gestor_token):
+    def test_gestor_puede_ver_productos(self, api, gestor_token):
         resp = api.get(f"{API_PREFIX}/productos", headers=auth_header(gestor_token))
+        assert resp.status_code == 200
+
+    def test_gestor_no_puede_crear_productos(self, api, gestor_token):
+        resp = api.post(f"{API_PREFIX}/productos", json={
+            "codigo": "TST-RBAC-01",
+            "nombre": "Producto no autorizado",
+            "programa_id": "00000000-0000-0000-0000-000000000000",
+        }, headers=auth_header(gestor_token))
         assert resp.status_code == 403
 
     def test_admin_acceso_usuarios(self, api, admin_token):

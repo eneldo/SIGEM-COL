@@ -1,8 +1,9 @@
 """Sesion model - Modelo para sesiones de usuario"""
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Text
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+
 from .base import Base
 
 

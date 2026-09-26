@@ -1,28 +1,29 @@
 """
 API Routes - Reportes y Rendición de Cuentas
 """
+import io
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-import io
 
-from ...core.database import get_db
 from ...api.v1.auth import get_current_user_from_token
+from ...core.database import get_db
 from ...schemas.reporte import (
+    MetricasProductos,
     ResumenGeneral,
+    ResumenPorDependencia,
     ResumenPorLinea,
     ResumenPorPrograma,
-    ResumenPorDependencia,
-    MetricasProductos,
-)
-from ...services.reporte_service import (
-    get_resumen_general,
-    get_resumen_por_linea,
-    get_resumen_por_programa,
-    get_resumen_por_dependencia,
-    get_metricas_productos,
 )
 from ...services.pdf_service import generar_informe_gestion_pdf
+from ...services.reporte_service import (
+    get_metricas_productos,
+    get_resumen_general,
+    get_resumen_por_dependencia,
+    get_resumen_por_linea,
+    get_resumen_por_programa,
+)
 
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 

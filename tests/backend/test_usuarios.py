@@ -1,5 +1,4 @@
 """Tests de gestión de usuarios - CRUD completo."""
-import pytest
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -35,16 +34,16 @@ class TestUsuariosCRUD:
     """Pruebas CRUD de usuarios."""
 
     def test_create_user(self, api, admin_token):
-        import time
-        code = f"TST-{int(time.time()) % 100000:05d}"
+        import uuid
+        suffix = uuid.uuid4().hex[:12]
         resp = api.post(f"{API_PREFIX}/usuarios", json={
-            "codigo": code,
-            "username": f"testuser_{int(time.time()) % 100000}",
-            "email": f"test.{int(time.time()) % 100000}@sigem.gov.co",
+            "codigo": f"TST-{suffix[:8].upper()}",
+            "username": f"testuser_{suffix}",
+            "email": f"test.{suffix}@sigem.gov.co",
             "nombre_completo": "Test CRUD User",
             "password": "TestPassword2026!!",
         }, headers=auth_header(admin_token))
-        assert resp.status_code == 201
+        assert resp.status_code == 201, resp.text
         data = resp.json()
         assert data["nombre_completo"] == "Test CRUD User"
         user_id = data["id"]

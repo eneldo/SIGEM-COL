@@ -4,8 +4,9 @@ Servicio de Administración de Auditoría - SIGEM Colombia
 Consultas de auditoría y evidencias del sistema.
 """
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import select, and_, func, or_
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.auditoria_evento import AuditoriaEvento
@@ -107,7 +108,7 @@ async def get_auditoria_stats(
     fallidos_result = await db.execute(fallidos_stmt)
     fallidos = fallidos_result.scalar_one()
 
-    hoy = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    hoy = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     hoy_stmt = base.where(AuditoriaEvento.fecha_evento >= hoy)
     hoy_result = await db.execute(hoy_stmt)
     hoy_count = hoy_result.scalar_one()

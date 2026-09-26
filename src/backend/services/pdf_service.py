@@ -4,21 +4,21 @@ Servicio de Generación de PDF - SIGEM Colombia
 Genera el Informe de Gestión en formato PDF.
 """
 import uuid
-import io
 from datetime import datetime
+
 from fpdf import FPDF
 
-from ..services.reporte_service import (
-    get_resumen_general,
-    get_resumen_por_linea,
-    get_resumen_por_programa,
-    get_resumen_por_dependencia,
-    get_metricas_productos,
-)
 from ..services.cumplimiento_service import (
     get_cumplimiento_general,
     get_cumplimiento_por_linea,
     get_listado_productos_cumplimiento,
+)
+from ..services.reporte_service import (
+    get_metricas_productos,
+    get_resumen_general,
+    get_resumen_por_dependencia,
+    get_resumen_por_linea,
+    get_resumen_por_programa,
 )
 
 
@@ -72,7 +72,7 @@ class InformePDF(FPDF):
         self.set_font("Helvetica", "B", 9)
         self.set_fill_color(0, 100, 80)
         self.set_text_color(255, 255, 255)
-        for col, w in zip(columns, widths):
+        for col, w in zip(columns, widths, strict=False):
             self.cell(w, 8, col, border=1, fill=True, align="C")
         self.ln()
 
@@ -81,7 +81,7 @@ class InformePDF(FPDF):
         self.set_text_color(50, 50, 50)
         if fill:
             self.set_fill_color(240, 248, 245)
-        for val, w in zip(values, widths):
+        for val, w in zip(values, widths, strict=False):
             self.cell(w, 7, str(val), border=1, fill=fill, align="C")
         self.ln()
 

@@ -27,7 +27,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         <span className="h-2 w-2 rounded-full bg-done ring-4 ring-done/10" aria-hidden="true" />
         <div>
           <p className="text-sm font-bold text-pine">
-            {isAdmin ? 'Administración municipal' : isGestorLider ? 'Gestión de equipo' : 'Gestión de productos'}
+            {isAdmin ? 'Administración municipal' : isGestorLider ? 'Coordinación de equipo' : 'Gestión de productos'}
           </p>
           <p className="text-xs text-ink-faint">Sistema operativo</p>
         </div>

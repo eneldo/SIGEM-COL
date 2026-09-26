@@ -11,14 +11,13 @@ Fecha: 2026-09-20
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.programa import Programa
 from ..models.linea_estrategica import LineaEstrategica
-
+from ..models.programa import Programa
 
 # ---------------------------------------------------------------------------
 # Creación de programa
@@ -87,7 +86,7 @@ async def create_programa(
             f"en esta línea estratégica."
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     programa = Programa(
         id=uuid.uuid4(),
@@ -329,7 +328,7 @@ async def update_programa(
     if programa is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Si se cambia la línea estratégica, validar que exista
     if "linea_estrategica_id" in update_data:
@@ -437,7 +436,7 @@ async def delete_programa(
     if programa is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     programa.deleted_at = now
     if user_id:
         programa.deleted_by = user_id

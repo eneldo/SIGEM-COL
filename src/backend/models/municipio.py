@@ -1,7 +1,6 @@
 """Municipio model - Modelo para municipios"""
-import uuid
-from sqlalchemy import Column, String, Integer
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Integer, String
+
 from .base import BaseModel
 
 

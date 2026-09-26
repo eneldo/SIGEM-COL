@@ -9,7 +9,9 @@ Full-stack municipal development plan tracking system. Docker deployed, RBAC wor
 - **Stack**: Python 3.12 / FastAPI / SQLAlchemy async / PostgreSQL 17 / React / TypeScript / Vite / Tailwind
 - **Docker ports**: Backend 8001, Frontend 3001, PostgreSQL 5433, Redis internal
 - **Admin**: user `admin`, password `SigemAdmin2026!`, role SUPERADMIN_PLATAFORMA
-- **Gestor**: user `candresmejia`, password `@aTrfh0xcHYKng*QOkyDshUr`, role GESTOR_LIDER
+- **Gestor**: user `enemova`, password `EneldoGestor2026!`, role GESTOR (has PRODUCTO_VER)
+- **Gestor Líder**: user `gvanstralhen`, password `CoordinadorEq2026!`, role GESTOR_LIDER
+- **Tests API base**: `SIGEM_API_URL=http://backend:8000` inside `docker compose run`
 - **Python venv**: `src/backend/.venv/`
 - **GitHub**: `https://github.com/eneldo/SIGEM-COL.git`, branch `master`
 - **Local PG**: service `postgresql-x64-17` on port 5432 cannot be stopped

@@ -16,14 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_db
 from ....core.rbac import require_permission
-from ..auth import get_current_user_from_token
 from ....services.dashboard_admin_service import (
-    get_kpis_generales,
-    get_resumen_plan,
-    get_gestores_summary,
     get_alertas,
     get_estadisticas_por_dependencia,
+    get_gestores_summary,
+    get_kpis_generales,
+    get_resumen_plan,
 )
+from ..auth import get_current_user_from_token
 
 router = APIRouter(prefix="/admin", tags=["Dashboard Admin"])
 

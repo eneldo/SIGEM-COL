@@ -1,8 +1,8 @@
 """PlanDesarrollo model - Modelo para planes de desarrollo municipal"""
-import uuid
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, Date
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from .base import BaseModel
 
 

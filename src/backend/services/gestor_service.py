@@ -13,22 +13,22 @@ Versión: 1.1
 Fecha: 2026-09-20
 """
 
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, and_, or_, func, delete
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.usuario import Usuario
-from ..models.gestor_lider import GestorLider
-from ..models.rol import Rol
-from ..models.usuario_rol import UsuarioRol
-from ..models.usuario_dependencia import UsuarioDependencia
+from ..core.security import generate_temporary_password, get_password_hash
 from ..models.dependencia import Dependencia
+from ..models.gestor_lider import GestorLider
 from ..models.intento_login import IntentoLogin
-from ..core.security import get_password_hash, generate_temporary_password
+from ..models.rol import Rol
+from ..models.usuario import Usuario
+from ..models.usuario_dependencia import UsuarioDependencia
+from ..models.usuario_rol import UsuarioRol
 from ..services.audit_service import AuditService
-
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -38,9 +38,15 @@ ROL_GESTOR_LIDER = "GESTOR_LIDER"
 CODIGO_PREFIJO = "GES-"
 CODIGO_LONGITUD_NUMERICA = 6
 PASSWORD_LONGITUD = 24
+PASSWORD_MIN_LENGTH = 15
 ESTADO_ACTIVO = "ACTIVO"
 ESTADO_INACTIVO = "INACTIVO"
 ESTADO_BLOQUEADO = "BLOQUEADO"
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9._-]{3,50}$")
+ROLES_NO_ASIGNABLES_POR_COORDINADOR = {
+    "SUPERADMIN_PLATAFORMA",
+    "ADMINISTRADOR_MUNICIPAL",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +223,13 @@ async def generate_gestor_code(db: AsyncSession, municipio_id: uuid.UUID) -> str
 # Generación de nombre de usuario
 # ---------------------------------------------------------------------------
 
+async def _username_existe(db: AsyncSession, username: str) -> bool:
+    stmt = select(Usuario.id).where(
+        and_(Usuario.username == username, Usuario.deleted_at.is_(None))
+    )
+    return (await db.scalar(stmt)) is not None
+
+
 async def generate_username(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -228,7 +241,7 @@ async def generate_username(
     Reglas:
       - Primera letra del primer nombre + apellido(s) completo(s) en
         minúsculas y sin espacios. Ej.: "Juan Carlos Pérez" -> "jperez".
-      - Si ya existe en el municipio, se agrega un número incremental.
+      - Si ya existe, se agrega un número incremental.
     """
     partes = nombre_completo.strip().split()
     if len(partes) < 2:
@@ -242,23 +255,8 @@ async def generate_username(
     counter = 2
 
     while True:
-        stmt = (
-            select(Usuario.id)
-            .join(GestorLider, GestorLider.usuario_id == Usuario.id)
-            .where(
-                and_(
-                    GestorLider.municipio_id == municipio_id,
-                    Usuario.username == username,
-                    Usuario.deleted_at.is_(None),
-                )
-            )
-        )
-        result = await db.execute(stmt)
-        exists = result.scalar_one_or_none()
-
-        if exists is None:
+        if not await _username_existe(db, username):
             return username
-
         username = f"{base}{counter}"
         counter += 1
 
@@ -271,15 +269,20 @@ async def create_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     create_data: dict,
+    allowed_role_codes: set[str] | None = None,
 ) -> dict:
     """
-    Crea un nuevo gestor líder.
+    Crea un nuevo gestor líder o miembro del equipo.
 
-    El código (ID), el usuario y la contraseña temporal son generados
-    automáticamente por el sistema. La contraseña se retorna una sola vez.
+    El código (GES-XXXXXX) siempre se autogenera. El usuario y la contraseña
+    pueden definirse en create_data; si se omiten se generan automáticamente.
+    La contraseña se retorna una sola vez.
 
     Campos aceptados: nombre_completo, email, telefono, cargo, rol_id,
-    dependencia_principal_id, dependencias_adicionales.
+    dependencia_principal_id, dependencias_adicionales, username, password.
+
+    Si se recibe allowed_role_codes, el rol seleccionado debe estar en ese
+    conjunto (usado para que un coordinador no asigne roles de administración).
     """
     nombre = (create_data.get("nombre_completo") or "").strip()
     email = create_data.get("email")
@@ -288,15 +291,39 @@ async def create_gestor(
     rol_id = create_data.get("rol_id")
     principal_id = create_data.get("dependencia_principal_id")
     adicionales = create_data.get("dependencias_adicionales") or []
+    custom_username = (create_data.get("username") or "").strip() or None
+    custom_password = create_data.get("password") or None
 
     if not nombre:
         raise ValueError("El nombre completo es obligatorio.")
     if not email:
         raise ValueError("El correo electrónico es obligatorio.")
+    if custom_password is not None and len(custom_password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(
+            f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres."
+        )
+    if custom_username is not None and not USERNAME_RE.match(custom_username):
+        raise ValueError(
+            "El usuario debe tener de 3 a 50 caracteres y solo puede contener "
+            "letras, números, punto, guion bajo o guion."
+        )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     rol = await _validar_rol(db, rol_id)
+    if allowed_role_codes is not None and rol.codigo not in allowed_role_codes:
+        raise ValueError("No tiene permisos para asignar ese rol.")
+
+    if rol.codigo in (ROL_GESTOR_LIDER, "GESTOR"):
+        if not principal_id:
+            raise ValueError(
+                "La dependencia principal es obligatoria. "
+                "El coordinador solo debe estar asociado a su dependencia."
+            )
+        adicionales = []
+
+    if custom_username and await _username_existe(db, custom_username):
+        raise ValueError(f"El usuario '{custom_username}' ya está en uso.")
 
     dep_ids = set(adicionales)
     if principal_id:
@@ -304,8 +331,17 @@ async def create_gestor(
     await _validar_dependencias(db, municipio_id, dep_ids)
 
     codigo = await generate_gestor_code(db, municipio_id)
-    username = await generate_username(db, municipio_id, nombre)
-    temp_password = generate_temporary_password(length=PASSWORD_LONGITUD)
+    if custom_username:
+        username = custom_username
+    else:
+        username = await generate_username(db, municipio_id, nombre)
+
+    if custom_password:
+        temp_password = custom_password
+        must_change = False
+    else:
+        temp_password = generate_temporary_password(length=PASSWORD_LONGITUD)
+        must_change = True
 
     usuario = Usuario(
         municipio_id=municipio_id,
@@ -316,7 +352,7 @@ async def create_gestor(
         telefono=telefono,
         cargo=cargo,
         password_hash=get_password_hash(temp_password),
-        must_change_password=True,
+        must_change_password=must_change,
         activo=1,
         estado=ESTADO_ACTIVO,
         created_at=now,
@@ -371,7 +407,12 @@ async def create_gestor(
         usuario_id=usuario.id,
         recurso_tipo="GestorLider",
         recurso_id=gestor.id,
-        metadata={"codigo": codigo, "rol": rol.codigo},
+        metadata={
+            "codigo": codigo,
+            "rol": rol.codigo,
+            "username_definido_por_usuario": bool(custom_username),
+            "password_definido_por_usuario": bool(custom_password),
+        },
     )
 
     return {
@@ -380,7 +421,7 @@ async def create_gestor(
         "username": username,
         "nombre_completo": nombre,
         "temp_password": temp_password,
-        "must_change_password": True,
+        "must_change_password": must_change,
     }
 
 
@@ -507,7 +548,7 @@ async def update_gestor(
     if gestor is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if "nombre_completo" in update_data and update_data["nombre_completo"]:
         usuario.nombre_completo = update_data["nombre_completo"]
@@ -595,9 +636,10 @@ async def update_gestor_permissions(
     if gestor is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     rol_id = permisos.get("rol_id")
+    rol = None
     if rol_id:
         rol = await _validar_rol(db, rol_id)
         await db.execute(delete(UsuarioRol).where(UsuarioRol.usuario_id == usuario.id))
@@ -609,6 +651,13 @@ async def update_gestor_permissions(
     if tiene_cambio_dep:
         principal_id = permisos.get("dependencia_principal_id")
         adicionales = permisos.get("dependencias_adicionales") or []
+
+        roles_actuales = await _get_roles(db, usuario.id)
+        codigos = {r.codigo for r in roles_actuales}
+        if rol is not None:
+            codigos.add(rol.codigo)
+        if codigos & {ROL_GESTOR_LIDER, "GESTOR"}:
+            adicionales = []
 
         dep_ids = set(adicionales)
         if principal_id:
@@ -680,7 +729,7 @@ async def _change_gestor_status(
     if gestor is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     gestor.estado = new_status
     gestor.updated_at = now
     usuario.estado = new_status
@@ -743,19 +792,34 @@ async def reset_password(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
+    nueva_password: str | None = None,
 ) -> dict | None:
     """
-    Genera una nueva contraseña temporal para el gestor líder.
-    La contraseña se muestra una sola vez.
+    Cambia la contraseña del gestor líder.
+
+    - Si se envía nueva_password, se usa esa contraseña (no se fuerza cambio).
+    - Si se omite, se genera una contraseña temporal de 24 caracteres
+      (se fuerza cambio en el primer ingreso).
+    En ambos casos la cuenta se reactiva. La contraseña se muestra una sola vez.
     """
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
     if gestor is None:
         return None
 
-    temp_password = generate_temporary_password(length=PASSWORD_LONGITUD)
-    now = datetime.now(timezone.utc)
+    if nueva_password is not None:
+        if len(nueva_password) < PASSWORD_MIN_LENGTH:
+            raise ValueError(
+                f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres."
+            )
+        temp_password = nueva_password
+        must_change = False
+    else:
+        temp_password = generate_temporary_password(length=PASSWORD_LONGITUD)
+        must_change = True
+
+    now = datetime.now(UTC)
     usuario.password_hash = get_password_hash(temp_password)
-    usuario.must_change_password = True
+    usuario.must_change_password = must_change
     usuario.fecha_bloqueo = None
     usuario.motivo_bloqueo = None
     usuario.activo = 1
@@ -774,6 +838,7 @@ async def reset_password(
         usuario_id=usuario.id,
         recurso_tipo="GestorLider",
         recurso_id=gestor.id,
+        metadata={"password_personalizada": nueva_password is not None},
     )
 
     return {
@@ -781,7 +846,7 @@ async def reset_password(
         "codigo": gestor.codigo,
         "username": usuario.username,
         "temp_password": temp_password,
-        "must_change_password": True,
+        "must_change_password": must_change,
     }
 
 
@@ -802,7 +867,7 @@ async def soft_delete_gestor(
     if gestor is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     gestor.eliminado = True
     gestor.updated_at = now

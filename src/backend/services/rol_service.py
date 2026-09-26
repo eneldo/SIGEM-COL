@@ -4,11 +4,12 @@ Servicio de Gestión de Roles y Permisos - SIGEM Colombia
 CRUD completo para administración de roles y permisos del sistema.
 """
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import select, and_, func, or_
+from datetime import UTC, datetime
+
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.rol import Rol, Permiso
+from ..models.rol import Permiso, Rol
 from ..models.usuario_rol import RolPermiso
 
 
@@ -34,7 +35,7 @@ async def create_rol(
     if exists_result.scalar_one_or_none() is not None:
         raise ValueError(f"Ya existe un rol con el código '{codigo}'.")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     rol = Rol(
         id=uuid.uuid4(),
         codigo=codigo,
@@ -165,7 +166,7 @@ async def update_rol(
     if rol is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if "nombre" in update_data:
         rol.nombre = update_data["nombre"]
@@ -210,7 +211,7 @@ async def delete_rol(
     if rol is None:
         return None
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     rol.deleted_at = now
     rol.updated_at = now
     await db.commit()

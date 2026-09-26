@@ -12,27 +12,26 @@ Fecha: 2026-09-20
 """
 
 import logging
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
-from uuid import UUID
 
+from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
 from ...core.rbac import require_permission
-from ...api.v1.auth import get_current_user_from_token
-from ...services.linea_service import (
-    create_linea,
-    list_lineas,
-    get_linea,
-    update_linea,
-    delete_linea,
-)
 from ...schemas.linea import (
     LineaCreate,
-    LineaUpdate,
-    LineaResponse,
     LineaListResponse,
+    LineaResponse,
+    LineaUpdate,
+)
+from ...services.linea_service import (
+    create_linea,
+    delete_linea,
+    get_linea,
+    list_lineas,
+    update_linea,
 )
 
 router = APIRouter(prefix="/lineas-estrategicas", tags=["Líneas Estratégicas"])
@@ -100,9 +99,9 @@ async def crear_linea_estrategica(
     ),
 )
 async def listar_lineas_estrategicas(
-    search: Optional[str] = Query(None, description="Búsqueda por nombre o código"),
-    plan_desarrollo_id: Optional[UUID] = Query(None, description="Filtrar por plan de desarrollo"),
-    estado: Optional[str] = Query(None, description="Filtrar por estado (ACTIVA, INACTIVA)"),
+    search: str | None = Query(None, description="Búsqueda por nombre o código"),
+    plan_desarrollo_id: UUID | None = Query(None, description="Filtrar por plan de desarrollo"),
+    estado: str | None = Query(None, description="Filtrar por estado (ACTIVA, INACTIVA)"),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
     current_user: dict = Depends(get_current_user_from_token),

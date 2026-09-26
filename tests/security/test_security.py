@@ -1,5 +1,4 @@
 """Tests de seguridad - Inyección SQL, XSS, rate limiting, auth bypass."""
-import time
 import pytest
 from tests.conftest import API_PREFIX, auth_header
 

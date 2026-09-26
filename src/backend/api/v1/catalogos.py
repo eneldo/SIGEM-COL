@@ -5,29 +5,32 @@ Endpoints de catálogos (roles, dependencias) usados por los formularios
 de los módulos administrativos de SIGEM Colombia.
 
 Autor: SIGEM Colombia
-Versión: 1.0
-Fecha: 2026-09-20
+Versión: 1.1
+Fecha: 2026-09-23
 """
 
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, or_
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from ...core.database import get_db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import and_, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...api.v1.auth import get_current_user_from_token
-from ...models.rol import Rol
+from ...core.database import get_db
 from ...models.dependencia import Dependencia
-from ...schemas.catalogos import RolOut, DependenciaOut
+from ...models.gestor_lider import GestorLider
+from ...models.rol import Rol
+from ...models.usuario_dependencia import UsuarioDependencia
+from ...schemas.catalogos import DependenciaOut, RolOut
 
 router = APIRouter(prefix="/catalogos", tags=["Catálogos"])
+
+ADMIN_ROLE_CODES = {"SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL"}
 
 
 @router.get(
     "/roles",
-    response_model=List[RolOut],
+    response_model=list[RolOut],
     summary="Listar roles del sistema",
     description="Retorna los roles activos del sistema ordenados por nivel.",
 )
@@ -47,21 +50,49 @@ async def list_roles(
 
 @router.get(
     "/dependencias",
-    response_model=List[DependenciaOut],
+    response_model=list[DependenciaOut],
     summary="Listar dependencias del municipio",
-    description="Retorna las dependencias activas del municipio del usuario autenticado.",
+    description=(
+        "Los administradores ven todas las dependencias del municipio. "
+        "Coordinadores y gestores solo ven la dependencia que tienen asignada "
+        "(no las dependencias de otros coordinadores)."
+    ),
 )
 async def list_dependencias(
-    search: Optional[str] = Query(None, description="Filtro por nombre o código"),
+    search: str | None = Query(None, description="Filtro por nombre o código"),
     include_eliminadas: bool = Query(False, description="Incluir dependencias eliminadas"),
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
     municipio_id = UUID(current_user["municipio_id"])
+    role_codes = set(current_user.get("roles") or [])
+    is_admin = bool(role_codes & ADMIN_ROLE_CODES)
 
     stmt = select(Dependencia).where(Dependencia.municipio_id == municipio_id)
     if not include_eliminadas:
         stmt = stmt.where(Dependencia.deleted_at.is_(None))
+
+    if not is_admin:
+        user_id = current_user["user"].id
+        asignadas = (
+            select(UsuarioDependencia.dependencia_id)
+            .where(UsuarioDependencia.usuario_id == user_id)
+        )
+        propias_gestor = (
+            select(GestorLider.dependencia_principal_id)
+            .where(
+                and_(
+                    GestorLider.usuario_id == user_id,
+                    GestorLider.dependencia_principal_id.is_not(None),
+                )
+            )
+        )
+        stmt = stmt.where(
+            or_(
+                Dependencia.id.in_(asignadas),
+                Dependencia.id.in_(propias_gestor),
+            )
+        )
 
     if search:
         patron = f"%{search}%"

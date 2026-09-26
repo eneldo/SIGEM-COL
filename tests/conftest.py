@@ -3,6 +3,10 @@ import os
 import httpx
 import pytest
 
+# tests/manual/ contiene scripts funcionales con código a nivel de módulo
+# que se conectan a backend Docker; no deben coleccionarse por pytest.
+collect_ignore = ["manual"]
+
 BASE_URL = os.getenv("SIGEM_API_URL", "http://localhost:8001")
 API_PREFIX = f"{BASE_URL}/api/v1"
 
@@ -30,8 +34,8 @@ def admin_token(api):
 def gestor_token(api):
     """Login as gestor líder and return the access token."""
     resp = api.post("/api/v1/auth/login", json={
-        "username": "candresmejia",
-        "password": "@aTrfh0xcHYKng*QOkyDshUr",
+        "username": "enemova",
+        "password": "EneldoGestor2026!",
     })
     assert resp.status_code == 200, f"Gestor login failed: {resp.text}"
     return resp.json()["access_token"]

@@ -1,8 +1,7 @@
 """Rol and Permiso models - Modelos para roles y permisos"""
-import uuid
-from sqlalchemy import Column, String, Integer, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.orm import relationship
+
 from .base import BaseModel
 
 

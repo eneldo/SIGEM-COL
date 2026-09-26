@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .core.config import settings
-from .core.middleware import RequestIDMiddleware, AuditMiddleware, RateLimitMiddleware
-from .core.database import RLSMiddleware
 from .api.v1.router import api_router
+from .core.config import settings
+from .core.database import RLSMiddleware
+from .core.middleware import AuditMiddleware, RateLimitMiddleware, RequestIDMiddleware
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -51,6 +51,7 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health")
 async def health_check():
     from sqlalchemy import text
+
     from .core.database import AsyncSessionLocal
 
     db_ok = False

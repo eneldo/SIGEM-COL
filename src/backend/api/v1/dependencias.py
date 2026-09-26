@@ -2,16 +2,17 @@
 API Routes - CRUD Dependencias del Municipio
 """
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.database import get_db
 from ...api.v1.auth import get_current_user_from_token
+from ...core.database import get_db
 from ...schemas.dependencia import (
     DependenciaCreate,
-    DependenciaUpdate,
-    DependenciaResponse,
     DependenciaListResponse,
+    DependenciaResponse,
+    DependenciaUpdate,
 )
 from ...services import dependencia_service
 

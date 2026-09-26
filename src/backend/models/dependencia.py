@@ -1,8 +1,8 @@
 """Dependencia model - Modelo para dependencias municipales"""
-import uuid
-from sqlalchemy import Column, String, Integer, ForeignKey, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from .base import BaseModel
 
 

@@ -1,7 +1,9 @@
 """AuditoriaEvento model - Modelo para eventos de auditoría"""
 import uuid
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey
+
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+
 from .base import Base
 
 

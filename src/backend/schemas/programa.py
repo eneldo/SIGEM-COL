@@ -1,48 +1,48 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class ProgramaCreate(BaseModel):
     codigo: str = Field(..., max_length=20)
     nombre: str = Field(..., max_length=300)
-    sector: Optional[str] = Field(None, max_length=100)
-    descripcion: Optional[str] = None
+    sector: str | None = Field(None, max_length=100)
+    descripcion: str | None = None
     linea_estrategica_id: UUID
 
 
 class ProgramaUpdate(BaseModel):
-    codigo: Optional[str] = None
-    nombre: Optional[str] = None
-    sector: Optional[str] = None
-    descripcion: Optional[str] = None
+    codigo: str | None = None
+    nombre: str | None = None
+    sector: str | None = None
+    descripcion: str | None = None
 
 
 class ProgramaResponse(BaseModel):
     id: UUID
     codigo: str
     nombre: str
-    sector: Optional[str] = None
-    descripcion: Optional[str] = None
+    sector: str | None = None
+    descripcion: str | None = None
     estado: str
     municipio_id: UUID
     linea_estrategica_id: UUID
-    linea_estrategica_nombre: Optional[str] = None
+    linea_estrategica_nombre: str | None = None
     created_at: datetime
     updated_at: datetime
 
 
 class ProgramaListResponse(BaseModel):
-    items: List[ProgramaResponse]
+    items: list[ProgramaResponse]
     total: int
     page: int
     page_size: int
 
 
 class ProgramaFiltros(BaseModel):
-    search: Optional[str] = None
-    linea_estrategica_id: Optional[UUID] = None
-    estado: Optional[str] = None
+    search: str | None = None
+    linea_estrategica_id: UUID | None = None
+    estado: str | None = None
     page: int = 1
     page_size: int = 20

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { gestorDashboard } from '../../lib/api'
 import { useAuthStore } from '../../stores/authStore'
 import { Icon } from '../../components/ui/icons'
+import EvidenciasModal from '../../components/EvidenciasModal'
 
 interface ProductoAsignado {
   id: string
@@ -23,8 +24,19 @@ interface Avance {
   avance_valor: number | null
   observaciones: string | null
   evidencia_url: string | null
+  estado_revision?: string
+  evidencia_nombre?: string | null
+  observaciones_revision?: string | null
+  periodo?: string | null
+  fecha_registro?: string | null
   estado: string
   created_at: string | null
+}
+
+const EDITABLE_STATES = new Set(['BORRADOR', 'PENDIENTE', 'RECHAZADO', 'DEVUELTO', 'EN_REVISION'])
+
+function canEditAvance(a: Avance) {
+  return EDITABLE_STATES.has(a.estado_revision || '')
 }
 
 interface ResumenAvances {
@@ -50,6 +62,46 @@ export function GestorDashboardPage() {
     evidencia_url: '',
   })
   const [submitting, setSubmitting] = useState(false)
+  const [evidenciasAvance, setEvidenciasAvance] = useState<Avance | null>(null)
+  const [editAvance, setEditAvance] = useState<Avance | null>(null)
+  const [editForm, setEditForm] = useState({ avance_porcentaje: 0, avance_valor: '', observaciones: '', periodo: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+
+  const openEditAvance = (a: Avance) => {
+    setEditError('')
+    setEditForm({
+      avance_porcentaje: a.avance_porcentaje,
+      avance_valor: a.avance_valor != null ? String(a.avance_valor) : '',
+      observaciones: a.observaciones || '',
+      periodo: a.periodo || '',
+    })
+    setEditAvance(a)
+  }
+
+  const saveEditAvance = async () => {
+    if (!editAvance) return
+    setEditSaving(true)
+    setEditError('')
+    try {
+      await gestorDashboard.actualizarAvance(editAvance.id, {
+        avance_porcentaje: editForm.avance_porcentaje,
+        avance_valor: editForm.avance_valor ? parseInt(editForm.avance_valor, 10) : null,
+        observaciones: editForm.observaciones || null,
+        periodo: editForm.periodo || null,
+      })
+      setEditAvance(null)
+      if (selectedProducto) {
+        const res = await gestorDashboard.avances(selectedProducto.id)
+        setAvances(res.data)
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } }
+      setEditError(axiosErr.response?.data?.detail || 'No fue posible guardar los cambios.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -213,7 +265,7 @@ export function GestorDashboardPage() {
                         onClick={() => handleSelectProducto(p)}
                         className="inline-flex items-center gap-2 rounded-xl bg-pine px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-pine-deep"
                       >
-                        Asignar <Icon name="layers" />
+                        Registrar avance <Icon name="layers" />
                       </button>
                     </td>
                   </tr>
@@ -322,14 +374,48 @@ export function GestorDashboardPage() {
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink-faint">Historial de avances</p>
                   <ul className="mt-2 space-y-2 max-h-40 overflow-y-auto">
                     {avances.map((a) => (
-                      <li key={a.id} className="flex items-center justify-between rounded-xl bg-paper px-4 py-2 text-sm">
-                        <div>
-                          <span className="font-bold text-ink">{a.avance_porcentaje}%</span>
-                          {a.avance_valor && <span className="ml-2 text-ink-faint">({a.avance_valor})</span>}
+                      <li key={a.id} className="rounded-xl bg-paper px-4 py-2 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-ink">{a.avance_porcentaje}%</span>
+                            {a.avance_valor && <span className="ml-2 text-ink-faint">({a.avance_valor})</span>}
+                          </div>
+                          <span
+                            className={
+                              a.estado_revision === 'APROBADO' ? 'rounded-full bg-forest-soft px-2 py-0.5 text-[10px] font-bold text-forest' :
+                              a.estado_revision === 'RECHAZADO' ? 'rounded-full bg-warn-soft px-2 py-0.5 text-[10px] font-bold text-warn' :
+                              a.estado_revision === 'BORRADOR' ? 'rounded-full bg-line/60 px-2 py-0.5 text-[10px] font-bold text-ink-soft' :
+                              'rounded-full bg-ochre-soft px-2 py-0.5 text-[10px] font-bold text-ochre-deep'
+                            }
+                          >
+                            {a.estado_revision === 'APROBADO' ? 'Aprobado' :
+                             a.estado_revision === 'RECHAZADO' ? 'Devuelto' :
+                             a.estado_revision === 'BORRADOR' ? 'Borrador' : 'Pendiente'}
+                          </span>
                         </div>
-                        <span className="text-xs text-ink-faint">
-                          {a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'}
-                        </span>
+                        <div className="mt-0.5 flex items-center justify-between text-xs text-ink-faint">
+                          <span>{a.periodo || '—'}</span>
+                          <span>{a.created_at ? new Date(a.created_at).toLocaleDateString('es-CO') : '—'}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <button
+                            onClick={() => setEvidenciasAvance(a)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-pine transition-colors hover:bg-forest-soft"
+                          >
+                            <Icon name="document" className="h-3 w-3" /> Evidencias
+                          </button>
+                          {canEditAvance(a) && (
+                            <button
+                              onClick={() => openEditAvance(a)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-pine transition-colors hover:bg-forest-soft"
+                            >
+                              <Icon name="edit" className="h-3 w-3" /> Editar
+                            </button>
+                          )}
+                        </div>
+                        {a.estado_revision === 'RECHAZADO' && a.observaciones_revision && (
+                          <p className="mt-1 rounded bg-warn-soft px-2 py-1 text-[11px] text-warn">{a.observaciones_revision}</p>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -349,6 +435,101 @@ export function GestorDashboardPage() {
                 className="rounded-xl bg-pine px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-pine-deep disabled:opacity-50"
               >
                 {submitting ? 'Guardando...' : 'Registrar avance'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {evidenciasAvance && (
+        <EvidenciasModal
+          avanceId={evidenciasAvance.id}
+          avanceNombre={`${evidenciasAvance.avance_porcentaje}% · ${evidenciasAvance.periodo || 'Sin período'}`}
+          subtitle={selectedProducto?.nombre}
+          canEdit={canEditAvance(evidenciasAvance)}
+          onClose={() => setEvidenciasAvance(null)}
+        />
+      )}
+
+      {editAvance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-paper-raised shadow-2xl">
+            <div className="flex items-center justify-between border-b border-line px-6 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink-faint">Editar avance</p>
+                <h3 className="mt-1 text-lg font-bold text-ink">{selectedProducto?.nombre || 'Avance'}</h3>
+              </div>
+              <button
+                onClick={() => setEditAvance(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-line/60 hover:text-ink"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              {editError && (
+                <div role="alert" className="rounded-xl border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">
+                  {editError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-bold text-ink">Porcentaje de avance (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editForm.avance_porcentaje}
+                  onChange={(e) => setEditForm({ ...editForm, avance_porcentaje: parseFloat(e.target.value) || 0 })}
+                  className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-ink">Valor (opcional)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editForm.avance_valor}
+                  onChange={(e) => setEditForm({ ...editForm, avance_valor: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20"
+                  placeholder="Ej: 1500000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-ink">Período</label>
+                <input
+                  type="text"
+                  value={editForm.periodo}
+                  onChange={(e) => setEditForm({ ...editForm, periodo: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20"
+                  placeholder="Ej: Julio - Septiembre 2026"
+                  maxLength={50}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-ink">Observaciones</label>
+                <textarea
+                  value={editForm.observaciones}
+                  onChange={(e) => setEditForm({ ...editForm, observaciones: e.target.value })}
+                  rows={3}
+                  maxLength={1000}
+                  className="mt-1 w-full resize-none rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20"
+                  placeholder="Describe el avance..."
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-line px-6 py-4">
+              <button
+                onClick={() => setEditAvance(null)}
+                className="rounded-xl border border-line px-4 py-2.5 text-sm font-bold text-ink-soft transition-colors hover:bg-line/40"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEditAvance}
+                disabled={editSaving || editForm.avance_porcentaje < 0 || editForm.avance_porcentaje > 100}
+                className="rounded-xl bg-pine px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-pine-deep disabled:opacity-50"
+              >
+                {editSaving ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>
           </div>

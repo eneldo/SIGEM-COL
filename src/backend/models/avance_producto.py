@@ -1,8 +1,8 @@
 """AvanceProducto model - Registro de avances de productos por gestores"""
-import uuid
-from sqlalchemy import Column, String, ForeignKey, Text, Integer, Float, DateTime
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from .base import BaseModel
 
 
@@ -26,6 +26,7 @@ class AvanceProducto(BaseModel):
     estado_revision = Column(String(50), default="PENDIENTE", nullable=False)
     evidencia_nombre = Column(String(255), nullable=True)
     evidencia_tipo = Column(String(50), nullable=True)
+    observaciones_revision = Column(Text, nullable=True)
 
     # Relationships
     municipio = relationship("Municipio", backref="avances_producto")

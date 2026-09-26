@@ -9,7 +9,7 @@ interface SidebarProps {
 
 const adminLinks = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: MIconDashboard },
-  { to: '/admin/gestores', label: 'Gestores', icon: MIconPeople },
+  { to: '/admin/gestores', label: 'Gestores Líderes / Coordinadores', icon: MIconPeople },
   { to: '/admin/lineas', label: 'Líneas', icon: MIconTrending },
   { to: '/admin/programas', label: 'Programas', icon: MIconFolder },
   { to: '/admin/productos', label: 'Productos', icon: MIconBox },
@@ -22,18 +22,25 @@ const adminLinks = [
 
 const gestorLiderLinks = [
   { to: '/gestor/dashboard', label: 'Dashboard', icon: MIconDashboard },
-  { to: '/gestor/equipo', label: 'Mi Equipo', icon: MIconPeople },
+  { to: '/gestor/equipo', label: 'Coordinación de Equipo', icon: MIconPeople },
   { to: '/gestor/asignar', label: 'Asignar Responsables', icon: MIconTrending },
-  { to: '/gestor/productos', label: 'Mis Productos', icon: MIconBox },
-  { to: '/gestor/registro-avance', label: 'Registro de Avance', icon: MIconDocument },
   { to: '/gestor/mis-avances', label: 'Mis Avances', icon: MIconChart },
   { to: '/gestor/revision-avances', label: 'Revisión de Avances', icon: MIconCheck },
+  { to: '/gestor/cumplimiento', label: 'Cumplimiento de Metas', icon: MIconTarget },
+  { to: '/gestor/reportes', label: 'Reportes', icon: MIconChart },
+  { to: '/gestor/configuracion/dependencias', label: 'Dependencias', icon: MIconBuilding },
+  { to: '/gestor/configuracion', label: 'Configuración', icon: MIconSettings },
 ]
 
 const gestorLinks = [
   { to: '/gestor/dashboard', label: 'Dashboard', icon: MIconDashboard },
   { to: '/gestor/productos', label: 'Mis Productos', icon: MIconBox },
+  { to: '/gestor/registro-avance', label: 'Registro de Avance', icon: MIconDocument },
   { to: '/gestor/mis-avances', label: 'Mis Avances', icon: MIconTrending },
+  { to: '/gestor/mis-pendientes', label: 'Mis Pendientes', icon: MIconCalendar },
+  { to: '/gestor/mis-alertas', label: 'Mis Alertas', icon: MIconAlert },
+  { to: '/gestor/cumplimiento', label: 'Cumplimiento de Metas', icon: MIconTarget },
+  { to: '/gestor/reportes', label: 'Reportes', icon: MIconChart },
 ]
 
 export function Sidebar({ open, onClose }: SidebarProps) {
@@ -106,7 +113,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 {user?.nombre_completo || 'Usuario'}
               </p>
               <p className="text-white/50 text-xs truncate">
-                {isAdmin ? 'Administrador' : isGestorLider ? 'Gestor Líder' : 'Gestor'}
+                {isAdmin ? 'Administrador' : isGestorLider ? 'Coordinador' : 'Gestor'}
               </p>
             </div>
           </div>
@@ -201,6 +208,22 @@ function MIconBuilding({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+    </svg>
+  )
+}
+
+function MIconCalendar({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+    </svg>
+  )
+}
+
+function MIconAlert({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.01" />
     </svg>
   )
 }

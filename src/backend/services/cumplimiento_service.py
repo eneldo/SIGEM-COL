@@ -4,12 +4,13 @@ Servicio de Cumplimiento de Metas - SIGEM Colombia
 Calcula el avance y cumplimiento de metas cuatrienales.
 """
 import uuid
-from sqlalchemy import select, and_, func
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..models.linea_estrategica import LineaEstrategica
 from ..models.producto import Producto
 from ..models.programa import Programa
-from ..models.linea_estrategica import LineaEstrategica
 
 
 async def get_cumplimiento_general(

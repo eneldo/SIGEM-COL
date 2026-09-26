@@ -1,22 +1,23 @@
 """Models package - Modelos de base de datos SQLAlchemy"""
-from .base import Base, BaseModel
-from .municipio import Municipio
-from .plan_desarrollo import PlanDesarrollo
-from .vigencia import Vigencia
-from .dependencia import Dependencia
-from .usuario import Usuario
-from .rol import Rol, Permiso
-from .usuario_rol import UsuarioRol, RolPermiso
-from .usuario_dependencia import UsuarioDependencia
-from .gestor_lider import GestorLider
-from .linea_estrategica import LineaEstrategica
-from .programa import Programa
-from .producto import Producto
-from .sesion import Sesion
-from .intento_login import IntentoLogin
-from .mfa_factor import MFAFactor
 from .auditoria_evento import AuditoriaEvento
 from .avance_producto import AvanceProducto
+from .base import Base, BaseModel
+from .dependencia import Dependencia
+from .evidencia import Evidencia
+from .gestor_lider import GestorLider
+from .intento_login import IntentoLogin
+from .linea_estrategica import LineaEstrategica
+from .mfa_factor import MFAFactor
+from .municipio import Municipio
+from .plan_desarrollo import PlanDesarrollo
+from .producto import Producto
+from .programa import Programa
+from .rol import Permiso, Rol
+from .sesion import Sesion
+from .usuario import Usuario
+from .usuario_dependencia import UsuarioDependencia
+from .usuario_rol import RolPermiso, UsuarioRol
+from .vigencia import Vigencia
 
 __all__ = [
     "Base",
@@ -40,4 +41,5 @@ __all__ = [
     "MFAFactor",
     "AuditoriaEvento",
     "AvanceProducto",
+    "Evidencia",
 ]

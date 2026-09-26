@@ -1,5 +1,4 @@
 """Tests de integración - Flujos completos de trabajo."""
-import pytest
 from tests.conftest import API_PREFIX, auth_header
 
 

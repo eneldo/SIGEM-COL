@@ -1,5 +1,4 @@
 """Tests de autenticación - Login, tokens, cambio de contraseña."""
-import pytest
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -22,13 +21,13 @@ class TestLogin:
 
     def test_login_gestor_ok(self, api):
         resp = api.post(f"{API_PREFIX}/auth/login", json={
-            "username": "candresmejia",
-            "password": "@aTrfh0xcHYKng*QOkyDshUr",
+            "username": "enemova",
+            "password": "EneldoGestor2026!",
         })
         assert resp.status_code == 200
         data = resp.json()
-        assert data["user"]["username"] == "candresmejia"
-        assert "GESTOR_LIDER" in data["user"]["roles"]
+        assert data["user"]["username"] == "enemova"
+        assert "GESTOR" in data["user"]["roles"]
 
     def test_login_wrong_password(self, api):
         resp = api.post(f"{API_PREFIX}/auth/login", json={
@@ -96,19 +95,25 @@ class TestPasswordChange:
     """Pruebas de cambio de contraseña."""
 
     def test_change_password_ok(self, api, admin_token):
-        resp = api.post(f"{API_PREFIX}/auth/change-password", json={
-            "current_password": "SigemAdmin2026!",
-            "new_password": "NewSigemAdmin2026!!",
-            "confirm_password": "NewSigemAdmin2026!!",
-        }, headers=auth_header(admin_token))
-        assert resp.status_code == 200
-        assert "exitosamente" in resp.json()["message"]
-        # Change back
-        api.post(f"{API_PREFIX}/auth/change-password", json={
-            "current_password": "NewSigemAdmin2026!!",
-            "new_password": "SigemAdmin2026!",
-            "confirm_password": "SigemAdmin2026!",
-        }, headers=auth_header(admin_token))
+        orig, alt = "SigemAdmin2026!", "NewSigemAdmin2026!!"
+
+        def _try_change(current, new):
+            return api.post(f"{API_PREFIX}/auth/change-password", json={
+                "current_password": current,
+                "new_password": new,
+                "confirm_password": new,
+            }, headers=auth_header(admin_token))
+
+        changed = False
+        try:
+            resp = _try_change(orig, alt)
+            assert resp.status_code == 200, resp.text
+            changed = True
+            assert "exitosamente" in resp.json()["message"]
+        finally:
+            if changed:
+                back = _try_change(alt, orig)
+                assert back.status_code == 200, back.text
 
     def test_change_password_mismatch(self, api, admin_token):
         resp = api.post(f"{API_PREFIX}/auth/change-password", json={

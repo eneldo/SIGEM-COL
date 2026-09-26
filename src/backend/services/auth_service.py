@@ -1,26 +1,25 @@
 """Auth service - Authentication and authorization logic"""
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, and_, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.usuario import Usuario
-from ..models.rol import Rol
-from ..models.usuario_rol import UsuarioRol
-from ..models.sesion import Sesion
-from ..models.intento_login import IntentoLogin
-from ..models.municipio import Municipio
+from ..core.config import settings
 from ..core.security import (
-    verify_password,
-    get_password_hash,
     create_access_token,
     create_refresh_token,
     decode_token,
     generate_temporary_password,
+    get_password_hash,
+    verify_password,
 )
-from ..core.config import settings
+from ..models.intento_login import IntentoLogin
+from ..models.municipio import Municipio
+from ..models.rol import Rol
+from ..models.sesion import Sesion
+from ..models.usuario import Usuario
+from ..models.usuario_rol import UsuarioRol
 
 
 class AuthService:
@@ -29,7 +28,7 @@ class AuthService:
 
     async def authenticate_user(
         self, username: str, password: str, municipio_codigo: str = None, ip_address: str = None, user_agent: str = None
-    ) -> Optional[dict]:
+    ) -> dict | None:
         # Get municipality
         if municipio_codigo:
             result = await self.db.execute(
@@ -76,7 +75,7 @@ class AuthService:
             municipio_id=municipio.id,
             ip_address=ip_address,
             user_agent=user_agent,
-            fecha_intento=datetime.now(timezone.utc),
+            fecha_intento=datetime.now(UTC),
         )
 
         if not user:
@@ -105,11 +104,11 @@ class AuthService:
         # Verify password
         if not verify_password(password, user.password_hash):
             user.intentos_fallidos += 1
-            user.ultimo_intento_fallido = datetime.now(timezone.utc)
+            user.ultimo_intento_fallido = datetime.now(UTC)
 
             # Lock account after max attempts
             if user.intentos_fallidos >= settings.RATE_LIMIT_LOGIN_ATTEMPTS:
-                user.fecha_bloqueo = datetime.now(timezone.utc)
+                user.fecha_bloqueo = datetime.now(UTC)
                 user.motivo_bloqueo = "MAX_LOGIN_ATTEMPTS"
 
             attempt.exitoso = False
@@ -122,7 +121,7 @@ class AuthService:
         # Successful login
         user.intentos_fallidos = 0
         user.ultimo_intento_fallido = None
-        user.ultimo_acceso = datetime.now(timezone.utc)
+        user.ultimo_acceso = datetime.now(UTC)
         user.ip_ultimo_acceso = ip_address
         user.user_agent_ultimo_acceso = user_agent
 
@@ -155,9 +154,9 @@ class AuthService:
             token_jti=refresh_payload["jti"],
             ip_address=ip_address,
             user_agent=user_agent,
-            fecha_creacion=datetime.now(timezone.utc),
-            ultima_actividad=datetime.now(timezone.utc),
-            fecha_expiracion=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+            fecha_creacion=datetime.now(UTC),
+            ultima_actividad=datetime.now(UTC),
+            fecha_expiracion=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
         self.db.add(session)
 
@@ -179,7 +178,7 @@ class AuthService:
             },
         }
 
-    async def get_current_user(self, user_id: str, municipio_id: str) -> Optional[Usuario]:
+    async def get_current_user(self, user_id: str, municipio_id: str) -> Usuario | None:
         result = await self.db.execute(
             select(Usuario).where(
                 and_(
@@ -222,7 +221,7 @@ class AuthService:
 
         user.password_hash = get_password_hash(new_password)
         user.must_change_password = False
-        user.ultimo_cambio_password = datetime.now(timezone.utc)
+        user.ultimo_cambio_password = datetime.now(UTC)
         await self.db.commit()
         return True
 

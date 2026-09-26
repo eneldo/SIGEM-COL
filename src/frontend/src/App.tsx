@@ -102,6 +102,12 @@ export default function App() {
           <Route path="registro-avance" element={<RegistroAvancePage />} />
           <Route path="revision-avances" element={<RevisionAvancesPage />} />
           <Route path="mis-avances" element={<GestorDashboardPage />} />
+          <Route path="mis-pendientes" element={<GestorDashboardPage />} />
+          <Route path="mis-alertas" element={<GestorDashboardPage />} />
+          <Route path="cumplimiento" element={<CumplimientoPage />} />
+          <Route path="reportes" element={<ReportesPage />} />
+          <Route path="configuracion" element={<ConfiguracionPage />} />
+          <Route path="configuracion/dependencias" element={<DependenciasPage />} />
         </Route>
 
         <Route path="/" element={<RootRedirect />} />

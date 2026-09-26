@@ -1,6 +1,7 @@
 """Base model - Modelo base para todas las entidades"""
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -16,8 +17,8 @@ class BaseModel(Base):
     __abstract__ = True
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
     version = Column(Integer, default=1, nullable=False)
     estado = Column(String(50), default="ACTIVO", nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -25,7 +26,7 @@ class BaseModel(Base):
 
     def soft_delete(self, user_id: uuid.UUID):
         """Eliminación lógica"""
-        self.deleted_at = datetime.now(timezone.utc)
+        self.deleted_at = datetime.now(UTC)
         self.deleted_by = user_id
         self.estado = "ELIMINADO_LOGICAMENTE"
 
@@ -44,6 +45,6 @@ class BaseModel(Base):
 
     @eliminado.inplace.setter
     def _eliminado_setter(self, value: bool) -> None:
-        self.deleted_at = datetime.now(timezone.utc) if value else None
+        self.deleted_at = datetime.now(UTC) if value else None
         if value:
             self.estado = "ELIMINADO_LOGICAMENTE"

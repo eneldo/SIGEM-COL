@@ -65,7 +65,7 @@ export default function ReportesPage() {
         setError('No hay sesión activa')
         return
       }
-      const response = await fetch('http://localhost:8002/api/v1/reportes/informe-pdf', {
+      const response = await fetch('/api/v1/reportes/informe-pdf', {
         headers: { 'Authorization': `Bearer ${token}` },
       })
       if (!response.ok) throw new Error('Error al descargar')

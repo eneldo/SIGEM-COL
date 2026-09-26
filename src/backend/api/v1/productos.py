@@ -11,26 +11,26 @@ Versión: 1.0
 Fecha: 2026-09-20
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
 from ...core.rbac import require_permission
-from ...api.v1.auth import get_current_user_from_token
-from ...services.producto_service import (
-    create_producto,
-    list_productos,
-    get_producto,
-    update_producto,
-    delete_producto,
-)
 from ...schemas.producto import (
     ProductoCreate,
-    ProductoUpdate,
-    ProductoResponse,
     ProductoListResponse,
+    ProductoResponse,
+    ProductoUpdate,
+)
+from ...services.producto_service import (
+    create_producto,
+    delete_producto,
+    get_producto,
+    list_productos,
+    update_producto,
 )
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
@@ -97,11 +97,11 @@ async def crear_producto(
     ),
 )
 async def listar_productos(
-    search: Optional[str] = Query(None, description="Búsqueda por nombre o código"),
-    programa_id: Optional[UUID] = Query(None, description="Filtrar por programa"),
-    dependencia_id: Optional[UUID] = Query(None, description="Filtrar por dependencia responsable"),
-    gestor_id: Optional[UUID] = Query(None, description="Filtrar por gestor líder"),
-    estado: Optional[str] = Query(None, description="Filtrar por estado (ACTIVO, INACTIVO)"),
+    search: str | None = Query(None, description="Búsqueda por nombre o código"),
+    programa_id: UUID | None = Query(None, description="Filtrar por programa"),
+    dependencia_id: UUID | None = Query(None, description="Filtrar por dependencia responsable"),
+    gestor_id: UUID | None = Query(None, description="Filtrar por gestor líder"),
+    estado: str | None = Query(None, description="Filtrar por estado (ACTIVO, INACTIVO)"),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
     current_user: dict = Depends(get_current_user_from_token),

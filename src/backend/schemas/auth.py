@@ -1,14 +1,13 @@
 """Auth schemas - Pydantic schemas for authentication"""
-from datetime import datetime
-from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field
+
+from pydantic import BaseModel, Field
 
 
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=1, max_length=128)
-    municipio_codigo: Optional[str] = Field(None, max_length=10)
+    municipio_codigo: str | None = Field(None, max_length=10)
 
 
 class TokenResponse(BaseModel):
@@ -38,7 +37,7 @@ class MFASetupResponse(BaseModel):
 
 class MFAVerifyRequest(BaseModel):
     code: str = Field(..., min_length=6, max_length=6)
-    factor_id: Optional[UUID] = None
+    factor_id: UUID | None = None
 
 
 class UserResponse(BaseModel):

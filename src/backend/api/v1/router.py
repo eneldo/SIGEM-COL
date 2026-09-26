@@ -1,20 +1,20 @@
 from fastapi import APIRouter
 
+from .auditoria import router as auditoria_router
 from .auth import router as auth_router
+from .catalogos import router as catalogos_router
+from .cumplimiento import router as cumplimiento_router
+from .dashboard import admin_router, gestor_router
+from .dependencias import router as dependencias_router
+from .gestor_dashboard import router as gestor_dashboard_router
 from .gestores import router as gestores_router
 from .health import router as health_router
 from .lineas import router as lineas_router
-from .programas import router as programas_router
 from .productos import router as productos_router
-from .dashboard import admin_router, gestor_router
-from .catalogos import router as catalogos_router
-from .usuarios import router as usuarios_router
-from .roles import router as roles_router
-from .auditoria import router as auditoria_router
+from .programas import router as programas_router
 from .reportes import router as reportes_router
-from .cumplimiento import router as cumplimiento_router
-from .gestor_dashboard import router as gestor_dashboard_router
-from .dependencias import router as dependencias_router
+from .roles import router as roles_router
+from .usuarios import router as usuarios_router
 
 api_router = APIRouter()
 

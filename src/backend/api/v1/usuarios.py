@@ -4,11 +4,14 @@ API Routes - Usuarios del Sistema
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
 from ...core.rbac import require_permission
-from ...api.v1.auth import get_current_user_from_token
 from ...schemas.configuracion import (
-    UsuarioCreate, UsuarioUpdate, UsuarioResponse, UsuarioListResponse,
+    UsuarioCreate,
+    UsuarioListResponse,
+    UsuarioResponse,
+    UsuarioUpdate,
 )
 from ...services import usuario_service
 

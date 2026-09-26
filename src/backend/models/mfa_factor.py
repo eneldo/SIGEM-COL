@@ -1,7 +1,9 @@
 """MFAFactor model - Modelo para factores MFA"""
 import uuid
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+
 from .base import Base
 
 

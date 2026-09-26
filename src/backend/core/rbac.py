@@ -1,12 +1,12 @@
 """RBAC utilities - Role-Based Access Control"""
-from typing import Optional
 from uuid import UUID
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.usuario_rol import UsuarioRol, RolPermiso
 from ..models.rol import Permiso
+from ..models.usuario_rol import RolPermiso, UsuarioRol
 
 
 def _normalize_permission(perm: str) -> str:

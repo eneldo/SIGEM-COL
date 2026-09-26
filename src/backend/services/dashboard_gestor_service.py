@@ -12,19 +12,18 @@ Fecha: 2026-09-20
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.usuario import Usuario
-from ..models.gestor_lider import GestorLider
 from ..models.dependencia import Dependencia
+from ..models.gestor_lider import GestorLider
 from ..models.linea_estrategica import LineaEstrategica
-from ..models.programa import Programa
 from ..models.producto import Producto
+from ..models.programa import Programa
+from ..models.usuario import Usuario
 from ..models.usuario_dependencia import UsuarioDependencia
-
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -210,7 +209,7 @@ async def get_mis_pendientes(
     :param gestor_id: Identificador del gestor líder.
     :return: Lista de diccionarios con los productos pendientes.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff_date = now - timedelta(days=DIAS_SIN_ACTUALIZACION)
 
     productos_stmt = (
@@ -291,7 +290,7 @@ async def get_mis_alertas(
     :return: Lista de diccionarios con las alertas personales.
     """
     alertas: list[dict] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Obtener gestor y usuario asociado
     gestor_stmt = (

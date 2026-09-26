@@ -4,14 +4,15 @@ Servicio de Reportes y Rendición de Cuentas - SIGEM Colombia
 Genera estadísticas, resúmenes y métricas para rendición de cuentas.
 """
 import uuid
-from sqlalchemy import select, and_, func
+
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.linea_estrategica import LineaEstrategica
-from ..models.programa import Programa
-from ..models.producto import Producto
 from ..models.dependencia import Dependencia
 from ..models.gestor_lider import GestorLider
+from ..models.linea_estrategica import LineaEstrategica
+from ..models.producto import Producto
+from ..models.programa import Programa
 
 
 async def get_resumen_general(

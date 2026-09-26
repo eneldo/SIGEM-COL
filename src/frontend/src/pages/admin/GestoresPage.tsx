@@ -9,7 +9,10 @@ type Modal = 'create' | 'edit' | 'details' | 'permissions' | 'audit' | 'credenti
 const emptyForm: GestorCreatePayload = {
   nombre_completo: '', email: '', telefono: '', cargo: '', rol_id: '',
   dependencia_principal_id: '', dependencias_adicionales: [],
+  username: '', password: '',
 }
+const PASSWORD_MIN = 15
+const SINGLE_DEP_ROLES = ['GESTOR', 'GESTOR_LIDER']
 
 function Icon({ name }: { name: 'plus' | 'refresh' | 'search' | 'edit' | 'shield' | 'key' | 'audit' | 'trash' | 'dots' | 'close' | 'copy' }) {
   const paths = {
@@ -94,11 +97,39 @@ export function GestoresPage() {
     setSaving(true); setError('')
     try {
       if (modal === 'create') {
-        const res = await gestores.create(form); setCredentials(res.data); setModal('credentials')
+        if (!form.dependencia_principal_id) {
+          setError('La dependencia principal es obligatoria. El coordinador solo debe estar asociado a su dependencia.')
+          setSaving(false)
+          return
+        }
+        if (form.password && form.password.length < PASSWORD_MIN) {
+          setError(`La contraseña debe tener al menos ${PASSWORD_MIN} caracteres.`)
+          setSaving(false)
+          return
+        }
+        if (form.username && form.username.trim().length < 3) {
+          setError('El usuario debe tener al menos 3 caracteres.')
+          setSaving(false)
+          return
+        }
+        const payload: GestorCreatePayload = {
+          ...form,
+          dependencias_adicionales: [],
+          username: form.username?.trim() || undefined,
+          password: form.password || undefined,
+        }
+        const res = await gestores.create(payload); setCredentials(res.data); setModal('credentials')
       } else if (modal === 'edit' && selected) {
         await gestores.update(selected.id, { nombre_completo: form.nombre_completo, email: form.email, telefono: form.telefono, cargo: form.cargo, dependencia_principal_id: form.dependencia_principal_id || undefined }); setModal(null)
       } else if (modal === 'permissions' && selected) {
-        await gestores.updatePermissions(selected.id, { rol_id: form.rol_id || undefined, dependencia_principal_id: form.dependencia_principal_id || undefined, dependencias_adicionales: form.dependencias_adicionales }); setModal(null)
+        const esCoordinador = selected.roles?.some((r) => SINGLE_DEP_ROLES.includes(r)) || false
+        const rolSel = roles.find((r) => r.id === form.rol_id)
+        const soloUnaDep = esCoordinador || (rolSel ? SINGLE_DEP_ROLES.includes(rolSel.codigo) : false)
+        await gestores.updatePermissions(selected.id, {
+          rol_id: form.rol_id || undefined,
+          dependencia_principal_id: form.dependencia_principal_id || undefined,
+          dependencias_adicionales: soloUnaDep ? [] : form.dependencias_adicionales,
+        }); setModal(null)
       }
       await load()
     } catch (e: unknown) {
@@ -137,7 +168,7 @@ export function GestoresPage() {
 
   return <div className="space-y-6 pb-8">
     <section className="flex flex-col gap-5 rounded-[28px] bg-pine px-6 py-7 text-white shadow-[0_18px_40px_rgba(10,43,41,.16)] sm:flex-row sm:items-end sm:justify-between sm:px-8">
-      <div><p className="text-xs font-bold uppercase tracking-[.2em] text-ochre-soft">Administración de usuarios</p><h1 className="mt-2 text-3xl font-bold">Gestores líderes</h1><p className="mt-2 max-w-2xl text-sm text-white/70">Cree cuentas, asigne roles y dependencias, gestione credenciales y consulte la trazabilidad de acceso.</p></div>
+      <div><p className="text-xs font-bold uppercase tracking-[.2em] text-ochre-soft">Administración de usuarios</p><h1 className="mt-2 text-3xl font-bold">Gestores Líderes / Coordinadores</h1><p className="mt-2 max-w-2xl text-sm text-white/70">Cree cuentas, asigne roles y dependencias, gestione credenciales y consulte la trazabilidad de acceso.</p></div>
       <div className="flex gap-2"><Button variant="ghost" onClick={load} className="border border-white/20 text-white hover:bg-white/10"><Icon name="refresh" />Actualizar</Button><Button onClick={openCreate} className="bg-ochre hover:bg-ochre-deep"><Icon name="plus" />Añadir gestor</Button></div>
     </section>
 
@@ -178,14 +209,92 @@ export function GestoresPage() {
       </div>
     </section>
 
-    {(modal === 'create' || modal === 'edit') && <ModalShell title={modal === 'create' ? 'Añadir gestor líder' : 'Editar gestor'} description={modal === 'create' ? 'El ID, usuario y contraseña serán generados automáticamente.' : `Actualice la información de ${selected?.nombre_completo}.`} close={() => setModal(null)}>
-      <div className="grid gap-4 p-6 sm:grid-cols-2"><div className="sm:col-span-2"><Input label="Nombre completo" required value={form.nombre_completo} onChange={(e) => setForm({ ...form, nombre_completo: e.target.value })} /></div><Input label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} /><Input label="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} /><div className="sm:col-span-2"><Input label="Correo electrónico" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>{modal === 'create' && <><label className="text-sm font-bold text-ink">Rol<select className={`${selectClass} mt-1`} value={form.rol_id} onChange={(e) => setForm({ ...form, rol_id: e.target.value })}>{roles.map((r) => <option key={r.id} value={r.id}>{r.nombre.replace(/_/g, ' ')}</option>)}</select></label><label className="text-sm font-bold text-ink">Dependencia principal<select className={`${selectClass} mt-1`} value={form.dependencia_principal_id} onChange={(e) => setForm({ ...form, dependencia_principal_id: e.target.value })}><option value="">Sin asignar</option>{dependencies.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select></label></>}</div>
-      <footer className="flex justify-end gap-3 border-t border-line px-6 py-4"><Button variant="ghost" onClick={() => setModal(null)}>Cancelar</Button><Button loading={saving} disabled={!form.nombre_completo || !form.email} onClick={save}>{modal === 'create' ? 'Crear gestor' : 'Guardar cambios'}</Button></footer>
+    {(modal === 'create' || modal === 'edit') && <ModalShell title={modal === 'create' ? 'Añadir gestor líder / coordinador' : 'Editar gestor'} description={modal === 'create' ? 'Asigne su dependencia. Usuario y contraseña: autogenerados por el sistema o definidos manualmente.' : `Actualice la información de ${selected?.nombre_completo}.`} close={() => setModal(null)}>
+      <div className="grid gap-4 p-6 sm:grid-cols-2">
+        <div className="sm:col-span-2"><Input label="Nombre completo" required value={form.nombre_completo} onChange={(e) => setForm({ ...form, nombre_completo: e.target.value })} /></div>
+        <Input label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
+        <Input label="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+        <div className="sm:col-span-2"><Input label="Correo electrónico" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+        {modal === 'create' && <>
+          <label className="text-sm font-bold text-ink">Rol
+            <select className={`${selectClass} mt-1`} value={form.rol_id} onChange={(e) => setForm({ ...form, rol_id: e.target.value })}>
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre.replace(/_/g, ' ')}</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-bold text-ink">Dependencia principal *
+            <select className={`${selectClass} mt-1`} value={form.dependencia_principal_id} onChange={(e) => setForm({ ...form, dependencia_principal_id: e.target.value })}>
+              <option value="">Seleccione su dependencia</option>
+              {dependencies.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+            </select>
+            <span className="mt-1 block text-xs font-normal text-ink-faint">El coordinador queda asociado solo a esta dependencia (sin dependencias adicionales).</span>
+          </label>
+          <Input
+            label="Usuario (opcional)"
+            value={form.username || ''}
+            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            placeholder="Autogenerado si se deja vacío"
+          />
+          <Input
+            label="Contraseña (opcional)"
+            value={form.password || ''}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            placeholder={`Mínimo ${PASSWORD_MIN} caracteres o autogenerar`}
+          />
+        </>}
+      </div>
+      <footer className="flex justify-end gap-3 border-t border-line px-6 py-4">
+        <Button variant="ghost" onClick={() => setModal(null)}>Cancelar</Button>
+        <Button
+          loading={saving}
+          disabled={!form.nombre_completo || !form.email || (modal === 'create' && !form.dependencia_principal_id)}
+          onClick={save}
+        >
+          {modal === 'create' ? 'Crear gestor' : 'Guardar cambios'}
+        </Button>
+      </footer>
     </ModalShell>}
 
-    {modal === 'permissions' && selected && <ModalShell title="Roles y permisos" description={`Configure el alcance de ${selected.nombre_completo}.`} close={() => setModal(null)}>
-      <div className="space-y-5 p-6"><label className="block text-sm font-bold text-ink">Rol asignado<select className={`${selectClass} mt-1`} value={form.rol_id} onChange={(e) => setForm({ ...form, rol_id: e.target.value })}>{roles.map((r) => <option key={r.id} value={r.id}>{r.nombre.replace(/_/g, ' ')}</option>)}</select></label><label className="block text-sm font-bold text-ink">Dependencia principal<select className={`${selectClass} mt-1`} value={form.dependencia_principal_id} onChange={(e) => setForm({ ...form, dependencia_principal_id: e.target.value })}><option value="">Sin asignar</option>{dependencies.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select></label><fieldset><legend className="text-sm font-bold text-ink">Dependencias adicionales</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{dependencies.filter((d) => d.id !== form.dependencia_principal_id).map((d) => <label key={d.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-line px-3 text-sm"><input type="checkbox" checked={form.dependencias_adicionales.includes(d.id)} onChange={(e) => setForm({ ...form, dependencias_adicionales: e.target.checked ? [...form.dependencias_adicionales, d.id] : form.dependencias_adicionales.filter((id) => id !== d.id) })} />{d.nombre}</label>)}</div></fieldset></div><footer className="flex justify-end gap-3 border-t border-line px-6 py-4"><Button variant="ghost" onClick={() => setModal(null)}>Cancelar</Button><Button loading={saving} onClick={save}>Guardar permisos</Button></footer>
-    </ModalShell>}
+    {modal === 'permissions' && selected && (() => {
+      const esCoordinador = selected.roles?.some((r) => SINGLE_DEP_ROLES.includes(r)) || false
+      const rolSel = roles.find((r) => r.id === form.rol_id)
+      const soloUnaDep = esCoordinador || (rolSel ? SINGLE_DEP_ROLES.includes(rolSel.codigo) : false)
+      return <ModalShell title="Roles y permisos" description={`Configure el alcance de ${selected.nombre_completo}.`} close={() => setModal(null)}>
+        <div className="space-y-5 p-6">
+          <label className="block text-sm font-bold text-ink">Rol asignado
+            <select className={`${selectClass} mt-1`} value={form.rol_id} onChange={(e) => setForm({ ...form, rol_id: e.target.value })}>
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre.replace(/_/g, ' ')}</option>)}
+            </select>
+          </label>
+          <label className="block text-sm font-bold text-ink">Dependencia principal *
+            <select className={`${selectClass} mt-1`} value={form.dependencia_principal_id} onChange={(e) => setForm({ ...form, dependencia_principal_id: e.target.value })}>
+              <option value="">Sin asignar</option>
+              {dependencies.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+            </select>
+          </label>
+          {soloUnaDep ? (
+            <p className="rounded-xl bg-forest-soft/60 px-4 py-3 text-xs text-forest">
+              Este rol mantiene una sola dependencia asociada. No se permiten dependencias adicionales.
+            </p>
+          ) : (
+            <fieldset>
+              <legend className="text-sm font-bold text-ink">Dependencias adicionales</legend>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {dependencies.filter((d) => d.id !== form.dependencia_principal_id).map((d) => (
+                  <label key={d.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-line px-3 text-sm">
+                    <input type="checkbox" checked={form.dependencias_adicionales.includes(d.id)} onChange={(e) => setForm({ ...form, dependencias_adicionales: e.target.checked ? [...form.dependencias_adicionales, d.id] : form.dependencias_adicionales.filter((id) => id !== d.id) })} />
+                    {d.nombre}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+        </div>
+        <footer className="flex justify-end gap-3 border-t border-line px-6 py-4">
+          <Button variant="ghost" onClick={() => setModal(null)}>Cancelar</Button>
+          <Button loading={saving} onClick={save}>Guardar permisos</Button>
+        </footer>
+      </ModalShell>
+    })()}
 
     {modal === 'details' && selected && <ModalShell title="Detalle del gestor" description={`${selected.codigo} · @${selected.username}`} close={() => setModal(null)} wide>
       <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -202,8 +311,8 @@ export function GestoresPage() {
       <footer className="flex flex-wrap justify-end gap-3 border-t border-line px-6 py-4"><Button variant="ghost" onClick={() => setModal(null)}>Cerrar</Button><Button onClick={() => openAudit(selected)}><Icon name="audit" />Ver auditoría</Button></footer>
     </ModalShell>}
 
-    {modal === 'credentials' && credentials && <ModalShell title="Credenciales temporales" description="Guarde esta información ahora. La contraseña no volverá a mostrarse." close={() => { setModal(null); setCredentials(null) }}>
-      <div className="space-y-3 p-6">{credentials.codigo && <Credential label="ID del gestor" value={credentials.codigo} />}{credentials.username && <Credential label="Usuario" value={credentials.username} />}<Credential label="Contraseña temporal" value={credentials.nueva_password_temporal} /><div className="rounded-xl bg-ochre-soft p-4 text-sm text-ochre-deep">El gestor deberá cambiar esta contraseña en su primer ingreso.</div></div><footer className="flex justify-end border-t border-line px-6 py-4"><Button onClick={() => { setModal(null); setCredentials(null) }}>Entendido</Button></footer>
+    {modal === 'credentials' && credentials && <ModalShell title="Credenciales del gestor" description="Guarde esta información ahora. La contraseña no volverá a mostrarse." close={() => { setModal(null); setCredentials(null) }}>
+      <div className="space-y-3 p-6">{credentials.codigo && <Credential label="ID del gestor" value={credentials.codigo} />}{credentials.username && <Credential label="Usuario" value={credentials.username} />}<Credential label="Contraseña" value={credentials.nueva_password_temporal} /><div className="rounded-xl bg-ochre-soft p-4 text-sm text-ochre-deep">Si la contraseña fue autogenerada, el gestor deberá cambiarla en su primer ingreso.</div></div><footer className="flex justify-end border-t border-line px-6 py-4"><Button onClick={() => { setModal(null); setCredentials(null) }}>Entendido</Button></footer>
     </ModalShell>}
 
     {modal === 'audit' && selected && <ModalShell wide title="Auditoría de acceso" description={`${selected.codigo} · ${selected.nombre_completo}`} close={() => setModal(null)}>

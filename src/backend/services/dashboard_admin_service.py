@@ -12,20 +12,18 @@ Fecha: 2026-09-20
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.usuario import Usuario
-from ..models.gestor_lider import GestorLider
 from ..models.dependencia import Dependencia
+from ..models.gestor_lider import GestorLider
 from ..models.linea_estrategica import LineaEstrategica
-from ..models.programa import Programa
-from ..models.producto import Producto
 from ..models.plan_desarrollo import PlanDesarrollo
-from ..models.auditoria_evento import AuditoriaEvento
-
+from ..models.producto import Producto
+from ..models.programa import Programa
+from ..models.usuario import Usuario
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -414,7 +412,7 @@ async def get_alertas(
     :return: Lista de diccionarios con las alertas detectadas.
     """
     alertas: list[dict] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff_date = now - timedelta(days=DIAS_INACTIVIDAD)
 
     # --- Gestores con intentos fallidos > 3 ---

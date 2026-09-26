@@ -1,7 +1,6 @@
 """Schemas Gestores Líderes - Pydantic models para el módulo de Gestores"""
-from typing import List, Optional
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -15,25 +14,47 @@ class GestorDependencia(BaseModel):
 class GestorCreate(BaseModel):
     nombre_completo: str = Field(..., min_length=3, max_length=300)
     email: EmailStr
-    telefono: Optional[str] = Field(None, max_length=20)
-    cargo: Optional[str] = Field(None, max_length=100)
-    rol_id: Optional[UUID] = None
-    dependencia_principal_id: Optional[UUID] = None
-    dependencias_adicionales: List[UUID] = []
+    telefono: str | None = Field(None, max_length=20)
+    cargo: str | None = Field(None, max_length=100)
+    rol_id: UUID | None = None
+    dependencia_principal_id: UUID | None = None
+    dependencias_adicionales: list[UUID] = []
+    username: str | None = Field(
+        None,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9._-]+$",
+        description="Usuario opcional; si se omite se autogenera.",
+    )
+    password: str | None = Field(
+        None,
+        min_length=15,
+        max_length=128,
+        description="Contraseña opcional; si se omite se genera una temporal.",
+    )
+
+
+class GestorPasswordUpdate(BaseModel):
+    nueva_password: str | None = Field(
+        None,
+        min_length=15,
+        max_length=128,
+        description="Contraseña personalizada; si se omite se genera una temporal.",
+    )
 
 
 class GestorUpdate(BaseModel):
-    nombre_completo: Optional[str] = Field(None, min_length=3, max_length=300)
-    email: Optional[EmailStr] = None
-    telefono: Optional[str] = Field(None, max_length=20)
-    cargo: Optional[str] = Field(None, max_length=100)
-    dependencia_principal_id: Optional[UUID] = None
+    nombre_completo: str | None = Field(None, min_length=3, max_length=300)
+    email: EmailStr | None = None
+    telefono: str | None = Field(None, max_length=20)
+    cargo: str | None = Field(None, max_length=100)
+    dependencia_principal_id: UUID | None = None
 
 
 class GestorPermisosUpdate(BaseModel):
-    rol_id: Optional[UUID] = None
-    dependencia_principal_id: Optional[UUID] = None
-    dependencias_adicionales: List[UUID] = []
+    rol_id: UUID | None = None
+    dependencia_principal_id: UUID | None = None
+    dependencias_adicionales: list[UUID] = []
 
 
 class GestorResponse(BaseModel):
@@ -41,28 +62,28 @@ class GestorResponse(BaseModel):
     codigo: str
     username: str
     email: str
-    telefono: Optional[str] = None
+    telefono: str | None = None
     nombre_completo: str
-    cargo: Optional[str] = None
-    rol: Optional[str] = None
-    rol_id: Optional[UUID] = None
-    roles: List[str] = []
-    dependencia_principal_id: Optional[UUID] = None
-    dependencia_principal: Optional[str] = None
-    dependencias: List[GestorDependencia] = []
+    cargo: str | None = None
+    rol: str | None = None
+    rol_id: UUID | None = None
+    roles: list[str] = []
+    dependencia_principal_id: UUID | None = None
+    dependencia_principal: str | None = None
+    dependencias: list[GestorDependencia] = []
     estado: str
     mfa_activo: bool
     must_change_password: bool
-    ultimo_acceso: Optional[datetime] = None
-    ip_ultimo_acceso: Optional[str] = None
+    ultimo_acceso: datetime | None = None
+    ip_ultimo_acceso: str | None = None
     intentos_fallidos: int = 0
-    ultimo_cambio_password: Optional[datetime] = None
+    ultimo_cambio_password: datetime | None = None
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 class GestorListResponse(BaseModel):
-    items: List[GestorResponse]
+    items: list[GestorResponse]
     total: int
     page: int
     page_size: int
@@ -70,20 +91,20 @@ class GestorListResponse(BaseModel):
 
 
 class GestorAccion(BaseModel):
-    motivo: Optional[str] = None
+    motivo: str | None = None
 
 
 class GestorPasswordReset(BaseModel):
     nueva_password_temporal: str = Field(..., read_only=True)
-    id: Optional[UUID] = None
-    codigo: Optional[str] = None
-    username: Optional[str] = None
+    id: UUID | None = None
+    codigo: str | None = None
+    username: str | None = None
 
 
 class GestorAccesoResponse(BaseModel):
     id: UUID
     exitoso: bool
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    razon_fallo: Optional[str] = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    razon_fallo: str | None = None
     fecha_intento: datetime

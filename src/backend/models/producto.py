@@ -1,8 +1,8 @@
 """Producto model - Modelo para productos"""
-import uuid
-from sqlalchemy import Column, String, ForeignKey, Text, Integer
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from .base import BaseModel
 
 
@@ -22,6 +22,7 @@ class Producto(BaseModel):
     unidad_medida = Column(String(100), nullable=True)
     dependencia_responsable_id = Column(UUID(as_uuid=True), ForeignKey("dependencias.id"), nullable=True)
     gestor_lider_id = Column(UUID(as_uuid=True), ForeignKey("gestores_lideres.id"), nullable=True)
+    asignado_at = Column(DateTime(timezone=True), nullable=True)
     estado = Column(String(50), default="ACTIVO", nullable=False)
 
     # Relationships

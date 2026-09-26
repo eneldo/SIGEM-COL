@@ -1,7 +1,9 @@
 """UsuarioDependencia model - Relación usuario-dependencia"""
 import uuid
-from sqlalchemy import Column, Boolean, ForeignKey
+
+from sqlalchemy import Boolean, Column, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
+
 from .base import Base
 
 

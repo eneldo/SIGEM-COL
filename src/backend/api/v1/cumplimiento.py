@@ -4,8 +4,8 @@ API Routes - Cumplimiento de Metas
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.database import get_db
 from ...api.v1.auth import get_current_user_from_token
+from ...core.database import get_db
 from ...schemas.cumplimiento import (
     CumplimientoGeneral,
     CumplimientoPorLinea,
