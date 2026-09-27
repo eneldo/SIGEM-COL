@@ -195,13 +195,15 @@ export default function RegistroAvancePage() {
     const arr = Array.from(fileList)
     const valid: { file: File; descripcion: string }[] = []
     let validationError = ''
+    let duplicados = 0
     for (const f of arr) {
       if (!allowed.includes(f.type)) { validationError = `"${f.name}": solo se permiten JPG, PNG o PDF.`; continue }
       if (f.size > 10 * 1024 * 1024) { validationError = `"${f.name}": no puede superar 10 MB.`; continue }
       const duplicado = [...archivos, ...valid].some((a) =>
         a.file.name === f.name && a.file.size === f.size && a.file.lastModified === f.lastModified,
       )
-      if (!duplicado) valid.push({ file: f, descripcion: '' })
+      if (duplicado) { duplicados += 1; continue }
+      valid.push({ file: f, descripcion: '' })
     }
 
     const disponibles = 4 - archivos.length
@@ -210,8 +212,14 @@ export default function RegistroAvancePage() {
 
     if (valid.length > disponibles) {
       setError('Cada avance permite máximo 4 evidencias.')
-    } else {
+    } else if (validationError) {
       setError(validationError)
+    } else if (duplicados && !accepted.length) {
+      setError('Esos archivos ya están seleccionados.')
+    } else if (duplicados) {
+      setError(`Se omitieron ${duplicados} archivo${duplicados !== 1 ? 's' : ''} ya seleccionados.`)
+    } else {
+      setError('')
     }
   }
 
@@ -426,20 +434,26 @@ export default function RegistroAvancePage() {
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-pine text-sm font-bold text-white">3</span>
                 <span><strong className="block text-sm text-ink">Evidencia de soporte</strong><small className="text-xs text-ink-faint">Adjunta uno o más documentos legibles que respalden el avance.</small></span>
               </legend>
-              <button type="button" onDragOver={(e) => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} disabled={archivos.length >= 4} className={clsx('group flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-all disabled:cursor-not-allowed', dragOver ? 'scale-[1.01] border-forest bg-forest-soft shadow-inner' : archivos.length ? 'border-forest/40 bg-forest-soft/50' : 'border-line bg-paper/35 hover:border-forest/50 hover:bg-forest-soft/30')}>
+              <label
+                htmlFor="evidencia-input"
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={clsx('group flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-all', archivos.length >= 4 ? 'cursor-not-allowed border-forest/30 bg-forest-soft/40 opacity-70' : dragOver ? 'scale-[1.01] cursor-pointer border-forest bg-forest-soft shadow-inner' : archivos.length ? 'cursor-pointer border-forest/40 bg-forest-soft/50' : 'cursor-pointer border-line bg-paper/35 hover:border-forest/50 hover:bg-forest-soft/30')}
+              >
                 <span className={clsx('flex h-12 w-12 items-center justify-center rounded-2xl transition', archivos.length ? 'bg-forest text-white' : 'bg-white text-pine shadow-sm group-hover:-translate-y-0.5')}><Icon name={archivos.length ? 'check' : 'document'} className="h-6 w-6" /></span>
-                <p className="mt-4 text-sm font-bold text-ink">{archivos.length ? `${archivos.length} archivo${archivos.length !== 1 ? 's' : ''} listo${archivos.length !== 1 ? 's' : ''} para cargar` : 'Arrastra tus archivos aquí'}</p>
-                <p className="mt-1 text-xs text-ink-faint">{archivos.length >= 4 ? 'Alcanzaste el máximo de 4 evidencias' : archivos.length ? 'Haz clic para agregar más' : 'o haz clic para seleccionar desde tu equipo'}</p>
+                <span className="mt-4 block text-sm font-bold text-ink">{archivos.length ? `${archivos.length} archivo${archivos.length !== 1 ? 's' : ''} listo${archivos.length !== 1 ? 's' : ''} para cargar` : 'Arrastra tus archivos aquí'}</span>
+                <span className="mt-1 block text-xs text-ink-faint">{archivos.length >= 4 ? 'Alcanzaste el máximo de 4 evidencias' : archivos.length ? 'Haz clic para agregar más' : 'o haz clic para seleccionar desde tu equipo'}</span>
                 {!archivos.length && <span className="mt-4 rounded-full border border-line bg-white px-3 py-1 text-[11px] font-bold text-ink-soft">JPG, PNG o PDF · máximo 4 archivos de 10 MB c/u</span>}
-              </button>
-              <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.pdf" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.currentTarget.value = '' }} />
+              </label>
+              <input id="evidencia-input" ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.pdf" multiple disabled={archivos.length >= 4} className="sr-only" onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.currentTarget.value = '' }} />
               {archivos.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-ink-faint"><strong className="text-ink">{archivos.length} evidencia{archivos.length !== 1 ? 's' : ''}</strong> seleccionada{archivos.length !== 1 ? 's' : ''}. Puedes agregar fotos, actas o planillas en PDF.</p>
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={archivos.length >= 4} className="inline-flex min-h-10 w-fit items-center gap-2 rounded-xl border border-forest/25 bg-forest-soft px-4 text-xs font-bold text-forest transition hover:border-forest/40 hover:bg-forest/10 disabled:cursor-not-allowed disabled:opacity-50">
+                    <label htmlFor="evidencia-input" className={clsx('inline-flex min-h-10 w-fit items-center gap-2 rounded-xl border px-4 text-xs font-bold transition', archivos.length >= 4 ? 'cursor-not-allowed border-line bg-paper text-ink-faint' : 'cursor-pointer border-forest/25 bg-forest-soft text-forest hover:border-forest/40 hover:bg-forest/10')}>
                       <Icon name="plus" className="h-4 w-4" /> {archivos.length >= 4 ? 'Máximo 4 evidencias' : 'Agregar otra evidencia'}
-                    </button>
+                    </label>
                   </div>
                   <ul className="space-y-3">
                   {archivos.map((a, i) => (

@@ -270,20 +270,28 @@ export default function EvidenciasModal({ avanceId, avanceNombre, subtitle, canE
         {canEdit && (
           <>
             <input
+              id="evidencia-modal-input"
               ref={fileInputRef}
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               multiple
-              className="hidden"
+              disabled={evidencias.length >= 4 || subiendo}
+              className="sr-only"
               onChange={(e) => { if (e.target.files) handleUpload(e.target.files) }}
             />
-            <Button
-              loading={subiendo}
-              disabled={evidencias.length >= 4}
-              onClick={() => fileInputRef.current?.click()}
+            <label
+              htmlFor="evidencia-modal-input"
+              aria-disabled={evidencias.length >= 4 || subiendo}
+              className={clsx(
+                'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-pine/30',
+                evidencias.length >= 4 || subiendo
+                  ? 'cursor-not-allowed bg-line text-ink-faint'
+                  : 'cursor-pointer bg-pine text-white shadow-sm hover:bg-pine-deep active:bg-pine-deep',
+              )}
             >
-              <Icon name="plus" /> {evidencias.length >= 4 ? 'Máximo 4 evidencias' : `Agregar evidencias (${evidencias.length}/4)`}
-            </Button>
+              <Icon name="plus" />
+              {subiendo ? 'Subiendo...' : evidencias.length >= 4 ? 'Máximo 4 evidencias' : `Agregar evidencias (${evidencias.length}/4)`}
+            </label>
           </>
         )}
       </footer>
