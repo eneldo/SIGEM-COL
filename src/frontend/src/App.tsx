@@ -123,8 +123,22 @@ export default function App() {
           <Route path="mis-alertas" element={<GestorDashboardPage />} />
           <Route path="cumplimiento" element={<CumplimientoPage />} />
           <Route path="reportes" element={<ReportesPage />} />
-          <Route path="configuracion" element={<ConfiguracionPage />} />
-          <Route path="configuracion/dependencias" element={<DependenciasPage />} />
+          <Route
+            path="configuracion"
+            element={
+              <ProtectedRoute requiredRole="ADMINISTRADOR_MUNICIPAL">
+                <ConfiguracionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="configuracion/dependencias"
+            element={
+              <ProtectedRoute requiredRole="ADMINISTRADOR_MUNICIPAL">
+                <DependenciasPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         <Route path="/" element={<RootRedirect />} />

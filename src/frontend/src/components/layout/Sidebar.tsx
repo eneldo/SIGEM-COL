@@ -28,8 +28,6 @@ const gestorLiderLinks = [
   { to: '/gestor/revision-avances', label: 'Revisión de Avances', icon: MIconCheck },
   { to: '/gestor/cumplimiento', label: 'Cumplimiento de Metas', icon: MIconTarget },
   { to: '/gestor/reportes', label: 'Reportes', icon: MIconChart },
-  { to: '/gestor/configuracion/dependencias', label: 'Dependencias', icon: MIconBuilding },
-  { to: '/gestor/configuracion', label: 'Configuración', icon: MIconSettings },
 ]
 
 const gestorLinks = [
