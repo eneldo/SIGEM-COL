@@ -39,7 +39,7 @@ def main() -> None:
     c = httpx.Client(base_url="http://backend:8000", timeout=30)
 
     # 1. Login
-    r = c.post("/api/v1/auth/login", json={"username": "enemova", "password": "EneldoGestor2026!"})
+    r = c.post("/api/v1/auth/login", json={"username": "enemova", "password": "EneldoGestor2026!", "municipio_codigo": "00000"})
     assert r.status_code == 200, f"login fail {r.status_code}"
     h = {"Authorization": f"Bearer {r.json()['access_token']}"}
     print("[1] Login OK - enemova")

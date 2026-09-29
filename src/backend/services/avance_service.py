@@ -528,9 +528,13 @@ async def revisar_avance(
     usuario_id: uuid.UUID,
     nuevo_estado: str,
     observacion: str | None = None,
+    gestor_lider_id: uuid.UUID | None = None,
 ) -> dict:
     """
     Aprueba o rechaza un avance.
+
+    gestor_lider_id is None for admins (may review anything in the
+    municipality); when set, the avance must belong to that gestor líder.
     """
     stmt = select(AvanceProducto).where(
         and_(
@@ -542,6 +546,11 @@ async def revisar_avance(
     avance = await db.scalar(stmt)
     if not avance:
         raise ValueError("Avance no encontrado.")
+
+    if gestor_lider_id is not None and avance.gestor_lider_id != gestor_lider_id:
+        raise PermissionError(
+            "No tiene permiso para revisar avances de otro gestor líder."
+        )
 
     if nuevo_estado not in ("APROBADO", "RECHAZADO"):
         raise ValueError("Estado inválido. Debe ser APROBADO o RECHAZADO.")

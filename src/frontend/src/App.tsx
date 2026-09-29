@@ -1,7 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { Layout } from './components/layout/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
+import { ChangePasswordPage } from './pages/auth/ChangePasswordPage'
+import { MfaVerifyPage } from './pages/auth/MfaVerifyPage'
+import { MfaPage } from './pages/auth/MfaPage'
 import { DashboardAdmin } from './pages/admin/DashboardAdmin'
 import { GestoresPage } from './pages/admin/GestoresPage'
 import { LineasPage } from './pages/admin/LineasPage'
@@ -33,10 +36,15 @@ function ProtectedRoute({
   children: React.ReactNode
   requiredRole?: string
 }) {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, mustChangePassword } = useAuthStore()
+  const location = useLocation()
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  if (mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
   }
 
   if (requiredRole && user && !user.roles.includes(requiredRole)) {
@@ -48,9 +56,11 @@ function ProtectedRoute({
 }
 
 function RootRedirect() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, mustChangePassword } = useAuthStore()
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
+
+  if (mustChangePassword) return <Navigate to="/change-password" replace />
 
   const role = user?.roles?.[0]
   if (role && adminRoles.includes(role)) return <Navigate to="/admin/dashboard" replace />
@@ -62,6 +72,26 @@ export default function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+
+        <Route path="/mfa-verify" element={<MfaVerifyPage />} />
+
+        <Route
+          path="/mfa"
+          element={
+            <ProtectedRoute>
+              <MfaPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/admin"

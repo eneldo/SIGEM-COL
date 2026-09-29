@@ -4,7 +4,7 @@ import asyncio
 import os
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from src.backend.core.database import AsyncSessionLocal
 from src.backend.core.security import get_password_hash
@@ -31,6 +31,13 @@ async def bootstrap_admin() -> None:
         )
         if municipio is None or role is None:
             raise RuntimeError("Run Alembic migrations before bootstrapping the administrator")
+
+        # Scope this session to the municipality: usuarios/usuario_roles have
+        # FORCE ROW LEVEL SECURITY and reject unscoped reads and writes.
+        await session.execute(
+            text("SELECT set_config('app.current_municipio_id', :value, false)"),
+            {"value": str(municipio.id)},
+        )
 
         user = await session.scalar(
             select(Usuario).where(

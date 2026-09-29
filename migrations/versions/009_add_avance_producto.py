@@ -16,9 +16,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Drop table if it exists from a partial run
-    op.execute("DROP TABLE IF EXISTS avances_producto CASCADE")
-    
     op.create_table(
         'avances_producto',
         sa.Column('id', UUID(as_uuid=True), primary_key=True),

@@ -7,12 +7,49 @@ from ...core.security import decode_token
 from ...schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
+    MFADisableRequest,
+    MFALoginRequest,
+    MFASetupResponse,
+    MFAStatusResponse,
+    MFAVerifyRequest,
+    RefreshTokenRequest,
     UserResponse,
 )
 from ...services.audit_service import AuditService
 from ...services.auth_service import AuthService
 
 router = APIRouter()
+
+# Rutas del flujo MFA (el suffix-match exige la ruta completa, no un prefijo).
+MFA_SUFFIXES = (
+    "/auth/mfa/status",
+    "/auth/mfa/setup",
+    "/auth/mfa/verify",
+    "/auth/mfa/login",
+    "/auth/mfa/disable",
+)
+
+# Endpoints a los que un usuario con must_change_password=True todavía puede acceder.
+PASSWORD_CHANGE_ALLOWED_SUFFIXES = (
+    "/auth/login",
+    "/auth/change-password",
+    "/auth/logout",
+    "/auth/me",
+    "/auth/refresh",
+    *MFA_SUFFIXES,
+)
+
+# Admins must have MFA enabled; only the MFA flow itself (plus the
+# password-change/logout recovery paths, which still require the current
+# password or a valid session) stays reachable until they complete setup.
+MFA_ALLOWED_SUFFIXES = (
+    *MFA_SUFFIXES,
+    "/auth/change-password",
+    "/auth/logout",
+    "/auth/me",
+    "/auth/refresh",
+)
+ADMIN_ROLES = ("SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL")
 
 
 async def get_current_user_from_token(
@@ -34,6 +71,16 @@ async def get_current_user_from_token(
         )
 
     auth_service = AuthService(db)
+
+    # A revoked or expired session invalidates its access token immediately,
+    # even when the JWT itself is still signature-valid.
+    sid = payload.get("sid")
+    if sid is not None and not await auth_service.get_active_session(sid):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión revocada o expirada",
+        )
+
     user = await auth_service.get_current_user(
         payload["sub"], payload["municipio_id"]
     )
@@ -43,7 +90,31 @@ async def get_current_user_from_token(
             detail="Usuario no encontrado",
         )
 
+    # Server-side enforcement of the mandatory password change: while the flag
+    # is set, only the password-change flow itself is reachable.
+    if user.must_change_password and not any(
+        request.url.path.endswith(suffix)
+        for suffix in PASSWORD_CHANGE_ALLOWED_SUFFIXES
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="PASSWORD_CHANGE_REQUIRED",
+        )
+
     roles = await auth_service.get_user_roles(user.id)
+
+    if (
+        any(role in ADMIN_ROLES for role in roles)
+        and not user.mfa_activo
+        and not any(
+            request.url.path.endswith(suffix) for suffix in MFA_ALLOWED_SUFFIXES
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="MFA_SETUP_REQUIRED",
+        )
+
     permissions = await auth_service.get_user_permissions(user.id)
     return {
         "user": user,
@@ -147,6 +218,159 @@ async def change_password(
     )
 
     return {"message": "Contraseña cambiada exitosamente"}
+
+
+@router.get("/mfa/status", response_model=MFAStatusResponse)
+async def mfa_status(
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+):
+    auth_service = AuthService(db)
+    return MFAStatusResponse(**await auth_service.mfa_status(current_user["user"]))
+
+
+@router.post("/mfa/setup", response_model=MFASetupResponse)
+async def mfa_setup(
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+):
+    auth_service = AuthService(db)
+    try:
+        result = await auth_service.mfa_setup(current_user["user"])
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    audit_service = AuditService(db)
+    await audit_service.log_event(
+        evento_tipo="MFA_SETUP",
+        resultado="EXITOSO",
+        municipio_id=current_user["user"].municipio_id,
+        usuario_id=current_user["user"].id,
+    )
+    return MFASetupResponse(**result)
+
+
+@router.post("/mfa/verify")
+async def mfa_verify(
+    data: MFAVerifyRequest,
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+):
+    auth_service = AuthService(db)
+    try:
+        ok = await auth_service.mfa_verify(current_user["user"], data.code)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Código MFA inválido.",
+        )
+
+    audit_service = AuditService(db)
+    await audit_service.log_event(
+        evento_tipo="MFA_ENABLED",
+        resultado="EXITOSO",
+        municipio_id=current_user["user"].municipio_id,
+        usuario_id=current_user["user"].id,
+    )
+    return {"message": "MFA activado exitosamente", "mfa_activo": True}
+
+
+@router.post("/mfa/login", response_model=dict)
+async def mfa_login(
+    data: MFALoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    auth_service = AuthService(db)
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent", "")
+
+    result = await auth_service.mfa_login(
+        mfa_token=data.mfa_token,
+        code=data.code,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Código MFA inválido o token expirado.",
+        )
+
+    audit_service = AuditService(db)
+    await audit_service.log_event(
+        evento_tipo="LOGIN_OK_MFA",
+        resultado="EXITOSO",
+        municipio_id=result["user"]["municipio_id"],
+        usuario_id=result["user"]["id"],
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    return result
+
+
+@router.post("/mfa/disable")
+async def mfa_disable(
+    data: MFADisableRequest,
+    current_user=Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
+):
+    auth_service = AuthService(db)
+    try:
+        ok = await auth_service.mfa_disable(
+            current_user["user"], data.password, data.code
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Contraseña o código MFA inválido.",
+        )
+
+    audit_service = AuditService(db)
+    await audit_service.log_event(
+        evento_tipo="MFA_DISABLED",
+        resultado="EXITOSO",
+        municipio_id=current_user["user"].municipio_id,
+        usuario_id=current_user["user"].id,
+    )
+    return {"message": "MFA desactivado exitosamente", "mfa_activo": False}
+
+
+@router.post("/refresh")
+async def refresh_tokens(
+    data: RefreshTokenRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    auth_service = AuthService(db)
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent", "")
+
+    result = await auth_service.refresh_session(
+        data.refresh_token, ip_address, user_agent
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token inválido o expirado.",
+        )
+
+    audit_service = AuditService(db)
+    await audit_service.log_event(
+        evento_tipo="TOKEN_REFRESH",
+        resultado="EXITOSO",
+        municipio_id=result["user"]["municipio_id"],
+        usuario_id=result["user"]["id"],
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    return result
 
 
 @router.post("/logout")

@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -61,6 +61,7 @@ out/
 
 # Coverage
 htmlcov/
+coverage/
 .coverage
 .coverage.*
 coverage.xml

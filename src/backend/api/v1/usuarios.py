@@ -94,7 +94,7 @@ async def eliminar_usuario(
     await require_permission(db, current_user["user"].id, "security.usuarios.eliminar")
     import uuid as _uuid
     municipio_id = current_user["municipio_id"]
-    user_id = _uuid.UUID(current_user["user"].id)
+    user_id = _uuid.UUID(str(current_user["user"].id))
     result = await usuario_service.delete_usuario(db, municipio_id, _uuid.UUID(usuario_id), user_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")

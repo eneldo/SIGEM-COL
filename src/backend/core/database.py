@@ -49,22 +49,40 @@ class RLSMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-async def get_db() -> AsyncSession:
+TENANT_CONTEXT_SQL = "SELECT set_config('app.current_municipio_id', :value, false)"
+
+
+async def set_tenant_context(session: AsyncSession, municipio_id) -> None:
+    """
+    Set (or clear) the PostgreSQL RLS tenant context for this session.
+
+    Uses session-level set_config (is_local=false) so the context survives the
+    commits performed mid-request by services. Combined with get_db's dedicated
+    per-request connection, the GUC can never leak to or from another request.
+    """
+    value = str(municipio_id) if municipio_id else ""
+    await session.execute(text(TENANT_CONTEXT_SQL), {"value": value})
+
+
+async def get_db(request: Request) -> AsyncSession:
     """
     Database session dependency with RLS activation.
-    The RLS middleware must be in the middleware stack for this to work.
-    """
-    async with AsyncSessionLocal() as session:
-        try:
-            # Activate Row-Level Security if municipio_id is available
-            # This is set by RLSMiddleware before this dependency runs
-            from fastapi import Request as FastAPIRequest
-            try:
-                # FastAPI dependency injection provides request context
-                request = FastAPIRequest.scope.get("app")
-            except Exception:
-                pass
 
+    RLSMiddleware extracts municipio_id from the JWT into request.state;
+    this dependency applies it to the session before any query runs.
+    Sessions without a token are explicitly scoped to the empty tenant,
+    which makes every RLS-protected query fail closed.
+
+    The session is bound to a connection held for the whole request: services
+    that commit mid-request keep the same physical connection, so the tenant
+    GUC (set once below) stays valid for every later statement of the request.
+    """
+    async with engine.connect() as connection:
+        session = AsyncSession(bind=connection, expire_on_commit=False)
+        try:
+            await set_tenant_context(
+                session, getattr(request.state, "municipio_id", None)
+            )
             yield session
             await session.commit()
         except Exception:
@@ -76,18 +94,15 @@ async def get_db() -> AsyncSession:
 
 async def get_db_with_rls(request: Request) -> AsyncSession:
     """
-    Database session dependency with RLS activation.
-    Extracts municipio_id from request.state (set by RLSMiddleware)
-    and activates PostgreSQL Row-Level Security.
+    Backward-compatible alias of get_db: both dependencies apply the same
+    tenant context, so endpoints can no longer obtain an unscoped session.
     """
-    async with AsyncSessionLocal() as session:
+    async with engine.connect() as connection:
+        session = AsyncSession(bind=connection, expire_on_commit=False)
         try:
-            municipio_id = getattr(request.state, "municipio_id", None)
-            if municipio_id:
-                await session.execute(
-                    text("SELECT set_config('app.current_municipio_id', :mid, true)"),
-                    {"mid": str(municipio_id)},
-                )
+            await set_tenant_context(
+                session, getattr(request.state, "municipio_id", None)
+            )
             yield session
             await session.commit()
         except Exception:

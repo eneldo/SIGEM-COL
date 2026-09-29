@@ -2,12 +2,15 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import pyotp
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
+from ..core.database import set_tenant_context
 from ..core.security import (
     create_access_token,
+    create_mfa_token,
     create_refresh_token,
     decode_token,
     generate_temporary_password,
@@ -29,44 +32,33 @@ class AuthService:
     async def authenticate_user(
         self, username: str, password: str, municipio_codigo: str = None, ip_address: str = None, user_agent: str = None
     ) -> dict | None:
-        # Get municipality
-        if municipio_codigo:
-            result = await self.db.execute(
-                select(Municipio).where(Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO")
-            )
-            municipio = result.scalar_one_or_none()
-            if not municipio:
-                return None
+        # Municipality is mandatory: it scopes the login lookup under RLS.
+        if not municipio_codigo:
+            return None
 
-            # Get user by username + municipio
-            result = await self.db.execute(
-                select(Usuario).where(
-                    and_(
-                        Usuario.username == username,
-                        Usuario.municipio_id == municipio.id,
-                        Usuario.deleted_at.is_(None),
-                    )
+        # municipios is a global table (no RLS), safe to query unscoped.
+        result = await self.db.execute(
+            select(Municipio).where(Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO")
+        )
+        municipio = result.scalar_one_or_none()
+        if not municipio:
+            return None
+
+        # Scope this session to the municipality before touching any
+        # RLS-protected table (usuarios, intentos_login, sesiones, ...).
+        await set_tenant_context(self.db, municipio.id)
+
+        # Get user by username + municipio
+        result = await self.db.execute(
+            select(Usuario).where(
+                and_(
+                    Usuario.username == username,
+                    Usuario.municipio_id == municipio.id,
+                    Usuario.deleted_at.is_(None),
                 )
             )
-            user = result.scalar_one_or_none()
-        else:
-            # No municipio specified: find user by username only
-            result = await self.db.execute(
-                select(Usuario).where(
-                    and_(
-                        Usuario.username == username,
-                        Usuario.deleted_at.is_(None),
-                    )
-                )
-            )
-            user = result.scalar_one_or_none()
-            if not user:
-                return None
-            # Get the user's municipality
-            result = await self.db.execute(
-                select(Municipio).where(Municipio.id == user.municipio_id)
-            )
-            municipio = result.scalar_one_or_none()
+        )
+        user = result.scalar_one_or_none()
 
         # Record login attempt
         attempt = IntentoLogin(
@@ -102,7 +94,7 @@ class AuthService:
             return None
 
         # Verify password
-        if not verify_password(password, user.password_hash):
+        if not verify_password(password, str(user.password_hash)):
             user.intentos_fallidos += 1
             user.ultimo_intento_fallido = datetime.now(UTC)
 
@@ -130,27 +122,60 @@ class AuthService:
         self.db.add(attempt)
 
         # Get user roles
-        result = await self.db.execute(
-            select(Rol.codigo)
-            .join(UsuarioRol, UsuarioRol.rol_id == Rol.id)
-            .where(UsuarioRol.usuario_id == user.id)
-        )
-        roles = [row[0] for row in result.all()]
+        roles = await self.get_user_roles(uuid.UUID(str(user.id)))
 
-        # Create tokens
         token_data = {
             "sub": str(user.id),
             "municipio_id": str(municipio.id),
             "username": user.username,
         }
-        access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)
 
-        # Create session
+        # Second factor required: do NOT issue session tokens yet. The client
+        # must exchange the short-lived mfa_token for real tokens via /auth/mfa/login.
+        if user.mfa_activo:
+            await self.db.commit()
+            return {
+                "mfa_required": True,
+                "mfa_token": create_mfa_token(token_data),
+                "expires_in": 300,
+                "must_change_password": user.must_change_password,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "nombre_completo": user.nombre_completo,
+                    "municipio_id": municipio.id,
+                    "roles": roles,
+                },
+            }
+
+        return await self._issue_tokens(
+            user, municipio.id, roles, token_data, ip_address, user_agent
+        )
+
+    async def _issue_tokens(
+        self,
+        user: Usuario,
+        municipio_id: uuid.UUID,
+        roles: list[str],
+        token_data: dict,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> dict:
+        """Create access/refresh tokens, persist the session and return the login payload.
+
+        The access token carries a `sid` claim pointing to the persisted
+        session, so revoking the session invalidates the token immediately.
+        """
+        session_id = uuid.uuid4()
+        refresh_token = create_refresh_token(token_data)
         refresh_payload = decode_token(refresh_token)
+        access_token = create_access_token({**token_data, "sid": str(session_id)})
+
         session = Sesion(
+            id=session_id,
             usuario_id=user.id,
-            municipio_id=municipio.id,
+            municipio_id=municipio_id,
             token_jti=refresh_payload["jti"],
             ip_address=ip_address,
             user_agent=user_agent,
@@ -162,21 +187,198 @@ class AuthService:
 
         await self.db.commit()
 
+        return self._login_payload(user, roles, access_token, refresh_token)
+
+    @staticmethod
+    def _login_payload(
+        user: Usuario,
+        roles: list[str],
+        access_token: str,
+        refresh_token: str,
+    ) -> dict:
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "must_change_password": user.must_change_password,
-            "mfa_required": user.mfa_activo,
+            "mfa_required": False,
             "user": {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "nombre_completo": user.nombre_completo,
-                "municipio_id": municipio.id,
+                "municipio_id": user.municipio_id,
                 "roles": roles,
             },
         }
+
+    async def get_active_session(self, session_id: str) -> bool:
+        """Check that the session referenced by a token's `sid` is still active."""
+        try:
+            sid = uuid.UUID(session_id)
+        except ValueError:
+            return False
+        result = await self.db.execute(
+            select(Sesion.id).where(
+                and_(
+                    Sesion.id == sid,
+                    Sesion.activa == 1,
+                    Sesion.fecha_expiracion > datetime.now(UTC),
+                )
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def refresh_session(
+        self,
+        refresh_token: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict | None:
+        """Validate and rotate a refresh token, keeping the same session (`sid`).
+
+        A refresh token that was already rotated (or whose session was revoked)
+        revokes every session of the user, as it signals token theft.
+        """
+        payload = decode_token(refresh_token)
+        if not payload or payload.get("type") != "refresh" or not payload.get("jti"):
+            return None
+
+        await set_tenant_context(self.db, uuid.UUID(payload["municipio_id"]))
+
+        result = await self.db.execute(
+            select(Sesion).where(Sesion.token_jti == payload["jti"])
+        )
+        session = result.scalar_one_or_none()
+        if session is None:
+            return None
+
+        user = await self.get_current_user(payload["sub"], payload["municipio_id"])
+        if user is None:
+            return None
+
+        now = datetime.now(UTC)
+        if session.activa != 1 or session.fecha_expiracion <= now:
+            await self.revoke_all_sessions(uuid.UUID(str(user.id)))
+            return None
+
+        roles = await self.get_user_roles(uuid.UUID(str(user.id)))
+        token_data = {
+            "sub": str(user.id),
+            "municipio_id": payload["municipio_id"],
+            "username": user.username,
+        }
+
+        # Rotate: close the current session and issue a new one under a new
+        # `sid`. The old row keeps its jti so a replay can be recognized.
+        session.activa = 0
+        new_session_id = uuid.uuid4()
+        new_refresh = create_refresh_token(token_data)
+        new_payload = decode_token(new_refresh)
+        new_session = Sesion(
+            id=new_session_id,
+            usuario_id=uuid.UUID(str(user.id)),
+            municipio_id=uuid.UUID(str(session.municipio_id)),
+            token_jti=new_payload["jti"],
+            ip_address=ip_address or session.ip_address,
+            user_agent=user_agent or session.user_agent,
+            fecha_creacion=now,
+            ultima_actividad=now,
+            fecha_expiracion=now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+        self.db.add(new_session)
+
+        access_token = create_access_token({**token_data, "sid": str(new_session_id)})
+
+        await self.db.commit()
+
+        return self._login_payload(user, roles, access_token, new_refresh)
+
+    async def mfa_login(
+        self,
+        mfa_token: str,
+        code: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict | None:
+        """Second login step: validate the TOTP code and issue real tokens."""
+        payload = decode_token(mfa_token)
+        if not payload or payload.get("type") != "mfa":
+            return None
+
+        await set_tenant_context(self.db, uuid.UUID(payload["municipio_id"]))
+
+        user = await self.get_current_user(payload["sub"], payload["municipio_id"])
+        if not user or not user.mfa_activo or not user.mfa_secret:
+            return None
+
+        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+            return None
+
+        roles = await self.get_user_roles(uuid.UUID(str(user.id)))
+        token_data = {
+            "sub": str(user.id),
+            "municipio_id": payload["municipio_id"],
+            "username": user.username,
+        }
+        return await self._issue_tokens(
+            user, uuid.UUID(str(user.municipio_id)), roles, token_data, ip_address, user_agent
+        )
+
+    # ------------------------------------------------------------------
+    # MFA management (TOTP)
+    # ------------------------------------------------------------------
+
+    async def mfa_status(self, user: Usuario) -> dict:
+        if user.mfa_activo:
+            return {"mfa_activo": True, "pending": False}
+        if user.mfa_secret:
+            totp = pyotp.TOTP(str(user.mfa_secret))
+            return {
+                "mfa_activo": False,
+                "pending": True,
+                "secret": user.mfa_secret,
+                "qr_code_url": totp.provisioning_uri(
+                    name=str(user.username), issuer_name=settings.MFA_ISSUER
+                ),
+            }
+        return {"mfa_activo": False, "pending": False}
+
+    async def mfa_setup(self, user: Usuario) -> dict:
+        if user.mfa_activo:
+            raise ValueError("MFA ya está activo; desactívelo antes de volver a configurarlo.")
+        secret = pyotp.random_base32()
+        user.mfa_secret = secret
+        user.mfa_activo = False
+        await self.db.commit()
+        totp = pyotp.TOTP(secret)
+        return {
+            "secret": secret,
+            "qr_code_url": totp.provisioning_uri(
+                name=str(user.username), issuer_name=settings.MFA_ISSUER
+            ),
+        }
+
+    async def mfa_verify(self, user: Usuario, code: str) -> bool:
+        if not user.mfa_secret:
+            raise ValueError("No hay un secreto MFA pendiente; ejecute setup primero.")
+        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+            return False
+        user.mfa_activo = True
+        await self.db.commit()
+        return True
+
+    async def mfa_disable(self, user: Usuario, password: str, code: str) -> bool:
+        if not user.mfa_activo or not user.mfa_secret:
+            raise ValueError("MFA no está activo en esta cuenta.")
+        if not verify_password(password, str(user.password_hash)):
+            return False
+        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+            return False
+        user.mfa_activo = False
+        user.mfa_secret = None
+        await self.db.commit()
+        return True
 
     async def get_current_user(self, user_id: str, municipio_id: str) -> Usuario | None:
         result = await self.db.execute(

@@ -8,6 +8,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const { login, isAuthenticated, user, mustChangePassword } = useAuthStore()
   const [username, setUsername] = useState('')
+  const [municipio, setMunicipio] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -33,9 +34,11 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      await login(username, password)
+      await login(username, password, municipio)
       const store = useAuthStore.getState()
-      if (store.mustChangePassword) {
+      if (store.mfaRequired) {
+        navigate('/mfa-verify', { replace: true })
+      } else if (store.mustChangePassword) {
         navigate('/change-password', { replace: true })
       } else {
         const role = store.user?.roles?.[0]
@@ -79,6 +82,16 @@ export function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
+            />
+
+            <Input
+              label="Municipio"
+              placeholder="Código del municipio (ej. 00000)"
+              value={municipio}
+              onChange={(e) => setMunicipio(e.target.value)}
+              required
+              maxLength={10}
+              autoComplete="off"
             />
 
             <div>

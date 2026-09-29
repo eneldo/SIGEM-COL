@@ -1,4 +1,6 @@
 """Tests de seguridad - Inyección SQL, XSS, rate limiting, auth bypass."""
+import uuid
+
 import pytest
 from tests.conftest import API_PREFIX, auth_header
 
@@ -21,6 +23,7 @@ class TestSQLInjection:
         resp = api.post(f"{API_PREFIX}/auth/login", json={
             "username": payload,
             "password": "anything_12345",
+            "municipio_codigo": "00000",
         })
         # Should NOT return 200 with a valid token
         # 429 = rate limited (acceptable)
@@ -144,3 +147,77 @@ class TestInputValidation:
             headers=auth_header(admin_token),
         )
         assert resp.status_code in (200, 422)
+
+
+class TestAuthorizationEnforcement:
+    """Server-side authorization on writes that were previously auth-only."""
+
+    def test_dependencias_write_requires_permission(self, api, gestor_token):
+        resp = api.post(
+            f"{API_PREFIX}/dependencias",
+            json={
+                "codigo": f"DEP-SIN-PERM-{uuid.uuid4().hex[:6].upper()}",
+                "nombre": "Dependencia sin permiso",
+            },
+            headers=auth_header(gestor_token),
+        )
+        assert resp.status_code == 403, resp.text
+        assert "dependencia.crear" in resp.json()["detail"]
+
+    def test_dependencias_write_admin_ok(self, api, admin_token):
+        codigo = f"DEP-TEST-{uuid.uuid4().hex[:6].upper()}"
+        created = api.post(
+            f"{API_PREFIX}/dependencias",
+            json={"codigo": codigo, "nombre": "Dependencia de prueba autorización"},
+            headers=auth_header(admin_token),
+        )
+        assert created.status_code == 201, created.text
+        dep_id = created.json()["id"]
+
+        deleted = api.delete(
+            f"{API_PREFIX}/dependencias/{dep_id}",
+            headers=auth_header(admin_token),
+        )
+        assert deleted.status_code == 204, deleted.text
+
+    def test_revision_requires_leader_or_admin(self, api, gestor_token, admin_token):
+        productos = api.get(
+            f"{API_PREFIX}/gestor/dashboard/mis-productos",
+            headers=auth_header(gestor_token),
+        ).json()
+        assert productos, "El gestor debe tener al menos un producto asignado"
+
+        created = api.post(
+            f"{API_PREFIX}/gestor/dashboard/avances?producto_id={productos[0]['id']}",
+            json={
+                "avance_porcentaje": 5.0,
+                "observaciones": "Avance para test de autorización",
+                "estado_revision": "PENDIENTE",
+            },
+            headers=auth_header(gestor_token),
+        )
+        assert created.status_code == 201, created.text
+        avance_id = created.json()["id"]
+
+        # A plain GESTOR (not líder, not admin) cannot review avances.
+        list_resp = api.get(
+            f"{API_PREFIX}/gestor/dashboard/revision/avances",
+            headers=auth_header(gestor_token),
+        )
+        assert list_resp.status_code == 403, list_resp.text
+        assert "avance.revisar" in list_resp.json()["detail"]
+
+        patch_resp = api.patch(
+            f"{API_PREFIX}/gestor/dashboard/revision/{avance_id}",
+            json={"nuevo_estado": "APROBADO"},
+            headers=auth_header(gestor_token),
+        )
+        assert patch_resp.status_code == 403, patch_resp.text
+        assert "avance.revisar" in patch_resp.json()["detail"]
+
+        # Admin keeps access.
+        admin_list = api.get(
+            f"{API_PREFIX}/gestor/dashboard/revision/avances",
+            headers=auth_header(admin_token),
+        )
+        assert admin_list.status_code == 200, admin_list.text

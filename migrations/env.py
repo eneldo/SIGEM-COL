@@ -20,9 +20,15 @@ from src.backend.models import *
 config = context.config
 
 import os
-database_url = os.environ.get("DATABASE_URL")
+# Migrations run with the owner (superuser) connection; the application itself
+# must always use the non-superuser role so RLS can actually be enforced.
+database_url = os.environ.get("ALEMBIC_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not database_url:
+    from src.backend.core.config import settings
+
+    database_url = settings.DATABASE_URL
 if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

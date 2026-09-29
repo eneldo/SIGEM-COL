@@ -1,5 +1,7 @@
 """Tests de autenticación - Login, tokens, cambio de contraseña."""
-from tests.conftest import API_PREFIX, auth_header
+import uuid
+
+from tests.conftest import API_PREFIX, auth_header, create_temp_user, login_as
 
 
 class TestLogin:
@@ -9,6 +11,7 @@ class TestLogin:
         resp = api.post(f"{API_PREFIX}/auth/login", json={
             "username": "admin",
             "password": "SigemAdmin2026!",
+            "municipio_codigo": "00000",
         })
         assert resp.status_code == 200
         data = resp.json()
@@ -23,6 +26,7 @@ class TestLogin:
         resp = api.post(f"{API_PREFIX}/auth/login", json={
             "username": "enemova",
             "password": "EneldoGestor2026!",
+            "municipio_codigo": "00000",
         })
         assert resp.status_code == 200
         data = resp.json()
@@ -33,6 +37,7 @@ class TestLogin:
         resp = api.post(f"{API_PREFIX}/auth/login", json={
             "username": "admin",
             "password": "wrong_password_12345",
+            "municipio_codigo": "00000",
         })
         assert resp.status_code == 401
         assert "Credenciales" in resp.json()["detail"]
@@ -41,8 +46,16 @@ class TestLogin:
         resp = api.post(f"{API_PREFIX}/auth/login", json={
             "username": "usuario_falso_xyz",
             "password": "whatever_password_12345",
+            "municipio_codigo": "00000",
         })
         assert resp.status_code == 401
+
+    def test_login_without_municipio_rejected(self, api):
+        resp = api.post(f"{API_PREFIX}/auth/login", json={
+            "username": "admin",
+            "password": "SigemAdmin2026!",
+        })
+        assert resp.status_code == 422
 
     def test_login_empty_body(self, api):
         resp = api.post(f"{API_PREFIX}/auth/login", json={})
@@ -86,9 +99,19 @@ class TestLogout:
     """Pruebas de cierre de sesión."""
 
     def test_logout_ok(self, api, admin_token):
-        resp = api.post(f"{API_PREFIX}/auth/logout", headers=auth_header(admin_token))
-        assert resp.status_code == 200
-        assert "Sesión cerrada" in resp.json()["message"]
+        # Logout revoca todas las sesiones del usuario: se usa un usuario
+        # temporal para no invalidar el token compartido del fixture admin.
+        user_id, username, password = create_temp_user(api, admin_token)
+        try:
+            login = login_as(api, username, password)
+            assert login.status_code == 200, login.text
+            token = login.json()["access_token"]
+
+            resp = api.post(f"{API_PREFIX}/auth/logout", headers=auth_header(token))
+            assert resp.status_code == 200
+            assert "Sesión cerrada" in resp.json()["message"]
+        finally:
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
 
 class TestPasswordChange:
@@ -140,3 +163,63 @@ class TestPasswordChange:
             "confirm_password": "NewSigemAdmin2026!!",
         })
         assert resp.status_code == 401
+
+
+class TestMustChangePasswordEnforcement:
+    """Server-side enforcement del cambio obligatorio de contraseña."""
+
+    def test_flag_blocks_endpoints_until_password_changed(self, api, admin_token):
+        suffix = uuid.uuid4().hex[:8]
+        username = f"test_pw_{suffix}"
+        codigo = f"TST-PW-{suffix[:6].upper()}"
+        initial_pw = "TempPassword2026!!"
+        new_pw = "ChangedPassword2026!!"
+        user_id = None
+
+        try:
+            resp = api.post(f"{API_PREFIX}/usuarios", json={
+                "codigo": codigo,
+                "username": username,
+                "email": f"{username}@example.com",
+                "nombre_completo": "Test PW Enforce",
+                "password": initial_pw,
+            }, headers=auth_header(admin_token))
+            assert resp.status_code in (200, 201), resp.text
+            user_id = resp.json()["id"]
+
+            login = api.post(f"{API_PREFIX}/auth/login", json={
+                "username": username,
+                "password": initial_pw,
+                "municipio_codigo": "00000",
+            })
+            assert login.status_code == 200, login.text
+            assert login.json()["must_change_password"] is True
+            token = login.json()["access_token"]
+            headers = auth_header(token)
+
+            # /auth/me is in the allowlist: the app needs it to boot.
+            me = api.get(f"{API_PREFIX}/auth/me", headers=headers)
+            assert me.status_code == 200, me.text
+
+            # Any other protected endpoint is rejected while the flag is set.
+            blocked = api.get(f"{API_PREFIX}/catalogos/roles", headers=headers)
+            assert blocked.status_code == 403, blocked.text
+            assert blocked.json()["detail"] == "PASSWORD_CHANGE_REQUIRED"
+
+            # The change-password flow itself must be reachable.
+            cp = api.post(f"{API_PREFIX}/auth/change-password", json={
+                "current_password": initial_pw,
+                "new_password": new_pw,
+                "confirm_password": new_pw,
+            }, headers=headers)
+            assert cp.status_code == 200, cp.text
+
+            # Flag cleared: protected endpoints are now reachable.
+            after = api.get(f"{API_PREFIX}/catalogos/roles", headers=headers)
+            assert after.status_code == 200, after.text
+        finally:
+            if user_id:
+                api.delete(
+                    f"{API_PREFIX}/usuarios/{user_id}",
+                    headers=auth_header(admin_token),
+                )

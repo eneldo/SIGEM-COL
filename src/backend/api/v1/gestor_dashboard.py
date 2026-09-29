@@ -193,6 +193,38 @@ async def _get_gestor_lider_id(db, user, municipio_id):
     return await db.scalar(gestor_stmt)
 
 
+async def _require_revision_access(db, current_user) -> UUID | None:
+    """Only admins and gestor líderes may review avances.
+
+    Returns the gestor_lider_id scope (None for admins, who see everything).
+    """
+    roles = current_user.get("roles", [])
+    if "SUPERADMIN_PLATAFORMA" in roles or "ADMINISTRADOR_MUNICIPAL" in roles:
+        return None
+
+    if "GESTOR_LIDER" in roles:
+        user = current_user.get("user")
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario no autenticado",
+            )
+        gestor_lider_id = await _get_gestor_lider_id(
+            db, user, UUID(current_user["municipio_id"])
+        )
+        if gestor_lider_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No existe un gestor líder asociado al usuario actual.",
+            )
+        return gestor_lider_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Permiso requerido: avance.revisar",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Static routes FIRST (before /avances/{producto_id})
 # ---------------------------------------------------------------------------
@@ -260,11 +292,7 @@ async def obtener_avances_revision(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
 
     municipio_id = UUID(current_user["municipio_id"])
-    gestor_lider_id = None
-
-    roles = current_user.get("roles", [])
-    if "GESTOR_LIDER" in roles and "SUPERADMIN_PLATAFORMA" not in roles and "ADMINISTRADOR_MUNICIPAL" not in roles:
-        gestor_lider_id = await _get_gestor_lider_id(db, user, municipio_id)
+    gestor_lider_id = await _require_revision_access(db, current_user)
 
     avances = await get_avances_para_revision(
         db=db,
@@ -294,11 +322,7 @@ async def obtener_estadisticas_revision(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
 
     municipio_id = UUID(current_user["municipio_id"])
-    gestor_lider_id = None
-
-    roles = current_user.get("roles", [])
-    if "GESTOR_LIDER" in roles and "SUPERADMIN_PLATAFORMA" not in roles and "ADMINISTRADOR_MUNICIPAL" not in roles:
-        gestor_lider_id = await _get_gestor_lider_id(db, user, municipio_id)
+    gestor_lider_id = await _require_revision_access(db, current_user)
 
     stats = await get_estadisticas_revision(
         db=db,
@@ -323,15 +347,20 @@ async def revisar_avance_endpoint(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
 
+    gestor_lider_id = await _require_revision_access(db, current_user)
+
     try:
         result = await revisar_avance(
             db=db,
             avance_id=avance_id,
             municipio_id=UUID(current_user["municipio_id"]),
             usuario_id=UUID(str(user.id)),
+            gestor_lider_id=gestor_lider_id,
             nuevo_estado=data.nuevo_estado,
             observacion=data.observacion,
         )
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     except Exception:

@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.security import get_password_hash
@@ -81,7 +82,15 @@ async def create_usuario(
         updated_at=now,
     )
     db.add(usuario)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        # Unique constraints also cover soft-deleted rows, which the
+        # validations above deliberately ignore; surface a 422 instead of 500.
+        raise ValueError(
+            f"Ya existe un usuario con el código '{codigo}' o el username "
+            f"'{username}' en este municipio (incluye usuarios eliminados)."
+        ) from exc
 
     if rol_id:
         rol_stmt = select(Rol).where(

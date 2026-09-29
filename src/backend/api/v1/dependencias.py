@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
+from ...core.rbac import require_permission
 from ...schemas.dependencia import (
     DependenciaCreate,
     DependenciaListResponse,
@@ -57,6 +58,7 @@ async def crear_dependencia(
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_permission(db, current_user["user"].id, "dependencia.crear")
     municipio_id = UUID(current_user["municipio_id"])
     try:
         result = await dependencia_service.create_dependencia(db, municipio_id, body.model_dump())
@@ -72,6 +74,7 @@ async def actualizar_dependencia(
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_permission(db, current_user["user"].id, "dependencia.editar")
     municipio_id = UUID(current_user["municipio_id"])
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     if not data:
@@ -91,6 +94,7 @@ async def eliminar_dependencia(
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_permission(db, current_user["user"].id, "dependencia.eliminar")
     municipio_id = UUID(current_user["municipio_id"])
     user_orm = current_user["user"]
     user_id = user_orm.id if isinstance(user_orm.id, UUID) else UUID(str(user_orm.id))
