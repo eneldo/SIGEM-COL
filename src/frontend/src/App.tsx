@@ -27,12 +27,14 @@ import RevisionAvancesPage from './pages/gestor/RevisionAvancesPage'
 const adminRoles = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
 const isAdmin = (roles: string[]) => roles.some((role) => adminRoles.includes(role))
 
+const adminRequired = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
+
 function ProtectedRoute({
   children,
   requiredRole,
 }: {
   children: React.ReactNode
-  requiredRole?: string
+  requiredRole?: string | string[]
 }) {
   const { isAuthenticated, user, mustChangePassword } = useAuthStore()
   const location = useLocation()
@@ -45,9 +47,12 @@ function ProtectedRoute({
     return <Navigate to="/change-password" replace />
   }
 
-  if (requiredRole && user && !user.roles.includes(requiredRole)) {
-    const fallback = isAdmin(user.roles) ? '/admin/dashboard' : '/gestor/dashboard'
-    return <Navigate to={fallback} replace />
+  if (requiredRole && user) {
+    const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+    if (!user.roles.some((role) => requiredRoles.includes(role))) {
+      const fallback = isAdmin(user.roles) ? '/admin/dashboard' : '/gestor/dashboard'
+      return <Navigate to={fallback} replace />
+    }
   }
 
   return <>{children}</>
@@ -126,7 +131,7 @@ export default function App() {
           <Route
             path="configuracion"
             element={
-              <ProtectedRoute requiredRole="ADMINISTRADOR_MUNICIPAL">
+              <ProtectedRoute requiredRole={adminRequired}>
                 <ConfiguracionPage />
               </ProtectedRoute>
             }
@@ -134,7 +139,7 @@ export default function App() {
           <Route
             path="configuracion/dependencias"
             element={
-              <ProtectedRoute requiredRole="ADMINISTRADOR_MUNICIPAL">
+              <ProtectedRoute requiredRole={adminRequired}>
                 <DependenciasPage />
               </ProtectedRoute>
             }
