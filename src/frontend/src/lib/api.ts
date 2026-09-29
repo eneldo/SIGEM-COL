@@ -4,10 +4,6 @@ import type {
   LoginRequest,
   LoginResponse,
   ChangePasswordRequest,
-  MfaStatusResponse,
-  MfaSetupResponse,
-  MfaLoginRequest,
-  MfaDisableRequest,
   User,
   Gestor,
   GestorAcceso,
@@ -93,14 +89,6 @@ api.interceptors.response.use(
     ) {
       window.location.replace('/change-password')
     }
-
-    if (
-      error.response?.status === 403 &&
-      error.response?.data?.detail === 'MFA_SETUP_REQUIRED' &&
-      window.location.pathname !== '/mfa'
-    ) {
-      window.location.replace('/mfa')
-    }
     return Promise.reject(error)
   },
 )
@@ -117,21 +105,6 @@ export const auth = {
 
   changePassword: (data: ChangePasswordRequest) =>
     api.post<void>('/api/v1/auth/change-password', data),
-
-  mfaStatus: () =>
-    api.get<MfaStatusResponse>('/api/v1/auth/mfa/status'),
-
-  mfaSetup: () =>
-    api.post<MfaSetupResponse>('/api/v1/auth/mfa/setup'),
-
-  mfaVerify: (code: string) =>
-    api.post<{ message: string; mfa_activo: boolean }>('/api/v1/auth/mfa/verify', { code }),
-
-  mfaLogin: (data: MfaLoginRequest) =>
-    api.post<LoginResponse>('/api/v1/auth/mfa/login', data),
-
-  mfaDisable: (data: MfaDisableRequest) =>
-    api.post<{ message: string; mfa_activo: boolean }>('/api/v1/auth/mfa/disable', data),
 }
 
 export const gestores = {

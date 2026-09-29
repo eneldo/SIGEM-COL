@@ -3,8 +3,6 @@ import { useAuthStore } from './stores/authStore'
 import { Layout } from './components/layout/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { ChangePasswordPage } from './pages/auth/ChangePasswordPage'
-import { MfaVerifyPage } from './pages/auth/MfaVerifyPage'
-import { MfaPage } from './pages/auth/MfaPage'
 import { DashboardAdmin } from './pages/admin/DashboardAdmin'
 import { GestoresPage } from './pages/admin/GestoresPage'
 import { LineasPage } from './pages/admin/LineasPage'
@@ -72,17 +70,6 @@ export default function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-
-        <Route path="/mfa-verify" element={<MfaVerifyPage />} />
-
-        <Route
-          path="/mfa"
-          element={
-            <ProtectedRoute>
-              <MfaPage />
-            </ProtectedRoute>
-          }
-        />
 
         <Route
           path="/change-password"

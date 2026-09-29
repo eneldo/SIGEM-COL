@@ -212,7 +212,6 @@ export interface PaginatedResponse<T> {
 export interface LoginRequest {
   username: string
   password: string
-  municipio_codigo: string
 }
 
 export interface LoginResponse {

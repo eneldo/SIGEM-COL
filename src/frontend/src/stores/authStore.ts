@@ -8,18 +8,15 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   mustChangePassword: boolean
-  mfaRequired: boolean
-  mfaToken: string | null
   loginTimestamp: number | null
   passwordChangeDismissed: boolean
-  login: (username: string, password: string, municipioCodigo: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   setToken: (token: string) => void
   checkAuth: () => Promise<void>
   setUser: (user: User) => void
   dismissPasswordChange: () => void
   resetPasswordChange: () => void
-  clearMfaChallenge: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -29,29 +26,16 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       mustChangePassword: false,
-      mfaRequired: false,
-      mfaToken: null,
       loginTimestamp: null,
       passwordChangeDismissed: false,
 
-      login: async (username: string, password: string, municipioCodigo: string) => {
-        const payload: { username: string; password: string; municipio_codigo: string } = {
+      login: async (username: string, password: string) => {
+        const payload: { username: string; password: string } = {
           username,
           password,
-          municipio_codigo: municipioCodigo,
         }
         const response = await auth.login(payload)
         const { access_token, must_change_password, user } = response.data
-
-        if (response.data.mfa_required && response.data.mfa_token) {
-          set({
-            mfaRequired: true,
-            mfaToken: response.data.mfa_token,
-            isAuthenticated: false,
-            token: null,
-          })
-          return
-        }
 
         localStorage.setItem('token', access_token)
         localStorage.setItem('user', JSON.stringify(user))
@@ -61,8 +45,6 @@ export const useAuthStore = create<AuthState>()(
           user,
           isAuthenticated: true,
           mustChangePassword: must_change_password,
-          mfaRequired: false,
-          mfaToken: null,
           loginTimestamp: Date.now(),
           passwordChangeDismissed: false,
         })
@@ -81,8 +63,6 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             mustChangePassword: false,
-            mfaRequired: false,
-            mfaToken: null,
             loginTimestamp: null,
             passwordChangeDismissed: false,
           })
@@ -102,7 +82,7 @@ export const useAuthStore = create<AuthState>()(
       checkAuth: async () => {
         const token = get().token
         if (!token) {
-          set({ isAuthenticated: false, user: null, mfaRequired: false, mfaToken: null })
+          set({ isAuthenticated: false, user: null })
           return
         }
 
@@ -124,16 +104,10 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             isAuthenticated: false,
             mustChangePassword: false,
-            mfaRequired: false,
-            mfaToken: null,
             loginTimestamp: null,
             passwordChangeDismissed: false,
           })
         }
-      },
-
-      clearMfaChallenge: () => {
-        set({ mfaRequired: false, mfaToken: null })
       },
 
       dismissPasswordChange: () => {

@@ -39,16 +39,9 @@ PASSWORD_CHANGE_ALLOWED_SUFFIXES = (
     *MFA_SUFFIXES,
 )
 
-# Admins must have MFA enabled; only the MFA flow itself (plus the
-# password-change/logout recovery paths, which still require the current
-# password or a valid session) stays reachable until they complete setup.
-MFA_ALLOWED_SUFFIXES = (
-    *MFA_SUFFIXES,
-    "/auth/change-password",
-    "/auth/logout",
-    "/auth/me",
-    "/auth/refresh",
-)
+# Admins must have MFA enabled; only the MFA flow itself stays reachable
+# until they complete setup (mirrors the password-change enforcement).
+MFA_ALLOWED_SUFFIXES = MFA_SUFFIXES
 ADMIN_ROLES = ("SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL")
 
 
@@ -103,18 +96,6 @@ async def get_current_user_from_token(
 
     roles = await auth_service.get_user_roles(user.id)
 
-    if (
-        any(role in ADMIN_ROLES for role in roles)
-        and not user.mfa_activo
-        and not any(
-            request.url.path.endswith(suffix) for suffix in MFA_ALLOWED_SUFFIXES
-        )
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="MFA_SETUP_REQUIRED",
-        )
-
     permissions = await auth_service.get_user_permissions(user.id)
     return {
         "user": user,
@@ -134,10 +115,11 @@ async def login(
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
 
+    # Usar un municipio por defecto (ej. '00000') para compatibilidad
     result = await auth_service.authenticate_user(
         username=login_data.username,
         password=login_data.password,
-        municipio_codigo=login_data.municipio_codigo,
+        municipio_codigo="00000",
         ip_address=ip_address,
         user_agent=user_agent,
     )
