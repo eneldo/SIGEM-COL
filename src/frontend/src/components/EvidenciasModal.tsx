@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { gestorDashboard } from '../lib/api'
 import type { Evidencia } from '../lib/types'
+import { EvidencePreview } from './EvidencePreview'
 import { Button } from './ui/Button'
 import { Icon, ModalShell, formatDate } from './ui/icons'
 import { clsx } from 'clsx'
@@ -18,12 +19,6 @@ function formatBytes(bytes: number | null | undefined): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-}
-
-function tipoIcono(tipo: string) {
-  if (tipo.includes('pdf')) return 'document'
-  if (tipo.includes('image')) return 'eye'
-  return 'document'
 }
 
 export default function EvidenciasModal({ avanceId, avanceNombre, subtitle, canEdit = false, onClose }: EvidenciasModalProps) {
@@ -156,9 +151,7 @@ export default function EvidenciasModal({ avanceId, avanceNombre, subtitle, canE
             {evidencias.map((ev) => (
               <li key={ev.id} className="rounded-2xl border border-line bg-paper/50 p-4">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-forest-soft text-forest">
-                    <Icon name={tipoIcono(ev.tipo)} className="h-5 w-5" />
-                  </span>
+                  <EvidencePreview avanceId={avanceId} evidencia={ev} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-ink">{ev.nombre}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-faint">
