@@ -110,7 +110,7 @@ async def create_usuario(
         )
         db.add(ud)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(usuario)
 
     return {

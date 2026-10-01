@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -19,6 +20,7 @@ from .core.middleware import AuditMiddleware, RateLimitMiddleware, RequestIDMidd
 HEALTH_CHECK_TIMEOUT_SECONDS = 2.0
 
 setup_logging(settings.LOG_LEVEL, settings.LOG_FORMAT)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -143,7 +145,7 @@ async def health_ready() -> Response:
         database_status, redis_status = await asyncio.gather(_check_database(), _check_redis())
         checks = {"database": database_status, "redis": redis_status}
     except Exception:
-        pass
+        logger.exception("readiness_checks_failed")
 
     ready = all(status == "ok" for status in checks.values())
     return JSONResponse(

@@ -17,8 +17,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = '012_seed_catalogo_productos_programas'
-down_revision: Union[str, None] = '011_seed_gestor_role_and_coordinator_permissions'
+revision: str = '012_seed_catalogo'
+down_revision: Union[str, None] = '011_gestor_role'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

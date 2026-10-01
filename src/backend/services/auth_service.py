@@ -43,10 +43,11 @@ class AuthService:
             return None
 
         # municipios is a global table (no RLS), safe to query unscoped.
+        # Use populate_existing=True to avoid stale ORM cache.
         result = await self.db.execute(
-            select(Municipio).where(
-                Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO"
-            )
+            select(Municipio)
+            .where(Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO")
+            .execution_options(populate_existing=True)
         )
         municipio = result.scalar_one_or_none()
         if not municipio:

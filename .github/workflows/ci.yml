@@ -15,7 +15,7 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
-  PYTEST_CMD: python -m pytest tests -c src/backend/pyproject.toml --cov-report=xml --cov-fail-under=80
+  PYTEST_CMD: python -m pytest tests -c src/backend/pyproject.toml --cov-report=xml --cov-fail-under=100
 
 jobs:
   backend-quality:

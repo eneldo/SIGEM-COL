@@ -3,6 +3,7 @@ Database configuration - SIGEM Colombia
 RLS (Row-Level Security) activated via session variable.
 """
 
+import logging
 from collections.abc import AsyncIterator
 
 from sqlalchemy import text
@@ -13,11 +14,14 @@ from starlette.requests import Request
 
 from .config import settings
 
+logger = logging.getLogger(__name__)
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     echo=settings.DEBUG,
+    query_cache_size=0,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -49,7 +53,7 @@ class RLSMiddleware(BaseHTTPMiddleware):
                 if payload and payload.get("type") == "access":
                     request.state.municipio_id = payload.get("municipio_id")
             except Exception:
-                pass
+                logger.warning("rls_token_decode_failed")
         return await call_next(request)
 
 

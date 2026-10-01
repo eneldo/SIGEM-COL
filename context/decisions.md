@@ -1,5 +1,21 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-01: Cobertura backend de líneas elevada al 100%
+
+**Contexto:** El pipeline exigía ≥80% y la suite backend registraba 61% de cobertura de líneas. Los déficits estaban concentrados en servicios, rutas FastAPI y ramas defensivas de core.
+
+**Decisión:** Elevar y fijar el gate backend en **100% de cobertura de líneas** mediante pruebas unitarias/directas complementarias a la suite de integración.
+
+**Resultado:**
+- 831 tests aprobados y 1 omitido.
+- 5.011 sentencias backend, 0 sin cubrir, 100,00% de líneas.
+- Ruff, Ruff format y mypy aprobados.
+- Bandit sin hallazgos medios ni altos; conserva dos falsos positivos B105 de severidad baja para placeholders explícitos de desarrollo que `validate_production()` rechaza.
+
+**Alcance:** La métrica corresponde a cobertura de líneas. La cobertura de ramas no está habilitada actualmente y debe tratarse como una mejora separada.
+
+---
+
 ## 2026-09-30: Excepción temporal de cobertura Frontend
 
 **Contexto:** La regla del proyecto exige ≥80% cobertura global. El frontend (React/TypeScript/Vite) alcanza **18.6% lines / 91.06% branches / 86.02% functions** global, con umbrales por archivo en componentes críticos (≥80% en EvidencePreview, EvidenciasModal, UI components, api.ts, authStore, LoginPage, ChangePasswordPage).

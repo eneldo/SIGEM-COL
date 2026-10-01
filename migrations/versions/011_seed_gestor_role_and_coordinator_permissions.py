@@ -1,10 +1,10 @@
-"""011_seed_gestor_role_and_coordinator_permissions
+"""011_seed_gestor_role
 
 Crea el rol GESTOR y otorga permisos de gestión de equipo al rol GESTOR_LIDER
 (coordinador) y permisos básicos de operación al rol GESTOR.
 
-Revision ID: 011_seed_gestor_role_and_coordinator_permissions
-Revises: 010_add_avance_revision_columns
+Revision ID: 011_gestor_role
+Revises: 010
 Create Date: 2026-09-23 00:00:00.000000
 
 """
@@ -15,7 +15,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = '011_seed_gestor_role_and_coordinator_permissions'
+revision: str = '011_gestor_role'
 down_revision: Union[str, None] = '010'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

@@ -1,9 +1,18 @@
 """Tests de integración para Auditoría y Cumplimiento."""
 
 import uuid
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
+from src.backend.services.cumplimiento_service import (
+    get_cumplimiento_general,
+    get_cumplimiento_por_linea,
+    get_cumplimiento_por_programa,
+    get_detalle_producto,
+    get_listado_productos_cumplimiento,
+)
 from tests.conftest import API_PREFIX, auth_header, create_temp_user
 
 
@@ -238,3 +247,180 @@ class TestCumplimiento:
             headers=auth_header("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJoYWNrZXIifQ.fake"),
         )
         assert resp.status_code in (401, 403, 429)
+
+
+class ScalarResult:
+    def __init__(self, values):
+        self.values = values
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self.values
+
+
+class RowsResult:
+    def __init__(self, values):
+        self.values = values
+
+    def all(self):
+        return self.values
+
+    def first(self):
+        return self.values[0] if self.values else None
+
+
+@pytest.fixture
+def productos_cumplimiento():
+    return [
+        SimpleNamespace(
+            id=uuid.uuid4(),
+            codigo="P-1",
+            nombre="Completo",
+            codigo_indicador="I-1",
+            indicador="Indicador 1",
+            meta_redactada="Meta 1",
+            linea_base=120,
+            meta_cuatrienio=100,
+        ),
+        SimpleNamespace(
+            id=uuid.uuid4(),
+            codigo="P-2",
+            nombre="En progreso",
+            codigo_indicador="I-2",
+            indicador="Indicador 2",
+            meta_redactada="Meta 2",
+            linea_base=25,
+            meta_cuatrienio=100,
+        ),
+        SimpleNamespace(
+            id=uuid.uuid4(),
+            codigo="P-3",
+            nombre="Sin avance",
+            codigo_indicador="I-3",
+            indicador="Indicador 3",
+            meta_redactada="Meta 3",
+            linea_base=0,
+            meta_cuatrienio=100,
+        ),
+        SimpleNamespace(
+            id=uuid.uuid4(),
+            codigo="P-4",
+            nombre="Sin meta",
+            codigo_indicador="I-4",
+            indicador="Indicador 4",
+            meta_redactada="Meta 4",
+            linea_base=10,
+            meta_cuatrienio=None,
+        ),
+    ]
+
+
+class TestCumplimientoService:
+    async def test_general_clasifica_productos(self, productos_cumplimiento):
+        db = AsyncMock()
+        db.execute.return_value = ScalarResult(productos_cumplimiento)
+
+        result = await get_cumplimiento_general(db, uuid.uuid4())
+
+        assert result == {
+            "total_productos": 4,
+            "con_meta_definida": 3,
+            "sin_meta_definida": 1,
+            "completados": 1,
+            "en_progreso": 1,
+            "sin_avance": 2,
+            "porcentaje_cumplimiento_general": 41.7,
+        }
+
+    async def test_general_sin_productos(self):
+        db = AsyncMock()
+        db.execute.return_value = ScalarResult([])
+
+        result = await get_cumplimiento_general(db, uuid.uuid4())
+
+        assert result["total_productos"] == 0
+        assert result["porcentaje_cumplimiento_general"] == 0
+
+    async def test_por_linea_resume_productos(self, productos_cumplimiento):
+        linea = SimpleNamespace(id=uuid.uuid4(), codigo="L-1", nombre="Línea")
+        db = AsyncMock()
+        db.execute.side_effect = [
+            ScalarResult([linea]),
+            ScalarResult(productos_cumplimiento),
+        ]
+
+        result = await get_cumplimiento_por_linea(db, uuid.uuid4())
+
+        assert result[0]["total_productos"] == 4
+        assert result[0]["completados"] == 1
+        assert result[0]["en_progreso"] == 1
+        assert result[0]["sin_avance"] == 2
+        assert result[0]["porcentaje_cumplimiento"] == 41.7
+
+    async def test_por_programa_resume_productos(self, productos_cumplimiento):
+        programa = SimpleNamespace(id=uuid.uuid4(), codigo="PR-1", nombre="Programa")
+        db = AsyncMock()
+        db.execute.side_effect = [
+            RowsResult([(programa, "Línea")]),
+            ScalarResult(productos_cumplimiento),
+        ]
+
+        result = await get_cumplimiento_por_programa(db, uuid.uuid4())
+
+        assert result[0]["linea_nombre"] == "Línea"
+        assert result[0]["con_meta_definida"] == 3
+        assert result[0]["porcentaje_cumplimiento"] == 41.7
+
+    async def test_detalle_inexistente(self):
+        db = AsyncMock()
+        db.execute.return_value = RowsResult([])
+
+        result = await get_detalle_producto(db, uuid.uuid4(), uuid.uuid4())
+
+        assert result is None
+
+    @pytest.mark.parametrize(
+        ("linea_base", "meta", "estado", "porcentaje"),
+        [
+            (120, 100, "COMPLETADO", 100),
+            (25, 100, "EN_PROGRESO", 25),
+            (0, 100, "SIN_AVANCE", 0),
+            (10, None, "SIN_META", 0),
+        ],
+    )
+    async def test_detalle_clasifica_estado(self, linea_base, meta, estado, porcentaje):
+        producto = SimpleNamespace(
+            id=uuid.uuid4(),
+            codigo="P-1",
+            nombre="Producto",
+            codigo_indicador="I-1",
+            indicador="Indicador",
+            meta_redactada="Meta",
+            linea_base=linea_base,
+            meta_cuatrienio=meta,
+        )
+        db = AsyncMock()
+        db.execute.return_value = RowsResult([(producto, "Programa", "PR-1", "Línea")])
+
+        result = await get_detalle_producto(db, uuid.uuid4(), producto.id)
+
+        assert result["estado_cumplimiento"] == estado
+        assert result["porcentaje_avance"] == porcentaje
+
+    async def test_listado_clasifica_todos_los_estados(self, productos_cumplimiento):
+        db = AsyncMock()
+        db.execute.return_value = RowsResult(
+            [(producto, "Programa", "Línea") for producto in productos_cumplimiento]
+        )
+
+        result = await get_listado_productos_cumplimiento(db, uuid.uuid4())
+
+        assert [item["estado_cumplimiento"] for item in result] == [
+            "COMPLETADO",
+            "EN_PROGRESO",
+            "SIN_AVANCE",
+            "SIN_META",
+        ]
+        assert [item["porcentaje_avance"] for item in result] == [100, 25, 0, 0]

@@ -22,12 +22,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     now = datetime.utcnow()
 
-    # Pre-generate UUIDs
+    # Pre-generate UUIDs - use fixed UUIDs for deterministic seed data
     role_ids = {name: str(uuid.uuid4()) for name in [
         'SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL',
         'GESTOR_LIDER', 'AUDITOR', 'CONSULTA'
     ]}
-    municipio_id = str(uuid.uuid4())
+    # Fixed UUID for the default municipality (must match across deployments)
+    municipio_id = 'bdb39d8c-6d09-4d06-96fe-979f0b362f0f'
     plan_id = str(uuid.uuid4())
 
     # ============================================================

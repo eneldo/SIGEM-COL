@@ -45,9 +45,9 @@
 - Frontend: http://localhost:3001 (dev)
 
 ### Tests Verificados (Backend)
-- ✅ Suite completa: **498 passed, 1 skipped** (0 failed)
+- ✅ Suite completa: **831 passed, 1 skipped** (0 failed)
 - ✅ Gates: ruff, ruff format, mypy (79 archivos), bandit, pytest
-- ✅ Cobertura: **59%** (objetivo 80% - gap documentado en decisions.md)
+- ✅ Cobertura de líneas: **100%** (5.011 sentencias, 0 pendientes; gate `--cov-fail-under=100`)
 - ✅ Health checks: `/health` (503 si unhealthy), `/health/live`, `/health/ready`, `/metrics` (prometheus-client)
 - ✅ JSON logging estructurado, config validation en lifespan
 
@@ -79,13 +79,11 @@
 5. ValueError → 422 handler para UUID inválidos
 
 ### Próximos Pasos para 10/10 Readiness
-1. Subir cobertura backend a ≥80% (tests adicionales servicios débiles)
-2. Smoke test prod stack (requiere puerto 443 libre en host - HTTP.sys ocupa 443 en Windows)
-3. Generar certs self-signed para test local TLS
-4. Re-auditoría completa contra checklist
-5. Commit + push a GitHub
+1. Smoke test prod stack (requiere puerto 443 libre en host - HTTP.sys ocupa 443 en Windows)
+2. Generar certs self-signed para test local TLS
+3. Re-auditoría completa contra checklist
+4. Commit + push a GitHub
 
 ### Bloqueantes Conocidos
 - Puerto 443 ocupado por HTTP.sys (PID 4) en host Windows → nginx prod no puede publicar 443 localmente
-- Cobertura backend 59% vs 80% objetivo (requiere ~1080 stmts más)
 - Vulnerabilidades npm audit en react-router-dom (transitivas, alpha)
