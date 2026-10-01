@@ -1,13 +1,16 @@
 """
 Schemas Pydantic para el módulo de Dependencias CRUD - SIGEM Colombia
 """
+
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
 class DependenciaCreate(BaseModel):
-    codigo: str = Field(..., min_length=1, max_length=50, description="Código único de la dependencia")
+    codigo: str = Field(
+        ..., min_length=1, max_length=50, description="Código único de la dependencia"
+    )
     nombre: str = Field(..., min_length=1, max_length=500, description="Nombre de la dependencia")
     descripcion: str | None = Field(None, description="Descripción de la dependencia")
     dependencia_padre_id: UUID | None = Field(None, description="ID de la dependencia padre")

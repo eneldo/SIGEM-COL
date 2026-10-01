@@ -35,9 +35,8 @@ router = APIRouter(prefix="/gestor", tags=["Dashboard Gestor"])
 # Helper - Verificar permisos del usuario actual
 # ---------------------------------------------------------------------------
 
-async def _require_permission(
-    db: AsyncSession, current_user: dict, permission: str
-) -> None:
+
+async def _require_permission(db: AsyncSession, current_user: dict, permission: str) -> None:
     """
     Verifica que el usuario autenticado tenga el permiso especificado.
     Lanza HTTPException 403 si no tiene el permiso.
@@ -55,6 +54,7 @@ async def _require_permission(
 # Helper - Obtener gestor_id desde el usuario autenticado
 # ---------------------------------------------------------------------------
 
+
 async def _get_gestor_id(
     db: AsyncSession,
     usuario_id: UUID,
@@ -69,14 +69,11 @@ async def _get_gestor_id(
     :return: ID del gestor líder.
     :raises HTTPException 404: Si el usuario no tiene un gestor asociado.
     """
-    gestor_stmt = (
-        select(GestorLider)
-        .where(
-            and_(
-                GestorLider.usuario_id == usuario_id,
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.eliminado == False,
-            )
+    gestor_stmt = select(GestorLider).where(
+        and_(
+            GestorLider.usuario_id == usuario_id,
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.eliminado.is_(False),
         )
     )
     result = await db.execute(gestor_stmt)
@@ -88,12 +85,13 @@ async def _get_gestor_id(
             detail="No se encontró un registro de gestor líder para el usuario autenticado",
         )
 
-    return gestor.id
+    return UUID(str(gestor.id))
 
 
 # ---------------------------------------------------------------------------
 # GET /gestor/kpis - KPIs Personales
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/kpis",
@@ -117,14 +115,12 @@ async def kpis_personales(
     gestor_id = await _get_gestor_id(db, usuario_id, municipio_id)
 
     try:
-        result = await get_kpis_personales(
-            db=db, municipio_id=municipio_id, gestor_id=gestor_id
-        )
-    except Exception:
+        result = await get_kpis_personales(db=db, municipio_id=municipio_id, gestor_id=gestor_id)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los KPIs personales",
-        )
+        ) from exc
 
     return result
 
@@ -132,6 +128,7 @@ async def kpis_personales(
 # ---------------------------------------------------------------------------
 # GET /gestor/mis-productos - Mis Productos
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/mis-productos",
@@ -154,14 +151,12 @@ async def mis_productos(
     gestor_id = await _get_gestor_id(db, usuario_id, municipio_id)
 
     try:
-        result = await get_mis_productos(
-            db=db, municipio_id=municipio_id, gestor_id=gestor_id
-        )
-    except Exception:
+        result = await get_mis_productos(db=db, municipio_id=municipio_id, gestor_id=gestor_id)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los productos asignados",
-        )
+        ) from exc
 
     return {"productos": result, "total": len(result)}
 
@@ -169,6 +164,7 @@ async def mis_productos(
 # ---------------------------------------------------------------------------
 # GET /gestor/mis-pendientes - Mis Pendientes
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/mis-pendientes",
@@ -192,14 +188,12 @@ async def mis_pendientes(
     gestor_id = await _get_gestor_id(db, usuario_id, municipio_id)
 
     try:
-        result = await get_mis_pendientes(
-            db=db, municipio_id=municipio_id, gestor_id=gestor_id
-        )
-    except Exception:
+        result = await get_mis_pendientes(db=db, municipio_id=municipio_id, gestor_id=gestor_id)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los productos pendientes",
-        )
+        ) from exc
 
     return {"pendientes": result, "total": len(result)}
 
@@ -207,6 +201,7 @@ async def mis_pendientes(
 # ---------------------------------------------------------------------------
 # GET /gestor/mis-alertas - Mis Alertas Personales
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/mis-alertas",
@@ -230,13 +225,11 @@ async def mis_alertas(
     gestor_id = await _get_gestor_id(db, usuario_id, municipio_id)
 
     try:
-        result = await get_mis_alertas(
-            db=db, municipio_id=municipio_id, gestor_id=gestor_id
-        )
-    except Exception:
+        result = await get_mis_alertas(db=db, municipio_id=municipio_id, gestor_id=gestor_id)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener las alertas personales",
-        )
+        ) from exc
 
     return {"alertas": result, "total": len(result)}

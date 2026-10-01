@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # POST /lineas-estrategicas - Crear línea estratégica
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=LineaResponse,
@@ -73,13 +74,13 @@ async def crear_linea_estrategica(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
-    except Exception:
+        ) from e
+    except Exception as exc:
         logger.exception("Error interno al crear la línea estratégica")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al crear la línea estratégica",
-        )
+        ) from exc
 
     return LineaResponse(**result)
 
@@ -87,6 +88,7 @@ async def crear_linea_estrategica(
 # ---------------------------------------------------------------------------
 # GET /lineas-estrategicas - Listar líneas estratégicas con filtros
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "",
@@ -135,6 +137,7 @@ async def listar_lineas_estrategicas(
 # GET /lineas-estrategicas/{linea_id} - Obtener detalle de línea estratégica
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/{linea_id}",
     response_model=LineaResponse,
@@ -172,6 +175,7 @@ async def obtener_linea_estrategica(
 # PUT /lineas-estrategicas/{linea_id} - Actualizar línea estratégica
 # ---------------------------------------------------------------------------
 
+
 @router.put(
     "/{linea_id}",
     response_model=LineaResponse,
@@ -204,7 +208,7 @@ async def actualizar_linea_estrategica(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from e
 
     if not result:
         raise HTTPException(
@@ -218,6 +222,7 @@ async def actualizar_linea_estrategica(
 # ---------------------------------------------------------------------------
 # DELETE /lineas-estrategicas/{linea_id} - Eliminación lógica
 # ---------------------------------------------------------------------------
+
 
 @router.delete(
     "/{linea_id}",

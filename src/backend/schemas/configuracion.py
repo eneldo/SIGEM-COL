@@ -1,9 +1,11 @@
 """Schemas Configuración - Pydantic models para el módulo de Configuración"""
+
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
 # --- Usuarios ---
+
 
 class UsuarioCreate(BaseModel):
     codigo: str = Field(..., max_length=20)
@@ -61,6 +63,7 @@ class UsuarioListResponse(BaseModel):
 
 # --- Roles ---
 
+
 class PermisoInfo(BaseModel):
     id: str
     codigo: str
@@ -106,6 +109,7 @@ class RolListResponse(BaseModel):
 
 # --- Permisos ---
 
+
 class PermisoResponse(BaseModel):
     id: str
     codigo: str
@@ -122,6 +126,7 @@ class PermisoListResponse(BaseModel):
 
 
 # --- Auditoría ---
+
 
 class AuditoriaEventoResponse(BaseModel):
     id: str

@@ -43,7 +43,7 @@ GESTOR_PERMISSIONS = [
 
 
 def upgrade() -> None:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
 
     op.execute(
         sa.text(

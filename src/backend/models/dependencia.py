@@ -1,4 +1,5 @@
 """Dependencia model - Modelo para dependencias municipales"""
+
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,7 +10,9 @@ from .base import BaseModel
 class Dependencia(BaseModel):
     __tablename__ = "dependencias"
 
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
     codigo = Column(String(50), nullable=False)
     nombre = Column(String(500), nullable=False)
     descripcion = Column(Text, nullable=True)
@@ -19,7 +22,9 @@ class Dependencia(BaseModel):
 
     # Relationships
     municipio = relationship("Municipio", backref="dependencias")
-    dependencia_padre = relationship("Dependencia", remote_side="Dependencia.id", backref="subdependencias")
+    dependencia_padre = relationship(
+        "Dependencia", remote_side="Dependencia.id", backref="subdependencias"
+    )
 
     def __repr__(self):
         return f"<Dependencia {self.codigo} - {self.nombre}>"

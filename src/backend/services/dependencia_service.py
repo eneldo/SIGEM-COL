@@ -1,6 +1,7 @@
 """
 Servicio CRUD de Dependencias - SIGEM Colombia
 """
+
 import uuid
 from datetime import UTC, datetime
 
@@ -51,18 +52,22 @@ async def list_dependencias(
 
     items = []
     for r in rows:
-        items.append({
-            "id": str(r.id),
-            "municipio_id": str(r.municipio_id),
-            "codigo": r.codigo,
-            "nombre": r.nombre,
-            "descripcion": r.descripcion,
-            "dependencia_padre_id": str(r.dependencia_padre_id) if r.dependencia_padre_id else None,
-            "nivel": r.nivel,
-            "estado": r.estado,
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
-        })
+        items.append(
+            {
+                "id": str(r.id),
+                "municipio_id": str(r.municipio_id),
+                "codigo": r.codigo,
+                "nombre": r.nombre,
+                "descripcion": r.descripcion,
+                "dependencia_padre_id": str(r.dependencia_padre_id)
+                if r.dependencia_padre_id
+                else None,
+                "nivel": r.nivel,
+                "estado": r.estado,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+        )
 
     return {
         "items": items,
@@ -116,7 +121,9 @@ async def create_dependencia(
         )
     )
     if existing.scalar_one_or_none():
-        raise ValueError(f"Ya existe una dependencia con el código '{data['codigo']}' en este municipio")
+        raise ValueError(
+            f"Ya existe una dependencia con el código '{data['codigo']}' en este municipio"
+        )
 
     # Validar dependencia padre si se proporciona
     if data.get("dependencia_padre_id"):
@@ -205,7 +212,7 @@ async def update_dependencia(
         if value is not None and hasattr(dep, key):
             setattr(dep, key, value)
 
-    dep.updated_at = datetime.now(UTC)
+    dep.updated_at = datetime.now(UTC)  # type: ignore[assignment]
     await db.commit()
     await db.refresh(dep)
 

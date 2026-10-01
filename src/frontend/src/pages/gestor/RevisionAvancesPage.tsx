@@ -116,6 +116,7 @@ export default function RevisionAvancesPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData() }, [filtroEstado, filtroPeriodo])
 
   const handleSearch = () => { fetchData() }

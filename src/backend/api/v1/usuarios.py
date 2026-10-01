@@ -1,6 +1,9 @@
 """
 API Routes - Usuarios del Sistema
 """
+
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +33,7 @@ async def crear_usuario(
         result = await usuario_service.create_usuario(db, municipio_id, body.model_dump())
         return UsuarioResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.get("", response_model=UsuarioListResponse)
@@ -44,7 +47,7 @@ async def listar_usuarios(
 ):
     await require_permission(db, current_user["user"].id, "security.usuarios.ver")
     municipio_id = current_user["municipio_id"]
-    filtros = {"page": page, "page_size": page_size}
+    filtros: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
         filtros["search"] = search
     if estado:
@@ -61,6 +64,7 @@ async def obtener_usuario(
 ):
     await require_permission(db, current_user["user"].id, "security.usuarios.ver")
     import uuid as _uuid
+
     municipio_id = current_user["municipio_id"]
     result = await usuario_service.get_usuario(db, municipio_id, _uuid.UUID(usuario_id))
     if result is None:
@@ -77,6 +81,7 @@ async def actualizar_usuario(
 ):
     await require_permission(db, current_user["user"].id, "security.usuarios.editar")
     import uuid as _uuid
+
     municipio_id = current_user["municipio_id"]
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     result = await usuario_service.update_usuario(db, municipio_id, _uuid.UUID(usuario_id), data)
@@ -93,6 +98,7 @@ async def eliminar_usuario(
 ):
     await require_permission(db, current_user["user"].id, "security.usuarios.eliminar")
     import uuid as _uuid
+
     municipio_id = current_user["municipio_id"]
     user_id = _uuid.UUID(str(current_user["user"].id))
     result = await usuario_service.delete_usuario(db, municipio_id, _uuid.UUID(usuario_id), user_id)

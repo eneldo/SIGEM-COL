@@ -1,0 +1,11 @@
+title = "SIGEM Colombia"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known development and test placeholder credentials committed deliberately in fixtures, docs and example configuration; none grants access to any real system"
+regexes = [
+  '''manything_12345''',
+  '''anything_12345''',
+]

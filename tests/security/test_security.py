@@ -1,4 +1,5 @@
 """Tests de seguridad - Inyección SQL, XSS, rate limiting, auth bypass."""
+
 import uuid
 
 import pytest
@@ -20,11 +21,14 @@ class TestSQLInjection:
 
     @pytest.mark.parametrize("payload", SQL_PAYLOADS)
     def test_login_sql_injection(self, api, payload):
-        resp = api.post(f"{API_PREFIX}/auth/login", json={
-            "username": payload,
-            "password": "anything_12345",
-            "municipio_codigo": "00000",
-        })
+        resp = api.post(
+            f"{API_PREFIX}/auth/login",
+            json={
+                "username": payload,
+                "password": "anything_12345",
+                "municipio_codigo": "00000",
+            },
+        )
         # Should NOT return 200 with a valid token
         # 429 = rate limited (acceptable)
         assert resp.status_code in (401, 422, 429)
@@ -63,17 +67,23 @@ class TestXSSProtection:
 
     @pytest.mark.parametrize("payload", XSS_PAYLOADS)
     def test_create_user_xss_in_name(self, api, admin_token, payload):
-        resp = api.post(f"{API_PREFIX}/usuarios", json={
-            "codigo": f"XSS-{hash(payload) % 10000:04d}",
-            "username": f"xss_test_{hash(payload) % 10000}",
-            "email": f"xss{hash(payload) % 10000}@test.com",
-            "nombre_completo": payload,
-            "password": "TestPassword2026!!",
-        }, headers=auth_header(admin_token))
+        resp = api.post(
+            f"{API_PREFIX}/usuarios",
+            json={
+                "codigo": f"XSS-{hash(payload) % 10000:04d}",
+                "username": f"xss_test_{hash(payload) % 10000}",
+                "email": f"xss{hash(payload) % 10000}@test.com",
+                "nombre_completo": payload,
+                "password": "TestPassword2026!!",
+            },
+            headers=auth_header(admin_token),
+        )
         if resp.status_code == 201:
             data = resp.json()
             # Cleanup
-            api.delete(f"{API_PREFIX}/usuarios/{data['id']}", headers=auth_header(admin_token))
+            api.delete(
+                f"{API_PREFIX}/usuarios/{data['id']}", headers=auth_header(admin_token)
+            )
 
 
 class TestAuthBypass:
@@ -121,17 +131,23 @@ class TestInputValidation:
     """Pruebas de validación de entrada."""
 
     def test_login_username_too_short(self, api):
-        resp = api.post(f"{API_PREFIX}/auth/login", json={
-            "username": "ab",
-            "password": "valid_password_123",
-        })
+        resp = api.post(
+            f"{API_PREFIX}/auth/login",
+            json={
+                "username": "ab",
+                "password": "valid_password_123",
+            },
+        )
         assert resp.status_code in (422, 429)
 
     def test_login_password_empty(self, api):
-        resp = api.post(f"{API_PREFIX}/auth/login", json={
-            "username": "admin",
-            "password": "",
-        })
+        resp = api.post(
+            f"{API_PREFIX}/auth/login",
+            json={
+                "username": "admin",
+                "password": "",
+            },
+        )
         assert resp.status_code in (422, 429)
 
     def test_invalid_uuid_format(self, api, admin_token):

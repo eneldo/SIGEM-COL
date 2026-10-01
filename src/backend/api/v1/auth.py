@@ -1,4 +1,7 @@
 """Auth routes - Authentication endpoints"""
+
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,10 +42,15 @@ PASSWORD_CHANGE_ALLOWED_SUFFIXES = (
     *MFA_SUFFIXES,
 )
 
-# Admins must have MFA enabled; only the MFA flow itself stays reachable
-# until they complete setup (mirrors the password-change enforcement).
-MFA_ALLOWED_SUFFIXES = MFA_SUFFIXES
-ADMIN_ROLES = ("SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL")
+# Endpoints a los que un usuario obligado a activar MFA todavía puede acceder:
+# mismo conjunto que el cambio de contraseña, para que un usuario recién creado
+# complete ambos pasos (password y MFA) sin quedarse sin salida.
+MFA_ALLOWED_SUFFIXES = PASSWORD_CHANGE_ALLOWED_SUFFIXES
+
+# Roles que deben operar con MFA activo. SUPERADMIN_PLATAFORMA queda exento:
+# es la cuenta de plataforma de arranque y el estado dev documentado trabaja
+# sin MFA (ver context/decisions.md).
+MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL",)
 
 
 async def get_current_user_from_token(
@@ -74,34 +82,44 @@ async def get_current_user_from_token(
             detail="Sesión revocada o expirada",
         )
 
-    user = await auth_service.get_current_user(
-        payload["sub"], payload["municipio_id"]
-    )
+    user = await auth_service.get_current_user(payload["sub"], payload["municipio_id"])
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no encontrado",
         )
 
+    roles = await auth_service.get_user_roles(user.id)  # type: ignore[arg-type]
+
     # Server-side enforcement of the mandatory password change: while the flag
     # is set, only the password-change flow itself is reachable.
     if user.must_change_password and not any(
-        request.url.path.endswith(suffix)
-        for suffix in PASSWORD_CHANGE_ALLOWED_SUFFIXES
+        request.url.path.endswith(suffix) for suffix in PASSWORD_CHANGE_ALLOWED_SUFFIXES
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="PASSWORD_CHANGE_REQUIRED",
         )
 
-    roles = await auth_service.get_user_roles(user.id)
+    # Enforcement de MFA obligatorio (espejo del cambio de contraseña): hasta
+    # que activa MFA solo el flujo MFA (y /auth/me, logout) queda alcanzable.
+    if (
+        not user.mfa_activo
+        and any(role in MFA_ENFORCED_ROLES for role in roles)
+        and not any(request.url.path.endswith(suffix) for suffix in MFA_ALLOWED_SUFFIXES)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="MFA_SETUP_REQUIRED",
+        )
 
-    permissions = await auth_service.get_user_permissions(user.id)
+    permissions = await auth_service.get_user_permissions(user.id)  # type: ignore[arg-type]
     return {
         "user": user,
         "municipio_id": payload["municipio_id"],
         "roles": roles,
         "permissions": permissions,
+        "sid": payload.get("sid"),
     }
 
 
@@ -302,9 +320,7 @@ async def mfa_disable(
 ):
     auth_service = AuthService(db)
     try:
-        ok = await auth_service.mfa_disable(
-            current_user["user"], data.password, data.code
-        )
+        ok = await auth_service.mfa_disable(current_user["user"], data.password, data.code)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
@@ -334,9 +350,7 @@ async def refresh_tokens(
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
 
-    result = await auth_service.refresh_session(
-        data.refresh_token, ip_address, user_agent
-    )
+    result = await auth_service.refresh_session(data.refresh_token, ip_address, user_agent)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -361,9 +375,13 @@ async def logout(
     db: AsyncSession = Depends(get_db),
 ):
     user = current_user["user"]
+    sid = current_user.get("sid")
 
     auth_service = AuthService(db)
-    await auth_service.revoke_all_sessions(user.id)
+    if sid:
+        await auth_service.revoke_session(uuid.UUID(sid), user.id)
+    else:
+        await auth_service.revoke_all_sessions(user.id)
 
     # Log logout
     audit_service = AuditService(db)

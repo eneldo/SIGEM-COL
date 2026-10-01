@@ -8,6 +8,7 @@ Demuestra los patrones de testing del proyecto:
 Ejecutar:
     python -m pytest tests/backend/test_ejemplos_avances.py -v
 """
+
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -146,7 +147,10 @@ class TestRevisarAvance:
 
         resp = api.patch(
             f"{API_PREFIX}/gestor/dashboard/revision/{avance['id']}",
-            json={"nuevo_estado": "RECHAZADO", "observacion": "Falta soporte documental"},
+            json={
+                "nuevo_estado": "RECHAZADO",
+                "observacion": "Falta soporte documental",
+            },
             headers=auth_header(admin_token),
         )
         assert resp.status_code == 200

@@ -59,8 +59,10 @@ services:
       - POSTGRES_USER=sigem
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=sigem_db
+      - SIGEM_APP_PASSWORD=${SIGEM_APP_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - sigem-network
     restart: unless-stopped

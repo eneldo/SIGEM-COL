@@ -2,6 +2,9 @@
 Database configuration - SIGEM Colombia
 RLS (Row-Level Security) activated via session variable.
 """
+
+from collections.abc import AsyncIterator
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -40,6 +43,7 @@ class RLSMiddleware(BaseHTTPMiddleware):
         if auth_header and auth_header.startswith("Bearer "):
             try:
                 from ..core.security import decode_token
+
                 token = auth_header.split(" ")[1]
                 payload = decode_token(token)
                 if payload and payload.get("type") == "access":
@@ -64,7 +68,7 @@ async def set_tenant_context(session: AsyncSession, municipio_id) -> None:
     await session.execute(text(TENANT_CONTEXT_SQL), {"value": value})
 
 
-async def get_db(request: Request) -> AsyncSession:
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     """
     Database session dependency with RLS activation.
 
@@ -80,9 +84,7 @@ async def get_db(request: Request) -> AsyncSession:
     async with engine.connect() as connection:
         session = AsyncSession(bind=connection, expire_on_commit=False)
         try:
-            await set_tenant_context(
-                session, getattr(request.state, "municipio_id", None)
-            )
+            await set_tenant_context(session, getattr(request.state, "municipio_id", None))
             yield session
             await session.commit()
         except Exception:
@@ -92,7 +94,7 @@ async def get_db(request: Request) -> AsyncSession:
             await session.close()
 
 
-async def get_db_with_rls(request: Request) -> AsyncSession:
+async def get_db_with_rls(request: Request) -> AsyncIterator[AsyncSession]:
     """
     Backward-compatible alias of get_db: both dependencies apply the same
     tenant context, so endpoints can no longer obtain an unscoped session.
@@ -100,9 +102,7 @@ async def get_db_with_rls(request: Request) -> AsyncSession:
     async with engine.connect() as connection:
         session = AsyncSession(bind=connection, expire_on_commit=False)
         try:
-            await set_tenant_context(
-                session, getattr(request.state, "municipio_id", None)
-            )
+            await set_tenant_context(session, getattr(request.state, "municipio_id", None))
             yield session
             await session.commit()
         except Exception:

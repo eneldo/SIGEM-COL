@@ -1,4 +1,5 @@
 """Tests MFA TOTP - setup, verify, login de segundo factor y enforcement."""
+
 import pyotp
 from tests.conftest import API_PREFIX, auth_header, create_temp_user, login_as
 
@@ -19,18 +20,29 @@ class TestMFALifecycle:
             assert login.json().get("mfa_required") is not True
 
             new_password = "ChangedMfaPassword2026!!"
-            cp = api.post(f"{API_PREFIX}/auth/change-password", json={
-                "current_password": password,
-                "new_password": new_password,
-                "confirm_password": new_password,
-            }, headers=auth_header(token))
+            cp = api.post(
+                f"{API_PREFIX}/auth/change-password",
+                json={
+                    "current_password": password,
+                    "new_password": new_password,
+                    "confirm_password": new_password,
+                },
+                headers=auth_header(token),
+            )
             assert cp.status_code == 200, cp.text
             password = new_password
 
             # Status before setup.
-            status = api.get(f"{API_PREFIX}/auth/mfa/status", headers=auth_header(token))
+            status = api.get(
+                f"{API_PREFIX}/auth/mfa/status", headers=auth_header(token)
+            )
             assert status.status_code == 200, status.text
-            assert status.json() == {"mfa_activo": False, "pending": False, "secret": None, "qr_code_url": None}
+            assert status.json() == {
+                "mfa_activo": False,
+                "pending": False,
+                "secret": None,
+                "qr_code_url": None,
+            }
 
             # Setup issues a pending secret (not active yet).
             setup = api.post(f"{API_PREFIX}/auth/mfa/setup", headers=auth_header(token))
@@ -40,12 +52,20 @@ class TestMFALifecycle:
             assert "otpauth" in setup.json()["qr_code_url"]
 
             # Wrong code is rejected and MFA stays inactive.
-            bad = api.post(f"{API_PREFIX}/auth/mfa/verify", json={"code": "000000"}, headers=auth_header(token))
+            bad = api.post(
+                f"{API_PREFIX}/auth/mfa/verify",
+                json={"code": "000000"},
+                headers=auth_header(token),
+            )
             assert bad.status_code == 401, bad.text
 
             # Verify with a real TOTP activates it.
             code = pyotp.TOTP(secret).now()
-            ok = api.post(f"{API_PREFIX}/auth/mfa/verify", json={"code": code}, headers=auth_header(token))
+            ok = api.post(
+                f"{API_PREFIX}/auth/mfa/verify",
+                json={"code": code},
+                headers=auth_header(token),
+            )
             assert ok.status_code == 200, ok.text
             assert ok.json()["mfa_activo"] is True
 
@@ -58,37 +78,53 @@ class TestMFALifecycle:
             assert "access_token" not in data2
 
             # The mfa_token must not work as an access token.
-            not_access = api.get(f"{API_PREFIX}/auth/me", headers=auth_header(data2["mfa_token"]))
+            not_access = api.get(
+                f"{API_PREFIX}/auth/me", headers=auth_header(data2["mfa_token"])
+            )
             assert not_access.status_code == 401
 
             # Wrong code on the second step fails.
-            wrong = api.post(f"{API_PREFIX}/auth/mfa/login", json={
-                "mfa_token": data2["mfa_token"],
-                "code": "000000",
-            })
+            wrong = api.post(
+                f"{API_PREFIX}/auth/mfa/login",
+                json={
+                    "mfa_token": data2["mfa_token"],
+                    "code": "000000",
+                },
+            )
             assert wrong.status_code == 401
 
             # Correct code completes the login.
-            good = api.post(f"{API_PREFIX}/auth/mfa/login", json={
-                "mfa_token": data2["mfa_token"],
-                "code": pyotp.TOTP(secret).now(),
-            })
+            good = api.post(
+                f"{API_PREFIX}/auth/mfa/login",
+                json={
+                    "mfa_token": data2["mfa_token"],
+                    "code": pyotp.TOTP(secret).now(),
+                },
+            )
             assert good.status_code == 200, good.text
             token = good.json()["access_token"]
             me = api.get(f"{API_PREFIX}/auth/me", headers=auth_header(token))
             assert me.status_code == 200, me.text
 
             # Disable requires password + valid TOTP code.
-            dis_bad = api.post(f"{API_PREFIX}/auth/mfa/disable", json={
-                "password": "wrong_password_xyz",
-                "code": pyotp.TOTP(secret).now(),
-            }, headers=auth_header(token))
+            dis_bad = api.post(
+                f"{API_PREFIX}/auth/mfa/disable",
+                json={
+                    "password": "wrong_password_xyz",
+                    "code": pyotp.TOTP(secret).now(),
+                },
+                headers=auth_header(token),
+            )
             assert dis_bad.status_code == 401
 
-            dis = api.post(f"{API_PREFIX}/auth/mfa/disable", json={
-                "password": password,
-                "code": pyotp.TOTP(secret).now(),
-            }, headers=auth_header(token))
+            dis = api.post(
+                f"{API_PREFIX}/auth/mfa/disable",
+                json={
+                    "password": password,
+                    "code": pyotp.TOTP(secret).now(),
+                },
+                headers=auth_header(token),
+            )
             assert dis.status_code == 200, dis.text
 
             # Login no longer requires MFA.
@@ -97,7 +133,9 @@ class TestMFALifecycle:
             assert login3.json().get("mfa_required") is not True
             assert login3.json().get("access_token")
         finally:
-            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
+            api.delete(
+                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
+            )
 
 
 class TestMFAAdminEnforcement:
@@ -105,7 +143,9 @@ class TestMFAAdminEnforcement:
 
     @staticmethod
     def _admin_role_id(api, admin_token):
-        roles = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token))
+        roles = api.get(
+            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
+        )
         assert roles.status_code == 200, roles.text
         for rol in roles.json():
             if rol["codigo"] == "ADMINISTRADOR_MUNICIPAL":
@@ -126,16 +166,22 @@ class TestMFAAdminEnforcement:
 
             # Password change first (both flags may be set on a fresh user).
             new_password = "ChangedAdminMfa2026!!"
-            cp = api.post(f"{API_PREFIX}/auth/change-password", json={
-                "current_password": password,
-                "new_password": new_password,
-                "confirm_password": new_password,
-            }, headers=auth_header(token))
+            cp = api.post(
+                f"{API_PREFIX}/auth/change-password",
+                json={
+                    "current_password": password,
+                    "new_password": new_password,
+                    "confirm_password": new_password,
+                },
+                headers=auth_header(token),
+            )
             assert cp.status_code == 200, cp.text
             password = new_password
 
             # Any non-MFA endpoint is rejected while MFA is not enabled.
-            blocked = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(token))
+            blocked = api.get(
+                f"{API_PREFIX}/catalogos/roles", headers=auth_header(token)
+            )
             assert blocked.status_code == 403, blocked.text
             assert blocked.json()["detail"] == "MFA_SETUP_REQUIRED"
 
@@ -148,12 +194,20 @@ class TestMFAAdminEnforcement:
             assert setup.status_code == 200, setup.text
             secret = setup.json()["secret"]
 
-            verify = api.post(f"{API_PREFIX}/auth/mfa/verify", json={
-                "code": pyotp.TOTP(secret).now(),
-            }, headers=auth_header(token))
+            verify = api.post(
+                f"{API_PREFIX}/auth/mfa/verify",
+                json={
+                    "code": pyotp.TOTP(secret).now(),
+                },
+                headers=auth_header(token),
+            )
             assert verify.status_code == 200, verify.text
 
-            allowed = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(token))
+            allowed = api.get(
+                f"{API_PREFIX}/catalogos/roles", headers=auth_header(token)
+            )
             assert allowed.status_code == 200, allowed.text
         finally:
-            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
+            api.delete(
+                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
+            )

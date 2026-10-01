@@ -30,7 +30,9 @@ async def bootstrap_admin() -> None:
             select(Rol).where(Rol.codigo == "SUPERADMIN_PLATAFORMA")
         )
         if municipio is None or role is None:
-            raise RuntimeError("Run Alembic migrations before bootstrapping the administrator")
+            raise RuntimeError(
+                "Run Alembic migrations before bootstrapping the administrator"
+            )
 
         # Scope this session to the municipality: usuarios/usuario_roles have
         # FORCE ROW LEVEL SECURITY and reject unscoped reads and writes.

@@ -32,9 +32,8 @@ router = APIRouter(prefix="/admin", tags=["Dashboard Admin"])
 # Helper - Verificar permisos del usuario actual
 # ---------------------------------------------------------------------------
 
-async def _require_permission(
-    db: AsyncSession, current_user: dict, permission: str
-) -> None:
+
+async def _require_permission(db: AsyncSession, current_user: dict, permission: str) -> None:
     """
     Verifica que el usuario autenticado tenga el permiso especificado.
     Lanza HTTPException 403 si no tiene el permiso.
@@ -51,6 +50,7 @@ async def _require_permission(
 # ---------------------------------------------------------------------------
 # GET /admin/kpis - KPIs Generales
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/kpis",
@@ -69,15 +69,16 @@ async def kpis_generales(
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
+
     municipio_id = UUID(current_user["municipio_id"])
 
     try:
         result = await get_kpis_generales(db=db, municipio_id=municipio_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los KPIs generales",
-        )
+        ) from exc
 
     return result
 
@@ -85,6 +86,7 @@ async def kpis_generales(
 # ---------------------------------------------------------------------------
 # GET /admin/resumen-plan - Resumen del Plan de Desarrollo
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/resumen-plan",
@@ -103,15 +105,16 @@ async def resumen_plan(
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
+
     municipio_id = UUID(current_user["municipio_id"])
 
     try:
         result = await get_resumen_plan(db=db, municipio_id=municipio_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener el resumen del plan de desarrollo",
-        )
+        ) from exc
 
     if result is None:
         raise HTTPException(
@@ -125,6 +128,7 @@ async def resumen_plan(
 # ---------------------------------------------------------------------------
 # GET /admin/gestores - Resumen de Gestores
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/gestores",
@@ -143,15 +147,16 @@ async def gestores_summary(
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
+
     municipio_id = UUID(current_user["municipio_id"])
 
     try:
         result = await get_gestores_summary(db=db, municipio_id=municipio_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener el resumen de gestores",
-        )
+        ) from exc
 
     return {"gestores": result, "total": len(result)}
 
@@ -159,6 +164,7 @@ async def gestores_summary(
 # ---------------------------------------------------------------------------
 # GET /admin/alertas - Alertas de Seguridad
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/alertas",
@@ -176,15 +182,16 @@ async def alertas_seguridad(
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
+
     municipio_id = UUID(current_user["municipio_id"])
 
     try:
         result = await get_alertas(db=db, municipio_id=municipio_id)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener las alertas de seguridad",
-        )
+        ) from exc
 
     return {"alertas": result, "total": len(result)}
 
@@ -192,6 +199,7 @@ async def alertas_seguridad(
 # ---------------------------------------------------------------------------
 # GET /admin/estadisticas-dependencia - Estadísticas por Dependencia
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/estadisticas-dependencia",
@@ -209,16 +217,15 @@ async def estadisticas_dependencia(
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
+
     municipio_id = UUID(current_user["municipio_id"])
 
     try:
-        result = await get_estadisticas_por_dependencia(
-            db=db, municipio_id=municipio_id
-        )
-    except Exception:
+        result = await get_estadisticas_por_dependencia(db=db, municipio_id=municipio_id)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener las estadísticas por dependencia",
-        )
+        ) from exc
 
     return {"dependencias": result, "total": len(result)}

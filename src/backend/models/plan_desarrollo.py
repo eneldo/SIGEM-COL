@@ -1,4 +1,5 @@
 """PlanDesarrollo model - Modelo para planes de desarrollo municipal"""
+
 from sqlalchemy import Column, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,7 +10,9 @@ from .base import BaseModel
 class PlanDesarrollo(BaseModel):
     __tablename__ = "planes_desarrollo"
 
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
     codigo = Column(String(50), nullable=False)
     nombre = Column(String(500), nullable=False)
     descripcion = Column(Text, nullable=True)

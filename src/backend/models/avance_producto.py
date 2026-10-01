@@ -1,4 +1,5 @@
 """AvanceProducto model - Registro de avances de productos por gestores"""
+
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,9 +10,13 @@ from .base import BaseModel
 class AvanceProducto(BaseModel):
     __tablename__ = "avances_producto"
 
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
     producto_id = Column(UUID(as_uuid=True), ForeignKey("productos.id"), nullable=False, index=True)
-    gestor_lider_id = Column(UUID(as_uuid=True), ForeignKey("gestores_lideres.id"), nullable=False, index=True)
+    gestor_lider_id = Column(
+        UUID(as_uuid=True), ForeignKey("gestores_lideres.id"), nullable=False, index=True
+    )
     avance_porcentaje = Column(Float, default=0.0, nullable=False)
     avance_valor = Column(Integer, default=0, nullable=True)
     observaciones = Column(Text, nullable=True)

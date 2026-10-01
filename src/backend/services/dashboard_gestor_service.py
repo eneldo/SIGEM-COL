@@ -37,6 +37,7 @@ DIAS_SIN_ACTUALIZACION = 15
 # 1. KPIs Personales
 # ---------------------------------------------------------------------------
 
+
 async def get_kpis_personales(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -57,14 +58,11 @@ async def get_kpis_personales(
     :return: Diccionario con los KPIs personales.
     """
     # --- Total productos asignados ---
-    productos_stmt = (
-        select(func.count(Producto.id))
-        .where(
-            and_(
-                Producto.gestor_lider_id == gestor_id,
-                Producto.municipio_id == municipio_id,
-                Producto.estado != "ELIMINADO_LOGICAMENTE",
-            )
+    productos_stmt = select(func.count(Producto.id)).where(
+        and_(
+            Producto.gestor_lider_id == gestor_id,
+            Producto.municipio_id == municipio_id,
+            Producto.estado != "ELIMINADO_LOGICAMENTE",
         )
     )
     total_productos = (await db.execute(productos_stmt)).scalar_one()
@@ -82,13 +80,10 @@ async def get_kpis_personales(
 
     total_dependencias = 0
     if gestor:
-        deps_stmt = (
-            select(func.count(UsuarioDependencia.id))
-            .where(
-                and_(
-                    UsuarioDependencia.usuario_id == gestor.usuario_id,
-                    UsuarioDependencia.municipio_id == municipio_id,
-                )
+        deps_stmt = select(func.count(UsuarioDependencia.id)).where(
+            and_(
+                UsuarioDependencia.usuario_id == gestor.usuario_id,
+                UsuarioDependencia.municipio_id == municipio_id,
             )
         )
         total_dependencias = (await db.execute(deps_stmt)).scalar_one()
@@ -120,6 +115,7 @@ async def get_kpis_personales(
 # ---------------------------------------------------------------------------
 # 2. Mis Productos
 # ---------------------------------------------------------------------------
+
 
 async def get_mis_productos(
     db: AsyncSession,
@@ -161,25 +157,29 @@ async def get_mis_productos(
 
     productos: list[dict] = []
     for producto, programa, dependencia in rows:
-        productos.append({
-            "id": str(producto.id),
-            "codigo": producto.codigo,
-            "nombre": producto.nombre,
-            "descripcion": producto.descripcion,
-            "unidad_medida": producto.unidad_medida,
-            "estado": producto.estado,
-            "programa": {
-                "id": str(programa.id),
-                "codigo": programa.codigo,
-                "nombre": programa.nombre,
-            },
-            "dependencia_responsable": {
-                "id": str(dependencia.id) if dependencia else None,
-                "codigo": dependencia.codigo if dependencia else None,
-                "nombre": dependencia.nombre if dependencia else None,
-            } if dependencia else None,
-            "updated_at": producto.updated_at.isoformat(),
-        })
+        productos.append(
+            {
+                "id": str(producto.id),
+                "codigo": producto.codigo,
+                "nombre": producto.nombre,
+                "descripcion": producto.descripcion,
+                "unidad_medida": producto.unidad_medida,
+                "estado": producto.estado,
+                "programa": {
+                    "id": str(programa.id),
+                    "codigo": programa.codigo,
+                    "nombre": programa.nombre,
+                },
+                "dependencia_responsable": {
+                    "id": str(dependencia.id) if dependencia else None,
+                    "codigo": dependencia.codigo if dependencia else None,
+                    "nombre": dependencia.nombre if dependencia else None,
+                }
+                if dependencia
+                else None,
+                "updated_at": producto.updated_at.isoformat(),
+            }
+        )
 
     return productos
 
@@ -187,6 +187,7 @@ async def get_mis_productos(
 # ---------------------------------------------------------------------------
 # 3. Mis Pendientes
 # ---------------------------------------------------------------------------
+
 
 async def get_mis_pendientes(
     db: AsyncSession,
@@ -224,10 +225,7 @@ async def get_mis_pendientes(
                 Producto.gestor_lider_id == gestor_id,
                 Producto.municipio_id == municipio_id,
                 Producto.estado != "ELIMINADO_LOGICAMENTE",
-                (
-                    (Producto.updated_at < cutoff_date)
-                    | (Producto.updated_at.is_(None))
-                ),
+                ((Producto.updated_at < cutoff_date) | (Producto.updated_at.is_(None))),
             )
         )
         .order_by(Producto.updated_at.asc())
@@ -242,26 +240,30 @@ async def get_mis_pendientes(
         else:
             dias_sin_actualizacion = None
 
-        pendientes.append({
-            "id": str(producto.id),
-            "codigo": producto.codigo,
-            "nombre": producto.nombre,
-            "descripcion": producto.descripcion,
-            "unidad_medida": producto.unidad_medida,
-            "estado": producto.estado,
-            "programa": {
-                "id": str(programa.id),
-                "codigo": programa.codigo,
-                "nombre": programa.nombre,
-            },
-            "dependencia_responsable": {
-                "id": str(dependencia.id) if dependencia else None,
-                "codigo": dependencia.codigo if dependencia else None,
-                "nombre": dependencia.nombre if dependencia else None,
-            } if dependencia else None,
-            "dias_sin_actualizacion": dias_sin_actualizacion,
-            "updated_at": producto.updated_at.isoformat() if producto.updated_at else None,
-        })
+        pendientes.append(
+            {
+                "id": str(producto.id),
+                "codigo": producto.codigo,
+                "nombre": producto.nombre,
+                "descripcion": producto.descripcion,
+                "unidad_medida": producto.unidad_medida,
+                "estado": producto.estado,
+                "programa": {
+                    "id": str(programa.id),
+                    "codigo": programa.codigo,
+                    "nombre": programa.nombre,
+                },
+                "dependencia_responsable": {
+                    "id": str(dependencia.id) if dependencia else None,
+                    "codigo": dependencia.codigo if dependencia else None,
+                    "nombre": dependencia.nombre if dependencia else None,
+                }
+                if dependencia
+                else None,
+                "dias_sin_actualizacion": dias_sin_actualizacion,
+                "updated_at": producto.updated_at.isoformat() if producto.updated_at else None,
+            }
+        )
 
     return pendientes
 
@@ -269,6 +271,7 @@ async def get_mis_pendientes(
 # ---------------------------------------------------------------------------
 # 4. Mis Alertas Personales
 # ---------------------------------------------------------------------------
+
 
 async def get_mis_alertas(
     db: AsyncSession,
@@ -316,60 +319,64 @@ async def get_mis_alertas(
     # --- Intentos fallidos ---
     if usuario.intentos_fallidos > 0:
         severidad = "ALTA" if usuario.intentos_fallidos >= 3 else "MEDIA"
-        alertas.append({
-            "tipo": "intentos_fallidos",
-            "severidad": severidad,
-            "mensaje": (
-                f"Tiene {usuario.intentos_fallidos} intento(s) fallido(s) "
-                f"de acceso. Si supera 3 intentos, su cuenta será bloqueada."
-            ),
-            "valor": usuario.intentos_fallidos,
-            "detectado_en": now.isoformat(),
-        })
+        alertas.append(
+            {
+                "tipo": "intentos_fallidos",
+                "severidad": severidad,
+                "mensaje": (
+                    f"Tiene {usuario.intentos_fallidos} intento(s) fallido(s) "
+                    f"de acceso. Si supera 3 intentos, su cuenta será bloqueada."
+                ),
+                "valor": usuario.intentos_fallidos,
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     # --- Contraseña pendiente de cambio ---
     if usuario.must_change_password:
-        alertas.append({
-            "tipo": "password_pendiente",
-            "severidad": "MEDIA",
-            "mensaje": (
-                "Debe cambiar su contraseña en el próximo inicio de sesión."
-            ),
-            "detectado_en": now.isoformat(),
-        })
+        alertas.append(
+            {
+                "tipo": "password_pendiente",
+                "severidad": "MEDIA",
+                "mensaje": ("Debe cambiar su contraseña en el próximo inicio de sesión."),
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     # --- MFA desactivado ---
     if not usuario.mfa_activo:
-        alertas.append({
-            "tipo": "mfa_desactivado",
-            "severidad": "BAJA",
-            "mensaje": (
-                "No tiene autenticación de dos factores (MFA) activada. "
-                "Se recomienda activarla para mayor seguridad."
-            ),
-            "detectado_en": now.isoformat(),
-        })
+        alertas.append(
+            {
+                "tipo": "mfa_desactivado",
+                "severidad": "BAJA",
+                "mensaje": (
+                    "No tiene autenticación de dos factores (MFA) activada. "
+                    "Se recomienda activarla para mayor seguridad."
+                ),
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     # --- Cuenta bloqueada ---
     if gestor.estado == "BLOQUEADO":
-        alertas.append({
-            "tipo": "cuenta_bloqueada",
-            "severidad": "CRITICA",
-            "mensaje": (
-                "Su cuenta se encuentra bloqueada. "
-                + (
-                    f" Motivo: {usuario.motivo_bloqueo}."
-                    if usuario.motivo_bloqueo
-                    else " Contacte al administrador."
-                )
-            ),
-            "motivo_bloqueo": usuario.motivo_bloqueo,
-            "fecha_bloqueo": (
-                usuario.fecha_bloqueo.isoformat()
-                if usuario.fecha_bloqueo
-                else None
-            ),
-            "detectado_en": now.isoformat(),
-        })
+        alertas.append(
+            {
+                "tipo": "cuenta_bloqueada",
+                "severidad": "CRITICA",
+                "mensaje": (
+                    "Su cuenta se encuentra bloqueada. "
+                    + (
+                        f" Motivo: {usuario.motivo_bloqueo}."
+                        if usuario.motivo_bloqueo
+                        else " Contacte al administrador."
+                    )
+                ),
+                "motivo_bloqueo": usuario.motivo_bloqueo,
+                "fecha_bloqueo": (
+                    usuario.fecha_bloqueo.isoformat() if usuario.fecha_bloqueo else None
+                ),
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     return alertas

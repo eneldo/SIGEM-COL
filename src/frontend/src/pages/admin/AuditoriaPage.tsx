@@ -33,6 +33,7 @@ export function AuditoriaPage() {
     finally { setLoading(false) }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [eventoTipo, recursoTipo, resultado])
 
   function getResultadoBadge(r: string) {

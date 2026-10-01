@@ -1,6 +1,7 @@
 """
 API Routes - Cumplimiento de Metas
 """
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,8 +64,10 @@ async def detalle_producto(
     current_user=Depends(get_current_user_from_token),
 ):
     from uuid import UUID
+
     result = await get_detalle_producto(db, current_user["municipio_id"], UUID(producto_id))
     if result is None:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Producto no encontrado")
     return result

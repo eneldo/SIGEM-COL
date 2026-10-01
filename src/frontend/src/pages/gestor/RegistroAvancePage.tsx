@@ -174,7 +174,6 @@ export default function RegistroAvancePage() {
         void loadAvances(r.data)
       })
       .catch(() => setLoadingAvances(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productoParam])
 
   useEffect(() => {

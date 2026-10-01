@@ -1,17 +1,36 @@
-import secrets
-
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
+DEV_SECRET_KEY_PLACEHOLDER = "dev-only-secret-key-do-not-use-in-production"
+DEV_JWT_SECRET_PLACEHOLDER = "dev-only-jwt-secret-do-not-use-in-production"
 
-def _generate_default_secret() -> str:
-    """Generate a cryptographically random secret key for development only."""
-    return secrets.token_urlsafe(64)
+_DEV_SECRET_PLACEHOLDERS = frozenset(
+    {
+        DEV_SECRET_KEY_PLACEHOLDER,
+        DEV_JWT_SECRET_PLACEHOLDER,
+        "change-this-to-a-random-secret-key-min-32-chars",
+        "change-this-to-another-random-secret-key-min-32-chars",
+        "change-me",
+        "changeme",
+        "secret",
+        "dev-secret",
+    }
+)
+
+_DEV_DATABASE_PASSWORD_MARKERS = (
+    "sigem_password",
+    "devpass2026",
+    "dev-pass-2026",
+    "password-dev",
+)
+
+_PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
 
 
 class Settings(BaseSettings):
     # App
     APP_ENV: str = Field(default="development", alias="APP_ENV")
+    ENVIRONMENT: str = Field(default="development", alias="ENVIRONMENT")
     APP_NAME: str = Field(default="SIGEM Colombia", alias="APP_NAME")
     APP_VERSION: str = Field(default="1.0.0", alias="APP_VERSION")
     DEBUG: bool = Field(default=True, alias="DEBUG")
@@ -19,7 +38,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://sigem:sigem_password@localhost:5432/sigem_db",
-        alias="DATABASE_URL"
+        alias="DATABASE_URL",
     )
     DATABASE_POOL_SIZE: int = Field(default=20, alias="DATABASE_POOL_SIZE")
     DATABASE_MAX_OVERFLOW: int = Field(default=10, alias="DATABASE_MAX_OVERFLOW")
@@ -34,14 +53,8 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = Field(default="", alias="REDIS_PASSWORD")
 
     # Security
-    SECRET_KEY: str = Field(
-        default_factory=_generate_default_secret,
-        alias="SECRET_KEY"
-    )
-    JWT_SECRET_KEY: str = Field(
-        default_factory=_generate_default_secret,
-        alias="JWT_SECRET_KEY"
-    )
+    SECRET_KEY: str = Field(default=DEV_SECRET_KEY_PLACEHOLDER, alias="SECRET_KEY")
+    JWT_SECRET_KEY: str = Field(default=DEV_JWT_SECRET_PLACEHOLDER, alias="JWT_SECRET_KEY")
     JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
@@ -49,7 +62,9 @@ class Settings(BaseSettings):
     # Passwords
     PASSWORD_HASH_ALGORITHM: str = Field(default="argon2id", alias="PASSWORD_HASH_ALGORITHM")
     PASSWORD_MIN_LENGTH: int = Field(default=15, alias="PASSWORD_MIN_LENGTH")
-    TEMPORARY_PASSWORD_EXPIRY_HOURS: int = Field(default=24, alias="TEMPORARY_PASSWORD_EXPIRY_HOURS")
+    TEMPORARY_PASSWORD_EXPIRY_HOURS: int = Field(
+        default=24, alias="TEMPORARY_PASSWORD_EXPIRY_HOURS"
+    )
 
     # MFA
     MFA_ISSUER: str = Field(default="SIGEM Colombia", alias="MFA_ISSUER")
@@ -57,8 +72,13 @@ class Settings(BaseSettings):
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = Field(default=True, alias="RATE_LIMIT_ENABLED")
-    RATE_LIMIT_LOGIN_ATTEMPTS: int = Field(default=5, alias="RATE_LIMIT_LOGIN_ATTEMPTS")
-    RATE_LIMIT_LOGIN_WINDOW_MINUTES: int = Field(default=15, alias="RATE_LIMIT_LOGIN_WINDOW_MINUTES")
+    RATE_LIMIT_DEFAULT_REQUESTS: int = Field(default=600, alias="RATE_LIMIT_DEFAULT_REQUESTS")
+    RATE_LIMIT_LOGIN_ATTEMPTS: int = Field(default=10, alias="RATE_LIMIT_LOGIN_ATTEMPTS")
+    RATE_LIMIT_LOGIN_WINDOW_MINUTES: int = Field(
+        default=15, alias="RATE_LIMIT_LOGIN_WINDOW_MINUTES"
+    )
+    RATE_LIMIT_WINDOW: int = Field(default=60, alias="RATE_LIMIT_WINDOW")
+    TRUST_PROXY_HEADERS: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")
 
     # Storage
     STORAGE_PATH: str = Field(default="/data/evidencias", alias="STORAGE_PATH")
@@ -74,17 +94,58 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
-        alias="CORS_ORIGINS"
+        alias="CORS_ORIGINS",
     )
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO", alias="LOG_LEVEL")
     LOG_FORMAT: str = Field(default="json", alias="LOG_FORMAT")
 
+    # Metrics
+    METRICS_ENABLED: bool = Field(default=True, alias="METRICS_ENABLED")
+    METRICS_TOKEN: str | None = Field(default=None, alias="METRICS_TOKEN")
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+
+    @property
+    def is_production(self) -> bool:
+        environments = {
+            (self.ENVIRONMENT or "").strip().lower(),
+            (self.APP_ENV or "").strip().lower(),
+        }
+        return bool(environments & _PRODUCTION_ENVIRONMENTS)
+
+    def validate_production(self) -> None:
+        if not self.is_production:
+            return
+
+        problems: list[str] = []
+
+        if self.DEBUG:
+            problems.append("DEBUG debe ser 'false' en producción")
+
+        for field_name in ("SECRET_KEY", "JWT_SECRET_KEY"):
+            value = str(getattr(self, field_name) or "")
+            if len(value) < 32 or value.strip().lower() in _DEV_SECRET_PLACEHOLDERS:
+                problems.append(
+                    f"{field_name} debe definirse con un valor de al menos 32 caracteres "
+                    "que no sea el placeholder de desarrollo"
+                )
+
+        database_url = (self.DATABASE_URL or "").strip()
+        if not database_url:
+            problems.append("DATABASE_URL no puede estar vacío en producción")
+        elif any(marker in database_url.lower() for marker in _DEV_DATABASE_PASSWORD_MARKERS):
+            problems.append("DATABASE_URL contiene una contraseña de desarrollo")
+
+        if "*" in (self.CORS_ORIGINS or []):
+            problems.append("CORS_ORIGINS no puede contener '*' en producción")
+
+        if problems:
+            raise RuntimeError("Configuración de producción inválida: " + "; ".join(problems))
 
 
 settings = Settings()

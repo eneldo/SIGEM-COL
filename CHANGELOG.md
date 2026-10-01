@@ -4,6 +4,37 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 
 ---
 
+## [Unreleased]
+
+### Added
+- Endpoints operativos: `GET /health` (503 cuando la base de datos no responde), `GET /health/live`, `GET /health/ready` y `GET /metrics` (Prometheus, con bearer opcional vía `METRICS_TOKEN`)
+- Pipeline de CI/CD en `.github/workflows/ci.yml`: `backend-quality` (ruff, ruff format, mypy, bandit), `backend-tests` (PostgreSQL 17 + Redis 7, cobertura 80 %), `frontend-quality` (tsc, eslint con cero warnings, vitest con umbrales, build), `security` (gitleaks, pip-audit, npm audit), `docker-build` (imágenes sin push, caché GHA) y `deploy` manual por SSH con validación de secretos
+- Configuración ESLint del frontend (`.eslintrc.cjs`, `.eslintignore`)
+- `.gitleaks.toml` con allowlist de placeholders de prueba y `.env.example` sincronizado con `core/config.py`
+- TLS de producción (`infra/nginx/nginx.prod.conf`, certificados en `infra/tls/`) y guía `docs/operations/tls.md`
+- Respaldos automáticos (BD + evidencias, retención y verificación) con runbook `docs/operations/backups.md`
+- Monitoreo con perfil `monitoring` de Prometheus e alertas (`infra/monitoring/`), runbook `docs/operations/monitoring.md`
+- Stack de producción: `infra/docker/docker-compose.prod.yml`, `.env.prod.example`, `scripts/setup/deploy.sh` y `scripts/setup/rollback.sh`, runbook `docs/operations/deployment.md`
+- Documentación de CI/CD en `docs/operations/ci-cd.md`
+
+### Changed
+- Rate limiting configurable: `RATE_LIMIT_DEFAULT_REQUESTS`, `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_WINDOW` y `TRUST_PROXY_HEADERS`
+- README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
+
+### Security
+- Salud del servicio reportada con 503 en `GET /health` cuando la base de datos está caída
+- Endpoints de métricas protegidos con `METRICS_TOKEN` (bearer) cuando está definido
+- Escaneo de secretos (gitleaks), de dependencias Python (pip-audit) y de dependencias Node (npm audit) como gates obligatorios de CI
+- Validación de configuración de producción (secretos y CORS) en `core/config.py`
+
+### Pending
+- Tests de seguridad (aislamiento, autorización)
+- Tests E2E
+- MFA WebAuthn
+- Notifications system
+
+---
+
 ## [1.0.0] - 2026-09-20
 
 ### Added
@@ -58,7 +89,7 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
   - `docker-compose.yml` con 5 servicios
   - `Dockerfile` backend y frontend
   - `nginx.conf` con reverse proxy
-  - `init.sql` con UUIDv7
+  - scripts de inicialización de la base de datos en `infra/postgres/init/` (inicialización del rol `sigem_app`, en lugar del antiguo `init.sql`)
 - Migraciones:
   - `alembic.ini` y `migrations/env.py`
   - `migrations/script.py.mako`
@@ -181,16 +212,6 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Routing:
   - `App.tsx` - Rutas protegidas por rol
   - ProtectedRoute con redirección por mustChangePassword
-
----
-
-## [Unreleased]
-
-### Pending
-- Tests de seguridad (aislamiento, autorización)
-- Tests E2E
-- MFA WebAuthn
-- Notifications system
 
 ---
 

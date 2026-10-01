@@ -109,6 +109,8 @@ def _optimize_pdf(content: bytes) -> tuple[bytes, str]:
             for image_file in page.images:
                 try:
                     image = image_file.image
+                    if image is None:
+                        continue
                     max_dimension = settings.EVIDENCE_IMAGE_MAX_DIMENSION
                     if max(image.size) > max_dimension:
                         image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)

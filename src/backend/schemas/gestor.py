@@ -1,4 +1,5 @@
 """Schemas Gestores Líderes - Pydantic models para el módulo de Gestores"""
+
 from datetime import datetime
 from uuid import UUID
 
@@ -95,7 +96,7 @@ class GestorAccion(BaseModel):
 
 
 class GestorPasswordReset(BaseModel):
-    nueva_password_temporal: str = Field(..., read_only=True)
+    nueva_password_temporal: str = Field(..., json_schema_extra={"readOnly": True})
     id: UUID | None = None
     codigo: str | None = None
     username: str | None = None

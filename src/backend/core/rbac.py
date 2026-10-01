@@ -1,4 +1,5 @@
 """RBAC utilities - Role-Based Access Control"""
+
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -28,6 +29,7 @@ async def get_user_permissions(db: AsyncSession, user_id: UUID) -> list[str]:
 async def get_user_role_codes(db: AsyncSession, user_id: UUID) -> list[str]:
     """Get all role codes for a user."""
     from ..models.rol import Rol
+
     result = await db.execute(
         select(Rol.codigo)
         .join(UsuarioRol, UsuarioRol.rol_id == Rol.id)

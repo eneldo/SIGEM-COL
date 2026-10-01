@@ -30,6 +30,7 @@ ELIMINADO = False
 # Creación de línea estratégica
 # ---------------------------------------------------------------------------
 
+
 async def create_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -59,9 +60,7 @@ async def create_linea(
     plan = plan_result.scalar_one_or_none()
 
     if plan is None:
-        raise ValueError(
-            "El plan de desarrollo no existe o no pertenece a este municipio."
-        )
+        raise ValueError("El plan de desarrollo no existe o no pertenece a este municipio.")
 
     # Auto-generar código único LE-XXX
     count_stmt = select(func.count()).where(
@@ -128,6 +127,7 @@ async def create_linea(
 # Listado de líneas estratégicas
 # ---------------------------------------------------------------------------
 
+
 async def list_lineas(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -182,9 +182,7 @@ async def list_lineas(
     # Filtro por plan de desarrollo
     plan_desarrollo_id = filtros.get("plan_desarrollo_id")
     if plan_desarrollo_id:
-        base_query = base_query.where(
-            LineaEstrategica.plan_desarrollo_id == plan_desarrollo_id
-        )
+        base_query = base_query.where(LineaEstrategica.plan_desarrollo_id == plan_desarrollo_id)
 
     # Filtro por estado
     estado = filtros.get("estado")
@@ -205,20 +203,22 @@ async def list_lineas(
 
     lineas = []
     for linea, plan_nombre in rows:
-        lineas.append({
-            "id": str(linea.id),
-            "municipio_id": str(linea.municipio_id),
-            "plan_desarrollo_id": str(linea.plan_desarrollo_id),
-            "plan_desarrollo_nombre": plan_nombre,
-            "codigo": linea.codigo,
-            "numero": linea.numero,
-            "nombre": linea.nombre,
-            "descripcion": linea.descripcion,
-            "orden": linea.orden,
-            "estado": linea.estado,
-            "created_at": linea.created_at.isoformat(),
-            "updated_at": linea.updated_at.isoformat(),
-        })
+        lineas.append(
+            {
+                "id": str(linea.id),
+                "municipio_id": str(linea.municipio_id),
+                "plan_desarrollo_id": str(linea.plan_desarrollo_id),
+                "plan_desarrollo_nombre": plan_nombre,
+                "codigo": linea.codigo,
+                "numero": linea.numero,
+                "nombre": linea.nombre,
+                "descripcion": linea.descripcion,
+                "orden": linea.orden,
+                "estado": linea.estado,
+                "created_at": linea.created_at.isoformat(),
+                "updated_at": linea.updated_at.isoformat(),
+            }
+        )
 
     return {
         "lineas": lineas,
@@ -232,6 +232,7 @@ async def list_lineas(
 # ---------------------------------------------------------------------------
 # Obtener línea estratégica por ID
 # ---------------------------------------------------------------------------
+
 
 async def get_linea(
     db: AsyncSession,
@@ -288,6 +289,7 @@ async def get_linea(
 # Actualizar línea estratégica
 # ---------------------------------------------------------------------------
 
+
 async def update_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -340,9 +342,7 @@ async def update_linea(
         plan_result = await db.execute(plan_stmt)
         plan = plan_result.scalar_one_or_none()
         if plan is None:
-            raise ValueError(
-                "El plan de desarrollo no existe o no pertenece a este municipio."
-            )
+            raise ValueError("El plan de desarrollo no existe o no pertenece a este municipio.")
         linea.plan_desarrollo_id = new_plan_id
 
     # Si se cambia el código, validar unicidad dentro del plan
@@ -371,15 +371,15 @@ async def update_linea(
         if field in update_data:
             setattr(linea, field, update_data[field])
 
-    linea.updated_at = now
+    linea.updated_at = now  # type: ignore[assignment]
     await db.commit()
     await db.refresh(linea)
 
     # Obtener nombre del plan para la respuesta
-    plan_stmt = select(PlanDesarrollo.nombre).where(
+    plan_nombre_stmt = select(PlanDesarrollo.nombre).where(
         PlanDesarrollo.id == linea.plan_desarrollo_id
     )
-    plan_result = await db.execute(plan_stmt)
+    plan_result = await db.execute(plan_nombre_stmt)
     plan_nombre = plan_result.scalar_one()
 
     return {
@@ -401,6 +401,7 @@ async def update_linea(
 # ---------------------------------------------------------------------------
 # Eliminación lógica de línea estratégica
 # ---------------------------------------------------------------------------
+
 
 async def delete_linea(
     db: AsyncSession,
@@ -435,10 +436,10 @@ async def delete_linea(
 
     now = datetime.now(UTC)
     linea.soft_delete(user_id) if user_id else setattr(linea, "deleted_at", now)
-    linea.updated_at = now
+    linea.updated_at = now  # type: ignore[assignment]
 
     if user_id:
-        linea.deleted_by = user_id
+        linea.deleted_by = user_id  # type: ignore[assignment]
 
     await db.commit()
 

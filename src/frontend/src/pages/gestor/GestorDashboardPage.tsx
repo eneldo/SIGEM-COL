@@ -53,7 +53,7 @@ export function GestorDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [selectedProducto, setSelectedProducto] = useState<ProductoAsignado | null>(null)
   const [avances, setAvances] = useState<Avance[]>([])
-  const [_loadingAvances, setLoadingAvances] = useState(false)
+  const [, setLoadingAvances] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [avanceForm, setAvanceForm] = useState({
     avance_porcentaje: 0,
@@ -165,10 +165,10 @@ export function GestorDashboardPage() {
   }
 
   const kpiCards = resumen ? [
-    { label: 'Productos asignados', value: resumen.total_productos, icon: 'box', tone: 'bg-forest-soft text-forest' },
-    { label: 'Con avance registrado', value: resumen.productos_con_avance, icon: 'layers', tone: 'bg-ochre-soft text-ochre-deep' },
-    { label: 'Avance promedio', value: `${resumen.avance_promedio}%`, icon: 'refresh', tone: 'bg-[#E9EEF5] text-[#3D5D7A]' },
-    { label: 'Completados', value: resumen.productos_completados, icon: 'check', tone: 'bg-pine-soft text-pine' },
+    { label: 'Productos asignados', value: resumen.total_productos, icon: 'box' as const, tone: 'bg-forest-soft text-forest' },
+    { label: 'Con avance registrado', value: resumen.productos_con_avance, icon: 'layers' as const, tone: 'bg-ochre-soft text-ochre-deep' },
+    { label: 'Avance promedio', value: `${resumen.avance_promedio}%`, icon: 'refresh' as const, tone: 'bg-[#E9EEF5] text-[#3D5D7A]' },
+    { label: 'Completados', value: resumen.productos_completados, icon: 'check' as const, tone: 'bg-pine-soft text-pine' },
   ] : []
 
   return (
@@ -205,7 +205,7 @@ export function GestorDashboardPage() {
             {kpiCards.map((card) => (
               <article key={card.label} className="group rounded-2xl border border-line bg-paper-raised p-5 shadow-[0_8px_22px_rgba(38,36,31,0.04)] transition-all hover:-translate-y-0.5 hover:border-pine/25 hover:shadow-[0_14px_30px_rgba(15,61,59,0.08)]">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}>
-                  <Icon name={card.icon as any} className="h-5 w-5" />
+                  <Icon name={card.icon} className="h-5 w-5" />
                 </div>
                 <p className="mt-5 text-xs font-bold uppercase tracking-wider text-ink-faint">{card.label}</p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-pine">{loading ? '—' : card.value}</p>

@@ -3,6 +3,7 @@ Servicio de Cumplimiento de Metas - SIGEM Colombia
 ===================================================
 Calcula el avance y cumplimiento de metas cuatrienales.
 """
+
 import uuid
 
 from sqlalchemy import and_, select
@@ -120,17 +121,19 @@ async def get_cumplimiento_por_linea(
 
         promedio = round(total_porcentaje / count_con_meta, 1) if count_con_meta > 0 else 0
 
-        items.append({
-            "id": str(linea.id),
-            "codigo": linea.codigo,
-            "nombre": linea.nombre,
-            "total_productos": total,
-            "con_meta_definida": count_con_meta,
-            "completados": completados,
-            "en_progreso": en_progreso,
-            "sin_avance": sin_avance,
-            "porcentaje_cumplimiento": promedio,
-        })
+        items.append(
+            {
+                "id": str(linea.id),
+                "codigo": linea.codigo,
+                "nombre": linea.nombre,
+                "total_productos": total,
+                "con_meta_definida": count_con_meta,
+                "completados": completados,
+                "en_progreso": en_progreso,
+                "sin_avance": sin_avance,
+                "porcentaje_cumplimiento": promedio,
+            }
+        )
 
     return items
 
@@ -187,18 +190,20 @@ async def get_cumplimiento_por_programa(
 
         promedio = round(total_porcentaje / count_con_meta, 1) if count_con_meta > 0 else 0
 
-        items.append({
-            "id": str(prog.id),
-            "codigo": prog.codigo,
-            "nombre": prog.nombre,
-            "linea_nombre": linea_nombre,
-            "total_productos": total,
-            "con_meta_definida": count_con_meta,
-            "completados": completados,
-            "en_progreso": en_progreso,
-            "sin_avance": sin_avance,
-            "porcentaje_cumplimiento": promedio,
-        })
+        items.append(
+            {
+                "id": str(prog.id),
+                "codigo": prog.codigo,
+                "nombre": prog.nombre,
+                "linea_nombre": linea_nombre,
+                "total_productos": total,
+                "con_meta_definida": count_con_meta,
+                "completados": completados,
+                "en_progreso": en_progreso,
+                "sin_avance": sin_avance,
+                "porcentaje_cumplimiento": promedio,
+            }
+        )
 
     return items
 
@@ -305,17 +310,19 @@ async def get_listado_productos_cumplimiento(
             else:
                 estado = "SIN_AVANCE"
 
-        items.append({
-            "id": str(p.id),
-            "codigo": p.codigo,
-            "nombre": p.nombre,
-            "indicador": p.indicador,
-            "linea_base": p.linea_base,
-            "meta_cuatrienio": p.meta_cuatrienio,
-            "programa_nombre": prog_nombre,
-            "linea_nombre": linea_nombre,
-            "porcentaje_avance": porcentaje,
-            "estado_cumplimiento": estado,
-        })
+        items.append(
+            {
+                "id": str(p.id),
+                "codigo": p.codigo,
+                "nombre": p.nombre,
+                "indicador": p.indicador,
+                "linea_base": p.linea_base,
+                "meta_cuatrienio": p.meta_cuatrienio,
+                "programa_nombre": prog_nombre,
+                "linea_nombre": linea_nombre,
+                "porcentaje_avance": porcentaje,
+                "estado_cumplimiento": estado,
+            }
+        )
 
     return items

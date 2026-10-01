@@ -34,14 +34,11 @@ async def get_mis_productos(
     """
     Obtiene los productos asignados al gestor actual.
     """
-    gestor_stmt = (
-        select(GestorLider.id)
-        .where(
-            and_(
-                GestorLider.usuario_id == usuario_id,
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.deleted_at.is_(None),
-            )
+    gestor_stmt = select(GestorLider.id).where(
+        and_(
+            GestorLider.usuario_id == usuario_id,
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.deleted_at.is_(None),
         )
     )
     gestor_id = await db.scalar(gestor_stmt)
@@ -133,29 +130,23 @@ async def registrar_avance(
     """
     Registra un nuevo avance para un producto.
     """
-    gestor_stmt = (
-        select(GestorLider.id)
-        .where(
-            and_(
-                GestorLider.usuario_id == usuario_id,
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.deleted_at.is_(None),
-            )
+    gestor_stmt = select(GestorLider.id).where(
+        and_(
+            GestorLider.usuario_id == usuario_id,
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.deleted_at.is_(None),
         )
     )
     gestor_id = await db.scalar(gestor_stmt)
     if not gestor_id:
         raise ValueError("No se encontró un gestor líder asociado al usuario actual.")
 
-    producto_stmt = (
-        select(Producto)
-        .where(
-            and_(
-                Producto.id == producto_id,
-                Producto.municipio_id == municipio_id,
-                Producto.gestor_lider_id == gestor_id,
-                Producto.deleted_at.is_(None),
-            )
+    producto_stmt = select(Producto).where(
+        and_(
+            Producto.id == producto_id,
+            Producto.municipio_id == municipio_id,
+            Producto.gestor_lider_id == gestor_id,
+            Producto.deleted_at.is_(None),
         )
     )
     producto = await db.scalar(producto_stmt)
@@ -192,7 +183,7 @@ async def registrar_avance(
         municipio_id=municipio_id,
         usuario_id=usuario_id,
         recurso_tipo="AvanceProducto",
-        recurso_id=avance.id,
+        recurso_id=avance.id,  # type: ignore[arg-type]
         metadata={
             "producto_id": str(producto_id),
             "avance_porcentaje": avance.avance_porcentaje,
@@ -238,7 +229,14 @@ async def actualizar_avance(
     if avance.estado_revision == "APROBADO":
         raise PermissionError("No se puede editar un avance ya aprobado.")
 
-    editable = {"avance_porcentaje", "avance_valor", "observaciones", "indicador", "periodo", "estado_revision"}
+    editable = {
+        "avance_porcentaje",
+        "avance_valor",
+        "observaciones",
+        "indicador",
+        "periodo",
+        "estado_revision",
+    }
     changed = False
     for key in editable:
         if key in avance_data and avance_data[key] is not None:
@@ -248,7 +246,7 @@ async def actualizar_avance(
     if not changed:
         raise ValueError("No se enviaron campos para actualizar.")
 
-    avance.updated_at = datetime.now(UTC)
+    avance.updated_at = datetime.now(UTC)  # type: ignore[assignment]
     await db.flush()
 
     audit = AuditService(db)
@@ -258,8 +256,10 @@ async def actualizar_avance(
         municipio_id=municipio_id,
         usuario_id=usuario_id,
         recurso_tipo="AvanceProducto",
-        recurso_id=avance.id,
-        metadata={"campos": sorted(k for k in editable if k in avance_data and avance_data[k] is not None)},
+        recurso_id=avance.id,  # type: ignore[arg-type]
+        metadata={
+            "campos": sorted(k for k in editable if k in avance_data and avance_data[k] is not None)
+        },
     )
 
     await db.commit()
@@ -311,7 +311,7 @@ async def eliminar_avance(
         ev.soft_delete(usuario_id)
 
     avance.soft_delete(usuario_id)
-    avance.updated_at = datetime.now(UTC)
+    avance.updated_at = datetime.now(UTC)  # type: ignore[assignment]
 
     audit = AuditService(db)
     await audit.log_event(
@@ -320,7 +320,7 @@ async def eliminar_avance(
         municipio_id=municipio_id,
         usuario_id=usuario_id,
         recurso_tipo="AvanceProducto",
-        recurso_id=avance.id,
+        recurso_id=avance.id,  # type: ignore[arg-type]
         metadata={
             "producto_id": str(avance.producto_id),
             "avance_porcentaje": avance.avance_porcentaje,
@@ -341,14 +341,11 @@ async def get_resumen_avances(
     """
     Resumen de avances del gestor actual.
     """
-    gestor_stmt = (
-        select(GestorLider.id)
-        .where(
-            and_(
-                GestorLider.usuario_id == usuario_id,
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.deleted_at.is_(None),
-            )
+    gestor_stmt = select(GestorLider.id).where(
+        and_(
+            GestorLider.usuario_id == usuario_id,
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.deleted_at.is_(None),
         )
     )
     gestor_id = await db.scalar(gestor_stmt)
@@ -360,14 +357,11 @@ async def get_resumen_avances(
             "productos_completados": 0,
         }
 
-    productos_stmt = (
-        select(Producto)
-        .where(
-            and_(
-                Producto.gestor_lider_id == gestor_id,
-                Producto.municipio_id == municipio_id,
-                Producto.deleted_at.is_(None),
-            )
+    productos_stmt = select(Producto).where(
+        and_(
+            Producto.gestor_lider_id == gestor_id,
+            Producto.municipio_id == municipio_id,
+            Producto.deleted_at.is_(None),
         )
     )
     productos_result = await db.execute(productos_stmt)
@@ -495,12 +489,14 @@ async def get_estadisticas_revision(
         base_conditions.append(AvanceProducto.gestor_lider_id == gestor_lider_id)
 
     pendientes = await db.scalar(
-        select(func.count()).select_from(AvanceProducto).where(
-            and_(*base_conditions, AvanceProducto.estado_revision == "PENDIENTE")
-        )
+        select(func.count())
+        .select_from(AvanceProducto)
+        .where(and_(*base_conditions, AvanceProducto.estado_revision == "PENDIENTE"))
     )
     aprobados_semana = await db.scalar(
-        select(func.count()).select_from(AvanceProducto).where(
+        select(func.count())
+        .select_from(AvanceProducto)
+        .where(
             and_(
                 *base_conditions,
                 AvanceProducto.estado_revision == "APROBADO",
@@ -509,9 +505,9 @@ async def get_estadisticas_revision(
         )
     )
     devueltos = await db.scalar(
-        select(func.count()).select_from(AvanceProducto).where(
-            and_(*base_conditions, AvanceProducto.estado_revision == "RECHAZADO")
-        )
+        select(func.count())
+        .select_from(AvanceProducto)
+        .where(and_(*base_conditions, AvanceProducto.estado_revision == "RECHAZADO"))
     )
 
     return {
@@ -548,9 +544,7 @@ async def revisar_avance(
         raise ValueError("Avance no encontrado.")
 
     if gestor_lider_id is not None and avance.gestor_lider_id != gestor_lider_id:
-        raise PermissionError(
-            "No tiene permiso para revisar avances de otro gestor líder."
-        )
+        raise PermissionError("No tiene permiso para revisar avances de otro gestor líder.")
 
     if nuevo_estado not in ("APROBADO", "RECHAZADO"):
         raise ValueError("Estado inválido. Debe ser APROBADO o RECHAZADO.")
@@ -558,10 +552,10 @@ async def revisar_avance(
     if nuevo_estado == "RECHAZADO" and not observacion:
         raise ValueError("La observación es obligatoria al devolver un avance.")
 
-    avance.estado_revision = nuevo_estado
+    avance.estado_revision = nuevo_estado  # type: ignore[assignment]
     if observacion:
-        avance.observaciones_revision = observacion
-    avance.updated_at = datetime.now(UTC)
+        avance.observaciones_revision = observacion  # type: ignore[assignment]
+    avance.updated_at = datetime.now(UTC)  # type: ignore[assignment]
 
     audit = AuditService(db)
     await audit.log_event(
@@ -570,7 +564,7 @@ async def revisar_avance(
         municipio_id=municipio_id,
         usuario_id=usuario_id,
         recurso_tipo="AvanceProducto",
-        recurso_id=avance.id,
+        recurso_id=avance.id,  # type: ignore[arg-type]
         metadata={
             "nuevo_estado": nuevo_estado,
             "observacion": observacion,
@@ -643,10 +637,10 @@ async def guardar_evidencia(
     await asyncio.to_thread(write_atomically)
 
     rel_path = f"{municipio_id}/{avance_id}/{safe_name}"
-    avance.evidencia_url = rel_path
-    avance.evidencia_nombre = filename
-    avance.evidencia_tipo = content_type
-    avance.updated_at = datetime.now(UTC)
+    avance.evidencia_url = rel_path  # type: ignore[assignment]
+    avance.evidencia_nombre = filename  # type: ignore[assignment]
+    avance.evidencia_tipo = content_type  # type: ignore[assignment]
+    avance.updated_at = datetime.now(UTC)  # type: ignore[assignment]
 
     try:
         audit = AuditService(db)
@@ -656,7 +650,7 @@ async def guardar_evidencia(
             municipio_id=municipio_id,
             usuario_id=usuario_id,
             recurso_tipo="AvanceProducto",
-            recurso_id=avance.id,
+            recurso_id=avance.id,  # type: ignore[arg-type]
             metadata={
                 "evidencia_nombre": filename,
                 "evidencia_tipo": content_type,
@@ -735,8 +729,8 @@ async def obtener_archivo_evidencia(
     if not file_path.is_file():
         raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
 
-    filename = avance.evidencia_nombre or file_path.name
-    content_type = avance.evidencia_tipo or "application/octet-stream"
+    filename = str(avance.evidencia_nombre or file_path.name)
+    content_type = str(avance.evidencia_tipo or "application/octet-stream")
     return file_path, filename, content_type
 
 
@@ -861,7 +855,7 @@ async def agregar_evidencias(
     avance.evidencia_url = last.url
     avance.evidencia_nombre = last.nombre
     avance.evidencia_tipo = last.tipo
-    avance.updated_at = datetime.now(UTC)
+    avance.updated_at = datetime.now(UTC)  # type: ignore[assignment]
 
     try:
         audit = AuditService(db)
@@ -872,7 +866,7 @@ async def agregar_evidencias(
                 municipio_id=municipio_id,
                 usuario_id=usuario_id,
                 recurso_tipo="AvanceProducto",
-                recurso_id=avance.id,
+                recurso_id=avance.id,  # type: ignore[arg-type]
                 metadata={
                     "evidencia_id": str(ev.id),
                     "evidencia_nombre": ev.nombre,
@@ -986,8 +980,8 @@ async def obtener_archivo_evidencia_por_id(
     if not file_path.is_file():
         raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
 
-    filename = evidencia.nombre or file_path.name
-    content_type = evidencia.tipo or "application/octet-stream"
+    filename = str(evidencia.nombre or file_path.name)
+    content_type = str(evidencia.tipo or "application/octet-stream")
     return file_path, filename, content_type
 
 
@@ -1014,8 +1008,8 @@ async def actualizar_descripcion_evidencia(
     if not evidencia:
         raise ValueError("Evidencia no encontrada.")
 
-    evidencia.descripcion = descripcion
-    evidencia.updated_at = datetime.now(UTC)
+    evidencia.descripcion = descripcion  # type: ignore[assignment]
+    evidencia.updated_at = datetime.now(UTC)  # type: ignore[assignment]
     await db.commit()
     await db.refresh(evidencia)
 
@@ -1078,11 +1072,11 @@ async def eliminar_evidencia(
             avance.evidencia_nombre = remaining.nombre
             avance.evidencia_tipo = remaining.tipo
         else:
-            avance.evidencia_url = None
-            avance.evidencia_nombre = None
-            avance.evidencia_tipo = None
+            avance.evidencia_url = None  # type: ignore[assignment]
+            avance.evidencia_nombre = None  # type: ignore[assignment]
+            avance.evidencia_tipo = None  # type: ignore[assignment]
 
-    avance.updated_at = datetime.now(UTC)
+    avance.updated_at = datetime.now(UTC)  # type: ignore[assignment]
 
     audit = AuditService(db)
     await audit.log_event(
@@ -1091,7 +1085,7 @@ async def eliminar_evidencia(
         municipio_id=municipio_id,
         usuario_id=usuario_id,
         recurso_tipo="AvanceProducto",
-        recurso_id=avance.id,
+        recurso_id=avance.id,  # type: ignore[arg-type]
         metadata={"evidencia_id": str(evidencia.id), "evidencia_nombre": evidencia.nombre},
     )
 

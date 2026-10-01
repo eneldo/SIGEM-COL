@@ -1,4 +1,5 @@
 """Schemas de catálogos - Roles y dependencias para módulos administrativos"""
+
 from uuid import UUID
 
 from pydantic import BaseModel

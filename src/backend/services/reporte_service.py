@@ -3,6 +3,7 @@ Servicio de Reportes y Rendición de Cuentas - SIGEM Colombia
 ============================================================
 Genera estadísticas, resúmenes y métricas para rendición de cuentas.
 """
+
 import uuid
 
 from sqlalchemy import and_, func, select
@@ -19,8 +20,14 @@ async def get_resumen_general(
     db: AsyncSession,
     municipio_id: uuid.UUID,
 ) -> dict:
-    lineas_stmt = select(func.count()).select_from(LineaEstrategica).where(
-        and_(LineaEstrategica.municipio_id == municipio_id, LineaEstrategica.deleted_at.is_(None))
+    lineas_stmt = (
+        select(func.count())
+        .select_from(LineaEstrategica)
+        .where(
+            and_(
+                LineaEstrategica.municipio_id == municipio_id, LineaEstrategica.deleted_at.is_(None)
+            )
+        )
     )
     total_lineas = (await db.execute(lineas_stmt)).scalar_one()
 
@@ -71,8 +78,10 @@ async def get_resumen_general(
     )
     productos_activos = (await db.execute(activos_stmt)).scalar_one()
 
-    gestores_stmt = select(func.count()).select_from(GestorLider).where(
-        and_(GestorLider.municipio_id == municipio_id, GestorLider.deleted_at.is_(None))
+    gestores_stmt = (
+        select(func.count())
+        .select_from(GestorLider)
+        .where(and_(GestorLider.municipio_id == municipio_id, GestorLider.deleted_at.is_(None)))
     )
     total_gestores = (await db.execute(gestores_stmt)).scalar_one()
 
@@ -101,10 +110,14 @@ async def get_resumen_por_linea(
 
     items = []
     for linea in lineas:
-        prog_stmt = select(func.count()).select_from(Programa).where(
-            and_(
-                Programa.linea_estrategica_id == linea.id,
-                Programa.deleted_at.is_(None),
+        prog_stmt = (
+            select(func.count())
+            .select_from(Programa)
+            .where(
+                and_(
+                    Programa.linea_estrategica_id == linea.id,
+                    Programa.deleted_at.is_(None),
+                )
             )
         )
         total_prog = (await db.execute(prog_stmt)).scalar_one()
@@ -123,14 +136,16 @@ async def get_resumen_por_linea(
         )
         total_prod = (await db.execute(prod_stmt)).scalar_one()
 
-        items.append({
-            "id": str(linea.id),
-            "codigo": linea.codigo,
-            "nombre": linea.nombre,
-            "total_programas": total_prog,
-            "total_productos": total_prod,
-            "estado": linea.estado,
-        })
+        items.append(
+            {
+                "id": str(linea.id),
+                "codigo": linea.codigo,
+                "nombre": linea.nombre,
+                "total_programas": total_prog,
+                "total_productos": total_prod,
+                "estado": linea.estado,
+            }
+        )
 
     return items
 
@@ -155,33 +170,43 @@ async def get_resumen_por_programa(
 
     items = []
     for prog, linea_nombre in programas:
-        prod_stmt = select(func.count()).select_from(Producto).where(
-            and_(
-                Producto.programa_id == prog.id,
-                Producto.deleted_at.is_(None),
+        prod_stmt = (
+            select(func.count())
+            .select_from(Producto)
+            .where(
+                and_(
+                    Producto.programa_id == prog.id,
+                    Producto.deleted_at.is_(None),
+                )
             )
         )
         total_prod = (await db.execute(prod_stmt)).scalar_one()
 
-        activos_stmt = select(func.count()).select_from(Producto).where(
-            and_(
-                Producto.programa_id == prog.id,
-                Producto.estado == "ACTIVO",
-                Producto.deleted_at.is_(None),
+        activos_stmt = (
+            select(func.count())
+            .select_from(Producto)
+            .where(
+                and_(
+                    Producto.programa_id == prog.id,
+                    Producto.estado == "ACTIVO",
+                    Producto.deleted_at.is_(None),
+                )
             )
         )
         prod_activos = (await db.execute(activos_stmt)).scalar_one()
 
-        items.append({
-            "id": str(prog.id),
-            "codigo": prog.codigo,
-            "nombre": prog.nombre,
-            "sector": prog.sector,
-            "linea_nombre": linea_nombre,
-            "total_productos": total_prod,
-            "productos_activos": prod_activos,
-            "estado": prog.estado,
-        })
+        items.append(
+            {
+                "id": str(prog.id),
+                "codigo": prog.codigo,
+                "nombre": prog.nombre,
+                "sector": prog.sector,
+                "linea_nombre": linea_nombre,
+                "total_productos": total_prod,
+                "productos_activos": prod_activos,
+                "estado": prog.estado,
+            }
+        )
 
     return items
 
@@ -201,30 +226,40 @@ async def get_resumen_por_dependencia(
 
     items = []
     for dep in dependencias:
-        prod_stmt = select(func.count()).select_from(Producto).where(
-            and_(
-                Producto.dependencia_responsable_id == dep.id,
-                Producto.deleted_at.is_(None),
+        prod_stmt = (
+            select(func.count())
+            .select_from(Producto)
+            .where(
+                and_(
+                    Producto.dependencia_responsable_id == dep.id,
+                    Producto.deleted_at.is_(None),
+                )
             )
         )
         total_prod = (await db.execute(prod_stmt)).scalar_one()
 
-        gestores_stmt = select(func.count()).select_from(GestorLider).where(
-            and_(
-                GestorLider.dependencia_principal_id == dep.id,
-                GestorLider.deleted_at.is_(None),
+        gestores_stmt = (
+            select(func.count())
+            .select_from(GestorLider)
+            .where(
+                and_(
+                    GestorLider.dependencia_principal_id == dep.id,
+                    GestorLider.deleted_at.is_(None),
+                )
             )
         )
         total_gestores = (await db.execute(gestores_stmt)).scalar_one()
 
         if total_prod > 0 or total_gestores > 0:
-            items.append({
-                "id": str(dep.id),
-                "codigo": dep.codigo,
-                "nombre": dep.nombre,
-                "total_productos": total_prod,
-                "total_gestores": total_gestores,
-            })
+            items.append(
+                {
+                    "id": str(dep.id),
+                    "codigo": dep.codigo,
+                    "nombre": dep.nombre,
+                    "total_productos": total_prod,
+                    "total_gestores": total_gestores,
+                }
+            )
 
     return items
 
@@ -261,7 +296,7 @@ async def get_metricas_productos(
         avances = []
         for p in productos:
             if p.linea_base and p.meta_cuatrienio and p.meta_cuatrienio > 0:
-                avance = min(100, ((p.linea_base) / p.meta_cuatrienio) * 100)
+                avance = min(100, ((p.linea_base) / p.meta_cuatrienio) * 100)  # type: ignore[call-overload]
                 avances.append(avance)
         if avances:
             promedio_avance = round(sum(avances) / len(avances), 1)
@@ -274,7 +309,9 @@ async def get_metricas_productos(
         "con_linea_base": con_linea_base,
         "con_gestor_asignado": con_gestor,
         "sin_gestor_asignado": total - con_gestor,
-        "porcentaje_cumplimiento_indicador": round((con_indicador / total * 100), 1) if total > 0 else 0,
+        "porcentaje_cumplimiento_indicador": round((con_indicador / total * 100), 1)
+        if total > 0
+        else 0,
         "porcentaje_cumplimiento_meta": round((con_meta / total * 100), 1) if total > 0 else 0,
         "promedio_avance": promedio_avance,
     }

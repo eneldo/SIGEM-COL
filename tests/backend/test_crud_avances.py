@@ -1,4 +1,5 @@
 """Tests del CRUD de avances: crear → editar → eliminar (soft delete)."""
+
 from tests.conftest import API_PREFIX, auth_header
 
 AVANCES = f"{API_PREFIX}/gestor/dashboard/avances"
@@ -256,7 +257,9 @@ class TestCicloCompletoCRUD:
         assert rev.status_code == 200, rev.text
 
         # DELETE bloqueado en APROBADO
-        blocked = api.delete(f"{AVANCES}/{avance_id}", headers=auth_header(gestor_token))
+        blocked = api.delete(
+            f"{AVANCES}/{avance_id}", headers=auth_header(gestor_token)
+        )
         assert blocked.status_code == 403
 
         # Devolver y poder eliminar
@@ -282,7 +285,9 @@ class TestEdicionAvance:
     """Casos adicionales de edición usados por el modal del frontend."""
 
     def test_editar_borrador(self, api, gestor_token):
-        avance = _crear_avance(api, gestor_token, estado_revision="BORRADOR", avance_porcentaje=5.0)
+        avance = _crear_avance(
+            api, gestor_token, estado_revision="BORRADOR", avance_porcentaje=5.0
+        )
 
         resp = api.put(
             f"{AVANCES}/{avance['id']}",

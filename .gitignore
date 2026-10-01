@@ -37,6 +37,7 @@ ENV/
 .env
 .env.local
 .env.production
+infra/docker/.env.prod
 
 # Docker
 .docker/

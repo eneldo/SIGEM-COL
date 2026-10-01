@@ -39,6 +39,7 @@ router = APIRouter(prefix="/programas", tags=["Programas"])
 # POST /programas - Crear programa
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=ProgramaResponse,
@@ -70,12 +71,12 @@ async def crear_programa(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
-    except Exception:
+        ) from e
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al crear el programa",
-        )
+        ) from exc
 
     return ProgramaResponse(**result)
 
@@ -83,6 +84,7 @@ async def crear_programa(
 # ---------------------------------------------------------------------------
 # GET /programas - Listar programas con filtros
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "",
@@ -131,13 +133,13 @@ async def listar_programas(
 # GET /programas/{programa_id} - Obtener detalle de programa
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/{programa_id}",
     response_model=ProgramaResponse,
     summary="Obtener detalle de un programa",
     description=(
-        "Retorna la información completa de un programa por su ID. "
-        "Permiso requerido: programa.ver"
+        "Retorna la información completa de un programa por su ID. Permiso requerido: programa.ver"
     ),
 )
 async def obtener_programa(
@@ -167,6 +169,7 @@ async def obtener_programa(
 # ---------------------------------------------------------------------------
 # PUT /programas/{programa_id} - Actualizar programa
 # ---------------------------------------------------------------------------
+
 
 @router.put(
     "/{programa_id}",
@@ -200,7 +203,7 @@ async def actualizar_programa(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from e
 
     if not result:
         raise HTTPException(
@@ -214,6 +217,7 @@ async def actualizar_programa(
 # ---------------------------------------------------------------------------
 # DELETE /programas/{programa_id} - Eliminación lógica
 # ---------------------------------------------------------------------------
+
 
 @router.delete(
     "/{programa_id}",

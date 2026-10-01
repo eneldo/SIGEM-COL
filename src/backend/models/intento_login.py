@@ -1,4 +1,5 @@
 """IntentoLogin model - Modelo para registrar intentos de login"""
+
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
@@ -13,7 +14,9 @@ class IntentoLogin(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True, index=True)
     username_intentado = Column(String(150), nullable=False, index=True)
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=True, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=True, index=True
+    )
     exitoso = Column(Boolean, default=False, nullable=False)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)

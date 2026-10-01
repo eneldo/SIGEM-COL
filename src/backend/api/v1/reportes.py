@@ -1,6 +1,7 @@
 """
 API Routes - Reportes y Rendición de Cuentas
 """
+
 import io
 
 from fastapi import APIRouter, Depends

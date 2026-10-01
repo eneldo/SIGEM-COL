@@ -1,6 +1,7 @@
 """
 Schemas para Reportes y Rendición de Cuentas - SIGEM Colombia
 """
+
 from pydantic import BaseModel
 
 

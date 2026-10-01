@@ -1,4 +1,5 @@
 """Usuario model - Modelo para usuarios del sistema"""
+
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,7 +10,9 @@ from .base import BaseModel
 class Usuario(BaseModel):
     __tablename__ = "usuarios"
 
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
     codigo = Column(String(50), unique=True, nullable=False, index=True)
     username = Column(String(150), nullable=False, index=True)
     email = Column(String(255), nullable=False, index=True)
@@ -35,14 +38,14 @@ class Usuario(BaseModel):
     # Relationships
     municipio = relationship("Municipio", backref="usuarios")
     roles = relationship("UsuarioRol", backref="usuario", cascade="all, delete-orphan")
-    dependencias = relationship("UsuarioDependencia", backref="usuario", cascade="all, delete-orphan")
+    dependencias = relationship(
+        "UsuarioDependencia", backref="usuario", cascade="all, delete-orphan"
+    )
     sesiones = relationship("Sesion", backref="usuario", cascade="all, delete-orphan")
     gestor_lider = relationship("GestorLider", backref="usuario", uselist=False)
 
     # Unique constraint: username per municipality
-    __table_args__ = (
-        {"schema": None},
-    )
+    __table_args__ = ({"schema": None},)
 
     def __repr__(self):
         return f"<Usuario {self.username} - {self.nombre_completo}>"

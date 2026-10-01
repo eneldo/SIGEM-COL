@@ -1,6 +1,9 @@
 """
 API Routes - Administración de Auditoría
 """
+
+from typing import Any
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,7 +34,7 @@ async def listar_auditoria(
 ):
     await require_permission(db, current_user["user"].id, "auditoria.ver")
     municipio_id = current_user["municipio_id"]
-    filtros = {"page": page, "page_size": page_size}
+    filtros: dict[str, Any] = {"page": page, "page_size": page_size}
     if evento_tipo:
         filtros["evento_tipo"] = evento_tipo
     if recurso_tipo:

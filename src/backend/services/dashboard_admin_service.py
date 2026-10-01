@@ -41,6 +41,7 @@ INTENTOS_MAXIMOS_FALLIDOS = 3
 # 1. KPIs Generales
 # ---------------------------------------------------------------------------
 
+
 async def get_kpis_generales(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -63,97 +64,73 @@ async def get_kpis_generales(
     :return: Diccionario con todos los contadores.
     """
     # --- Gestores ---
-    total_gestores_stmt = (
-        select(func.count(GestorLider.id))
-        .where(
-            and_(
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.eliminado == ELIMINADO,
-            )
+    total_gestores_stmt = select(func.count(GestorLider.id)).where(
+        and_(
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.eliminado == ELIMINADO,
         )
     )
     total_gestores = (await db.execute(total_gestores_stmt)).scalar_one()
 
-    gestores_activos_stmt = (
-        select(func.count(GestorLider.id))
-        .where(
-            and_(
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.eliminado == ELIMINADO,
-                GestorLider.estado == ESTADO_ACTIVO,
-            )
+    gestores_activos_stmt = select(func.count(GestorLider.id)).where(
+        and_(
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.eliminado == ELIMINADO,
+            GestorLider.estado == ESTADO_ACTIVO,
         )
     )
     gestores_activos = (await db.execute(gestores_activos_stmt)).scalar_one()
 
-    gestores_inactivos_stmt = (
-        select(func.count(GestorLider.id))
-        .where(
-            and_(
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.eliminado == ELIMINADO,
-                GestorLider.estado == ESTADO_INACTIVO,
-            )
+    gestores_inactivos_stmt = select(func.count(GestorLider.id)).where(
+        and_(
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.eliminado == ELIMINADO,
+            GestorLider.estado == ESTADO_INACTIVO,
         )
     )
     gestores_inactivos = (await db.execute(gestores_inactivos_stmt)).scalar_one()
 
-    gestores_bloqueados_stmt = (
-        select(func.count(GestorLider.id))
-        .where(
-            and_(
-                GestorLider.municipio_id == municipio_id,
-                GestorLider.eliminado == ELIMINADO,
-                GestorLider.estado == ESTADO_BLOQUEADO,
-            )
+    gestores_bloqueados_stmt = select(func.count(GestorLider.id)).where(
+        and_(
+            GestorLider.municipio_id == municipio_id,
+            GestorLider.eliminado == ELIMINADO,
+            GestorLider.estado == ESTADO_BLOQUEADO,
         )
     )
     gestores_bloqueados = (await db.execute(gestores_bloqueados_stmt)).scalar_one()
 
     # --- Líneas estratégicas ---
-    lineas_stmt = (
-        select(func.count(LineaEstrategica.id))
-        .where(
-            and_(
-                LineaEstrategica.municipio_id == municipio_id,
-                LineaEstrategica.estado != "ELIMINADO_LOGICAMENTE",
-            )
+    lineas_stmt = select(func.count(LineaEstrategica.id)).where(
+        and_(
+            LineaEstrategica.municipio_id == municipio_id,
+            LineaEstrategica.estado != "ELIMINADO_LOGICAMENTE",
         )
     )
     total_lineas = (await db.execute(lineas_stmt)).scalar_one()
 
     # --- Programas ---
-    programas_stmt = (
-        select(func.count(Programa.id))
-        .where(
-            and_(
-                Programa.municipio_id == municipio_id,
-                Programa.estado != "ELIMINADO_LOGICAMENTE",
-            )
+    programas_stmt = select(func.count(Programa.id)).where(
+        and_(
+            Programa.municipio_id == municipio_id,
+            Programa.estado != "ELIMINADO_LOGICAMENTE",
         )
     )
     total_programas = (await db.execute(programas_stmt)).scalar_one()
 
     # --- Productos ---
-    productos_stmt = (
-        select(func.count(Producto.id))
-        .where(
-            and_(
-                Producto.municipio_id == municipio_id,
-                Producto.estado != "ELIMINADO_LOGICAMENTE",
-            )
+    productos_stmt = select(func.count(Producto.id)).where(
+        and_(
+            Producto.municipio_id == municipio_id,
+            Producto.estado != "ELIMINADO_LOGICAMENTE",
         )
     )
     total_productos = (await db.execute(productos_stmt)).scalar_one()
 
     # --- Dependencias ---
-    dependencias_stmt = (
-        select(func.count(Dependencia.id))
-        .where(
-            and_(
-                Dependencia.municipio_id == municipio_id,
-                Dependencia.estado != "ELIMINADO_LOGICAMENTE",
-            )
+    dependencias_stmt = select(func.count(Dependencia.id)).where(
+        and_(
+            Dependencia.municipio_id == municipio_id,
+            Dependencia.estado != "ELIMINADO_LOGICAMENTE",
         )
     )
     total_dependencias = (await db.execute(dependencias_stmt)).scalar_one()
@@ -173,6 +150,7 @@ async def get_kpis_generales(
 # ---------------------------------------------------------------------------
 # 2. Resumen del Plan de Desarrollo
 # ---------------------------------------------------------------------------
+
 
 async def get_resumen_plan(
     db: AsyncSession,
@@ -211,14 +189,11 @@ async def get_resumen_plan(
         return None
 
     # Contar líneas estratégicas del plan
-    lineas_stmt = (
-        select(func.count(LineaEstrategica.id))
-        .where(
-            and_(
-                LineaEstrategica.plan_desarrollo_id == plan.id,
-                LineaEstrategica.municipio_id == municipio_id,
-                LineaEstrategica.estado != "ELIMINADO_LOGICAMENTE",
-            )
+    lineas_stmt = select(func.count(LineaEstrategica.id)).where(
+        and_(
+            LineaEstrategica.plan_desarrollo_id == plan.id,
+            LineaEstrategica.municipio_id == municipio_id,
+            LineaEstrategica.estado != "ELIMINADO_LOGICAMENTE",
         )
     )
     total_lineas = (await db.execute(lineas_stmt)).scalar_one()
@@ -270,14 +245,11 @@ async def get_resumen_plan(
     lineas_desglose = []
     for linea in lineas:
         # Contar programas de esta línea
-        prog_count_stmt = (
-            select(func.count(Programa.id))
-            .where(
-                and_(
-                    Programa.linea_estrategica_id == linea.id,
-                    Programa.municipio_id == municipio_id,
-                    Programa.estado != "ELIMINADO_LOGICAMENTE",
-                )
+        prog_count_stmt = select(func.count(Programa.id)).where(
+            and_(
+                Programa.linea_estrategica_id == linea.id,
+                Programa.municipio_id == municipio_id,
+                Programa.estado != "ELIMINADO_LOGICAMENTE",
             )
         )
         prog_count = (await db.execute(prog_count_stmt)).scalar_one()
@@ -296,14 +268,16 @@ async def get_resumen_plan(
         )
         prod_count = (await db.execute(prod_count_stmt)).scalar_one()
 
-        lineas_desglose.append({
-            "id": str(linea.id),
-            "codigo": linea.codigo,
-            "nombre": linea.nombre,
-            "orden": linea.orden,
-            "total_programas": prog_count,
-            "total_productos": prod_count,
-        })
+        lineas_desglose.append(
+            {
+                "id": str(linea.id),
+                "codigo": linea.codigo,
+                "nombre": linea.nombre,
+                "orden": linea.orden,
+                "total_programas": prog_count,
+                "total_productos": prod_count,
+            }
+        )
 
     return {
         "plan": {
@@ -326,6 +300,7 @@ async def get_resumen_plan(
 # ---------------------------------------------------------------------------
 # 3. Resumen de Gestores
 # ---------------------------------------------------------------------------
+
 
 async def get_gestores_summary(
     db: AsyncSession,
@@ -362,31 +337,32 @@ async def get_gestores_summary(
     gestores = []
     for gestor, usuario in rows:
         # Contar productos asignados
-        prod_count_stmt = (
-            select(func.count(Producto.id))
-            .where(
-                and_(
-                    Producto.gestor_lider_id == gestor.id,
-                    Producto.municipio_id == municipio_id,
-                    Producto.estado != "ELIMINADO_LOGICAMENTE",
-                )
+        prod_count_stmt = select(func.count(Producto.id)).where(
+            and_(
+                Producto.gestor_lider_id == gestor.id,
+                Producto.municipio_id == municipio_id,
+                Producto.estado != "ELIMINADO_LOGICAMENTE",
             )
         )
         prod_count = (await db.execute(prod_count_stmt)).scalar_one()
 
-        gestores.append({
-            "id": str(gestor.id),
-            "usuario_id": str(usuario.id),
-            "codigo": gestor.codigo,
-            "nombre_completo": gestor.nombre_completo,
-            "cargo": gestor.cargo,
-            "estado": gestor.estado,
-            "ultimo_acceso": usuario.ultimo_acceso.isoformat() if usuario.ultimo_acceso else None,
-            "intentos_fallidos": usuario.intentos_fallidos,
-            "mfa_activo": usuario.mfa_activo,
-            "total_productos_asignados": prod_count,
-            "created_at": gestor.created_at.isoformat(),
-        })
+        gestores.append(
+            {
+                "id": str(gestor.id),
+                "usuario_id": str(usuario.id),
+                "codigo": gestor.codigo,
+                "nombre_completo": gestor.nombre_completo,
+                "cargo": gestor.cargo,
+                "estado": gestor.estado,
+                "ultimo_acceso": usuario.ultimo_acceso.isoformat()
+                if usuario.ultimo_acceso
+                else None,
+                "intentos_fallidos": usuario.intentos_fallidos,
+                "mfa_activo": usuario.mfa_activo,
+                "total_productos_asignados": prod_count,
+                "created_at": gestor.created_at.isoformat(),
+            }
+        )
 
     return gestores
 
@@ -394,6 +370,7 @@ async def get_gestores_summary(
 # ---------------------------------------------------------------------------
 # 4. Alertas de Seguridad
 # ---------------------------------------------------------------------------
+
 
 async def get_alertas(
     db: AsyncSession,
@@ -432,19 +409,21 @@ async def get_alertas(
     intentos_rows = intentos_result.all()
 
     for gestor, usuario in intentos_rows:
-        alertas.append({
-            "tipo": "intentos_fallidos",
-            "severidad": "ALTA",
-            "gestor_id": str(gestor.id),
-            "gestor_codigo": gestor.codigo,
-            "gestor_nombre": gestor.nombre_completo,
-            "mensaje": (
-                f"El gestor {gestor.nombre_completo} tiene "
-                f"{usuario.intentos_fallidos} intentos fallidos de acceso."
-            ),
-            "valor": usuario.intentos_fallidos,
-            "detectado_en": now.isoformat(),
-        })
+        alertas.append(
+            {
+                "tipo": "intentos_fallidos",
+                "severidad": "ALTA",
+                "gestor_id": str(gestor.id),
+                "gestor_codigo": gestor.codigo,
+                "gestor_nombre": gestor.nombre_completo,
+                "mensaje": (
+                    f"El gestor {gestor.nombre_completo} tiene "
+                    f"{usuario.intentos_fallidos} intentos fallidos de acceso."
+                ),
+                "valor": usuario.intentos_fallidos,
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     # --- Gestores bloqueados ---
     bloqueados_stmt = (
@@ -463,20 +442,24 @@ async def get_alertas(
     bloqueados_rows = bloqueados_result.all()
 
     for gestor, usuario in bloqueados_rows:
-        alertas.append({
-            "tipo": "bloqueado",
-            "severidad": "MEDIA",
-            "gestor_id": str(gestor.id),
-            "gestor_codigo": gestor.codigo,
-            "gestor_nombre": gestor.nombre_completo,
-            "mensaje": (
-                f"El gestor {gestor.nombre_completo} se encuentra bloqueado."
-                + (f" Motivo: {usuario.motivo_bloqueo}." if usuario.motivo_bloqueo else "")
-            ),
-            "motivo_bloqueo": usuario.motivo_bloqueo,
-            "fecha_bloqueo": usuario.fecha_bloqueo.isoformat() if usuario.fecha_bloqueo else None,
-            "detectado_en": now.isoformat(),
-        })
+        alertas.append(
+            {
+                "tipo": "bloqueado",
+                "severidad": "MEDIA",
+                "gestor_id": str(gestor.id),
+                "gestor_codigo": gestor.codigo,
+                "gestor_nombre": gestor.nombre_completo,
+                "mensaje": (
+                    f"El gestor {gestor.nombre_completo} se encuentra bloqueado."
+                    + (f" Motivo: {usuario.motivo_bloqueo}." if usuario.motivo_bloqueo else "")
+                ),
+                "motivo_bloqueo": usuario.motivo_bloqueo,
+                "fecha_bloqueo": usuario.fecha_bloqueo.isoformat()
+                if usuario.fecha_bloqueo
+                else None,
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     # --- Gestores sin acceso en los últimos 30 días ---
     sin_acceso_stmt = (
@@ -488,10 +471,7 @@ async def get_alertas(
                 GestorLider.eliminado == ELIMINADO,
                 Usuario.eliminado == ELIMINADO,
                 GestorLider.estado == ESTADO_ACTIVO,
-                (
-                    (Usuario.ultimo_acceso.is_(None))
-                    | (Usuario.ultimo_acceso < cutoff_date)
-                ),
+                ((Usuario.ultimo_acceso.is_(None)) | (Usuario.ultimo_acceso < cutoff_date)),
             )
         )
     )
@@ -500,25 +480,27 @@ async def get_alertas(
 
     for gestor, usuario in sin_acceso_rows:
         ultima_vez = usuario.ultimo_acceso.isoformat() if usuario.ultimo_acceso else "nunca"
-        alertas.append({
-            "tipo": "sin_acceso",
-            "severidad": "BAJA",
-            "gestor_id": str(gestor.id),
-            "gestor_codigo": gestor.codigo,
-            "gestor_nombre": gestor.nombre_completo,
-            "mensaje": (
-                f"El gestor {gestor.nombre_completo} no accede al sistema "
-                f"desde hace más de {DIAS_INACTIVIDAD} días. "
-                f"Último acceso: {ultima_vez}."
-            ),
-            "ultimo_acceso": usuario.ultimo_acceso.isoformat() if usuario.ultimo_acceso else None,
-            "dias_inactividad": (
-                (now - usuario.ultimo_acceso).days
+        alertas.append(
+            {
+                "tipo": "sin_acceso",
+                "severidad": "BAJA",
+                "gestor_id": str(gestor.id),
+                "gestor_codigo": gestor.codigo,
+                "gestor_nombre": gestor.nombre_completo,
+                "mensaje": (
+                    f"El gestor {gestor.nombre_completo} no accede al sistema "
+                    f"desde hace más de {DIAS_INACTIVIDAD} días. "
+                    f"Último acceso: {ultima_vez}."
+                ),
+                "ultimo_acceso": usuario.ultimo_acceso.isoformat()
                 if usuario.ultimo_acceso
-                else None
-            ),
-            "detectado_en": now.isoformat(),
-        })
+                else None,
+                "dias_inactividad": (
+                    (now - usuario.ultimo_acceso).days if usuario.ultimo_acceso else None
+                ),
+                "detectado_en": now.isoformat(),
+            }
+        )
 
     return alertas
 
@@ -526,6 +508,7 @@ async def get_alertas(
 # ---------------------------------------------------------------------------
 # 5. Estadísticas por Dependencia
 # ---------------------------------------------------------------------------
+
 
 async def get_estadisticas_por_dependencia(
     db: AsyncSession,
@@ -560,38 +543,34 @@ async def get_estadisticas_por_dependencia(
 
     for dep in dependencias:
         # Contar productos donde esta dependencia es la responsable
-        prod_count_stmt = (
-            select(func.count(Producto.id))
-            .where(
-                and_(
-                    Producto.dependencia_responsable_id == dep.id,
-                    Producto.municipio_id == municipio_id,
-                    Producto.estado != "ELIMINADO_LOGICAMENTE",
-                )
+        prod_count_stmt = select(func.count(Producto.id)).where(
+            and_(
+                Producto.dependencia_responsable_id == dep.id,
+                Producto.municipio_id == municipio_id,
+                Producto.estado != "ELIMINADO_LOGICAMENTE",
             )
         )
         prod_count = (await db.execute(prod_count_stmt)).scalar_one()
 
         # Contar gestores cuya dependencia principal es esta
-        gestor_count_stmt = (
-            select(func.count(GestorLider.id))
-            .where(
-                and_(
-                    GestorLider.dependencia_principal_id == dep.id,
-                    GestorLider.municipio_id == municipio_id,
-                    GestorLider.eliminado == ELIMINADO,
-                )
+        gestor_count_stmt = select(func.count(GestorLider.id)).where(
+            and_(
+                GestorLider.dependencia_principal_id == dep.id,
+                GestorLider.municipio_id == municipio_id,
+                GestorLider.eliminado == ELIMINADO,
             )
         )
         gestor_count = (await db.execute(gestor_count_stmt)).scalar_one()
 
-        estadisticas.append({
-            "dependencia_id": str(dep.id),
-            "dependencia_codigo": dep.codigo,
-            "dependencia_nombre": dep.nombre,
-            "nivel": dep.nivel,
-            "total_productos": prod_count,
-            "total_gestores": gestor_count,
-        })
+        estadisticas.append(
+            {
+                "dependencia_id": str(dep.id),
+                "dependencia_codigo": dep.codigo,
+                "dependencia_nombre": dep.nombre,
+                "nivel": dep.nivel,
+                "total_productos": prod_count,
+                "total_gestores": gestor_count,
+            }
+        )
 
     return estadisticas

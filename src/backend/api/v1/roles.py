@@ -1,6 +1,9 @@
 """
 API Routes - Roles y Permisos
 """
+
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +33,7 @@ async def crear_rol(
         result = await rol_service.create_rol(db, body.model_dump())
         return RolResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.get("", response_model=RolListResponse)
@@ -42,7 +45,7 @@ async def listar_roles(
     db: AsyncSession = Depends(get_db),
 ):
     await require_permission(db, current_user["user"].id, "security.roles.ver")
-    filtros = {"page": page, "page_size": page_size}
+    filtros: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
         filtros["search"] = search
     result = await rol_service.list_roles(db, filtros)
@@ -71,6 +74,7 @@ async def obtener_rol(
 ):
     await require_permission(db, current_user["user"].id, "security.roles.ver")
     import uuid as _uuid
+
     result = await rol_service.get_rol(db, _uuid.UUID(rol_id))
     if result is None:
         raise HTTPException(status_code=404, detail="Rol no encontrado")
@@ -86,6 +90,7 @@ async def actualizar_rol(
 ):
     await require_permission(db, current_user["user"].id, "security.roles.editar")
     import uuid as _uuid
+
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     result = await rol_service.update_rol(db, _uuid.UUID(rol_id), data)
     if result is None:
@@ -101,6 +106,7 @@ async def eliminar_rol(
 ):
     await require_permission(db, current_user["user"].id, "security.roles.eliminar")
     import uuid as _uuid
+
     result = await rol_service.delete_rol(db, _uuid.UUID(rol_id))
     if result is None:
         raise HTTPException(status_code=404, detail="Rol no encontrado")

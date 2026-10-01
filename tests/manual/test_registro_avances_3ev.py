@@ -3,6 +3,7 @@
 Ejecutar manualmente (requiere backend Docker):
     python tests/manual/test_registro_avances_3ev.py
 """
+
 import struct
 import zlib
 
@@ -12,7 +13,11 @@ import httpx
 def make_png(color, w=80, h=80):
     def chunk(t, d):
         c = t + d
-        return struct.pack(">I", len(d)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+        return (
+            struct.pack(">I", len(d))
+            + c
+            + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+        )
 
     raw = b"".join(b"\x00" + bytes(color) * w for _ in range(h))
     return (
@@ -39,7 +44,14 @@ def main() -> None:
     c = httpx.Client(base_url="http://backend:8000", timeout=30)
 
     # 1. Login
-    r = c.post("/api/v1/auth/login", json={"username": "enemova", "password": "EneldoGestor2026!", "municipio_codigo": "00000"})
+    r = c.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "enemova",
+            "password": "EneldoGestor2026!",
+            "municipio_codigo": "00000",
+        },
+    )
     assert r.status_code == 200, f"login fail {r.status_code}"
     h = {"Authorization": f"Bearer {r.json()['access_token']}"}
     print("[1] Login OK - enemova")
@@ -66,7 +78,9 @@ def main() -> None:
     av = r.json()
     av_id = av["id"]
     print(f"[3] Avance creado: {av_id}")
-    print(f"    porcentaje={av['avance_porcentaje']} valor={av['avance_valor']} estado={av['estado_revision']}")
+    print(
+        f"    porcentaje={av['avance_porcentaje']} valor={av['avance_valor']} estado={av['estado_revision']}"
+    )
 
     # 4. Subir 3 evidencias en UNA sola petición
     files = [
@@ -75,13 +89,20 @@ def main() -> None:
         ("files", ("acta_reunion.pdf", make_pdf(), "application/pdf")),
     ]
     data = {"descripcion": "Evidencias de la prueba funcional 3 archivos"}
-    r = c.post(f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias", headers=h, files=files, data=data)
+    r = c.post(
+        f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias",
+        headers=h,
+        files=files,
+        data=data,
+    )
     assert r.status_code == 201, f"upload 3 fail {r.status_code}: {r.text}"
     evs = r.json()
     assert len(evs) == 3, f"expected 3 got {len(evs)}"
     print("[4] 3 evidencias subidas OK:")
     for e in evs:
-        print(f"    - {e['nombre']} ({e['tipo']}, {e.get('tamano_almacenado', 0)} bytes) desc={e.get('descripcion')!r}")
+        print(
+            f"    - {e['nombre']} ({e['tipo']}, {e.get('tamano_almacenado', 0)} bytes) desc={e.get('descripcion')!r}"
+        )
 
     # 5. Listar
     r = c.get(f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias", headers=h)
@@ -92,7 +113,9 @@ def main() -> None:
 
     # 6. Descargar cada una
     for e in listed:
-        r = c.get(f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{e['id']}", headers=h)
+        r = c.get(
+            f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{e['id']}", headers=h
+        )
         assert r.status_code == 200, f"download {e['nombre']} fail {r.status_code}"
         ct = r.headers.get("content-type", "")
         size = len(r.content)
@@ -124,7 +147,9 @@ def main() -> None:
 
     # 9. Eliminar UNA evidencia
     ev_del = listed[1]["id"]
-    r = c.delete(f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{ev_del}", headers=h)
+    r = c.delete(
+        f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{ev_del}", headers=h
+    )
     assert r.status_code == 200 and r.json()["eliminada"] is True
     print("[9] Eliminar 1 evidencia OK")
 
@@ -169,7 +194,9 @@ def main() -> None:
     print("[12] Historial de avances del producto OK")
 
     print()
-    print("=== TODAS LAS PRUEBAS DEL MODULO REGISTRO DE AVANCES CON 3 EVIDENCIAS: PASARON ===")
+    print(
+        "=== TODAS LAS PRUEBAS DEL MODULO REGISTRO DE AVANCES CON 3 EVIDENCIAS: PASARON ==="
+    )
     print(f"Avance de prueba: {av_id}")
 
 

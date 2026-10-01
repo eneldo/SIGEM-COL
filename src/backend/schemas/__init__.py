@@ -1,4 +1,5 @@
 """Schemas package - Pydantic schemas"""
+
 from .auth import (
     ChangePasswordRequest,
     LoginRequest,

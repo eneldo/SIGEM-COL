@@ -23,6 +23,7 @@ from ..models.programa import Programa
 # Creación de programa
 # ---------------------------------------------------------------------------
 
+
 async def create_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -67,9 +68,7 @@ async def create_programa(
     linea = linea_result.scalar_one_or_none()
 
     if linea is None:
-        raise ValueError(
-            "La línea estratégica no existe o no pertenece a este municipio."
-        )
+        raise ValueError("La línea estratégica no existe o no pertenece a este municipio.")
 
     # Validar unicidad de código dentro de la misma línea
     exists_stmt = select(Programa.id).where(
@@ -82,8 +81,7 @@ async def create_programa(
     exists_result = await db.execute(exists_stmt)
     if exists_result.scalar_one_or_none() is not None:
         raise ValueError(
-            f"Ya existe un programa con el código '{codigo}' "
-            f"en esta línea estratégica."
+            f"Ya existe un programa con el código '{codigo}' en esta línea estratégica."
         )
 
     now = datetime.now(UTC)
@@ -123,6 +121,7 @@ async def create_programa(
 # ---------------------------------------------------------------------------
 # Listado de programas
 # ---------------------------------------------------------------------------
+
 
 async def list_programas(
     db: AsyncSession,
@@ -182,9 +181,7 @@ async def list_programas(
     # Filtro por línea estratégica
     linea_estrategica_id = filtros.get("linea_estrategica_id")
     if linea_estrategica_id:
-        base_query = base_query.where(
-            Programa.linea_estrategica_id == linea_estrategica_id
-        )
+        base_query = base_query.where(Programa.linea_estrategica_id == linea_estrategica_id)
 
     # Filtro por estado
     estado = filtros.get("estado")
@@ -205,20 +202,22 @@ async def list_programas(
 
     programas = []
     for programa, linea_nombre, linea_codigo in rows:
-        programas.append({
-            "id": str(programa.id),
-            "municipio_id": str(programa.municipio_id),
-            "linea_estrategica_id": str(programa.linea_estrategica_id),
-            "linea_estrategica_nombre": linea_nombre,
-            "linea_estrategica_codigo": linea_codigo,
-            "codigo": programa.codigo,
-            "nombre": programa.nombre,
-            "sector": programa.sector,
-            "descripcion": programa.descripcion,
-            "estado": programa.estado,
-            "created_at": programa.created_at.isoformat(),
-            "updated_at": programa.updated_at.isoformat(),
-        })
+        programas.append(
+            {
+                "id": str(programa.id),
+                "municipio_id": str(programa.municipio_id),
+                "linea_estrategica_id": str(programa.linea_estrategica_id),
+                "linea_estrategica_nombre": linea_nombre,
+                "linea_estrategica_codigo": linea_codigo,
+                "codigo": programa.codigo,
+                "nombre": programa.nombre,
+                "sector": programa.sector,
+                "descripcion": programa.descripcion,
+                "estado": programa.estado,
+                "created_at": programa.created_at.isoformat(),
+                "updated_at": programa.updated_at.isoformat(),
+            }
+        )
 
     return {
         "programas": programas,
@@ -232,6 +231,7 @@ async def list_programas(
 # ---------------------------------------------------------------------------
 # Obtener programa por ID
 # ---------------------------------------------------------------------------
+
 
 async def get_programa(
     db: AsyncSession,
@@ -292,6 +292,7 @@ async def get_programa(
 # Actualizar programa
 # ---------------------------------------------------------------------------
 
+
 async def update_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -343,9 +344,7 @@ async def update_programa(
         linea_result = await db.execute(linea_stmt)
         linea = linea_result.scalar_one_or_none()
         if linea is None:
-            raise ValueError(
-                "La línea estratégica no existe o no pertenece a este municipio."
-            )
+            raise ValueError("La línea estratégica no existe o no pertenece a este municipio.")
         programa.linea_estrategica_id = new_linea_id
 
     # Si se cambia el código, validar unicidad dentro de la línea
@@ -363,8 +362,7 @@ async def update_programa(
         exists_result = await db.execute(exists_stmt)
         if exists_result.scalar_one_or_none() is not None:
             raise ValueError(
-                f"Ya existe un programa con el código '{new_codigo}' "
-                f"en esta línea estratégica."
+                f"Ya existe un programa con el código '{new_codigo}' en esta línea estratégica."
             )
         programa.codigo = new_codigo
 
@@ -374,7 +372,7 @@ async def update_programa(
         if field in update_data:
             setattr(programa, field, update_data[field])
 
-    programa.updated_at = now
+    programa.updated_at = now  # type: ignore[assignment]
     await db.commit()
     await db.refresh(programa)
 
@@ -404,6 +402,7 @@ async def update_programa(
 # ---------------------------------------------------------------------------
 # Eliminación lógica de programa
 # ---------------------------------------------------------------------------
+
 
 async def delete_programa(
     db: AsyncSession,
@@ -437,10 +436,10 @@ async def delete_programa(
         return None
 
     now = datetime.now(UTC)
-    programa.deleted_at = now
+    programa.deleted_at = now  # type: ignore[assignment]
     if user_id:
-        programa.deleted_by = user_id
-    programa.updated_at = now
+        programa.deleted_by = user_id  # type: ignore[assignment]
+    programa.updated_at = now  # type: ignore[assignment]
 
     await db.commit()
 

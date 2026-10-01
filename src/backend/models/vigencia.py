@@ -1,4 +1,5 @@
 """Vigencia model - Modelo para vigencias fiscales"""
+
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,8 +10,12 @@ from .base import BaseModel
 class Vigencia(BaseModel):
     __tablename__ = "vigencias"
 
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
-    plan_desarrollo_id = Column(UUID(as_uuid=True), ForeignKey("planes_desarrollo.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
+    plan_desarrollo_id = Column(
+        UUID(as_uuid=True), ForeignKey("planes_desarrollo.id"), nullable=False, index=True
+    )
     codigo = Column(String(10), nullable=False)
     anio = Column(Integer, nullable=False)
     estado = Column(String(50), default="ACTIVA", nullable=False)

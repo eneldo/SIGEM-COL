@@ -53,6 +53,7 @@ ROLES_NO_ASIGNABLES_POR_COORDINADOR = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _get_gestor_usuario(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -108,7 +109,7 @@ async def _get_dependencias(
         .order_by(Dependencia.nombre.asc())
     )
     result = await db.execute(stmt)
-    return list(result.all())
+    return list(result.all())  # type: ignore[arg-type]
 
 
 async def _build_gestor_dict(
@@ -117,8 +118,8 @@ async def _build_gestor_dict(
     usuario: Usuario,
 ) -> dict:
     """Construye el diccionario de respuesta completo de un gestor."""
-    roles = await _get_roles(db, usuario.id)
-    deps = await _get_dependencias(db, usuario.id)
+    roles = await _get_roles(db, usuario.id)  # type: ignore[arg-type]
+    deps = await _get_dependencias(db, usuario.id)  # type: ignore[arg-type]
     rol = next((r for r in roles if r.codigo == ROL_GESTOR_LIDER), roles[0] if roles else None)
     principal = next((d for d in deps if d[3]), None)
 
@@ -135,9 +136,7 @@ async def _build_gestor_dict(
         "roles": [r.codigo for r in roles],
         "dependencia_principal_id": gestor.dependencia_principal_id,
         "dependencia_principal": principal[1] if principal else None,
-        "dependencias": [
-            {"id": d[0], "nombre": d[1], "es_principal": d[3]} for d in deps
-        ],
+        "dependencias": [{"id": d[0], "nombre": d[1], "es_principal": d[3]} for d in deps],
         "estado": gestor.estado,
         "mfa_activo": usuario.mfa_activo,
         "must_change_password": usuario.must_change_password,
@@ -153,9 +152,7 @@ async def _build_gestor_dict(
 async def _validar_rol(db: AsyncSession, rol_id: uuid.UUID | None) -> Rol:
     """Valida el rol seleccionado o usa el default GESTOR_LIDER."""
     if rol_id:
-        rol = await db.scalar(
-            select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
-        )
+        rol = await db.scalar(select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None))))
         if rol is None:
             raise ValueError("El rol seleccionado no existe.")
         return rol
@@ -195,6 +192,7 @@ async def _validar_dependencias(
 # Generación de código secuencial
 # ---------------------------------------------------------------------------
 
+
 async def generate_gestor_code(db: AsyncSession, municipio_id: uuid.UUID) -> str:
     """
     Genera un código secuencial para el gestor líder dentro de un municipio.
@@ -211,7 +209,7 @@ async def generate_gestor_code(db: AsyncSession, municipio_id: uuid.UUID) -> str
     last_code = result.scalar_one_or_none()
 
     if last_code and last_code.startswith(CODIGO_PREFIJO):
-        last_number = int(last_code[len(CODIGO_PREFIJO):])
+        last_number = int(last_code[len(CODIGO_PREFIJO) :])
         next_number = last_number + 1
     else:
         next_number = 1
@@ -222,6 +220,7 @@ async def generate_gestor_code(db: AsyncSession, municipio_id: uuid.UUID) -> str
 # ---------------------------------------------------------------------------
 # Generación de nombre de usuario
 # ---------------------------------------------------------------------------
+
 
 async def _username_existe(db: AsyncSession, username: str) -> bool:
     stmt = select(Usuario.id).where(
@@ -265,6 +264,7 @@ async def generate_username(
 # Creación de gestor líder
 # ---------------------------------------------------------------------------
 
+
 async def create_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -299,9 +299,7 @@ async def create_gestor(
     if not email:
         raise ValueError("El correo electrónico es obligatorio.")
     if custom_password is not None and len(custom_password) < PASSWORD_MIN_LENGTH:
-        raise ValueError(
-            f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres."
-        )
+        raise ValueError(f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres.")
     if custom_username is not None and not USERNAME_RE.match(custom_username):
         raise ValueError(
             "El usuario debe tener de 3 a 50 caracteres y solo puede contener "
@@ -404,9 +402,9 @@ async def create_gestor(
         evento_tipo="USER_CREATED",
         resultado="EXITOSO",
         municipio_id=municipio_id,
-        usuario_id=usuario.id,
+        usuario_id=usuario.id,  # type: ignore[arg-type]
         recurso_tipo="GestorLider",
-        recurso_id=gestor.id,
+        recurso_id=gestor.id,  # type: ignore[arg-type]
         metadata={
             "codigo": codigo,
             "rol": rol.codigo,
@@ -428,6 +426,7 @@ async def create_gestor(
 # ---------------------------------------------------------------------------
 # Listado de gestores
 # ---------------------------------------------------------------------------
+
 
 async def list_gestores(
     db: AsyncSession,
@@ -483,10 +482,7 @@ async def list_gestores(
 
     total = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
 
-    query = (
-        select(GestorLider, Usuario)
-        .join(Usuario, GestorLider.usuario_id == Usuario.id)
-    )
+    query = select(GestorLider, Usuario).join(Usuario, GestorLider.usuario_id == Usuario.id)
     if join_rol:
         query = query.join(UsuarioRol, UsuarioRol.usuario_id == Usuario.id)
     query = (
@@ -516,6 +512,7 @@ async def list_gestores(
 # Obtener gestor por ID
 # ---------------------------------------------------------------------------
 
+
 async def get_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -523,7 +520,7 @@ async def get_gestor(
 ) -> dict | None:
     """Obtiene un gestor líder por su ID dentro de un municipio."""
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
     return await _build_gestor_dict(db, gestor, usuario)
 
@@ -531,6 +528,7 @@ async def get_gestor(
 # ---------------------------------------------------------------------------
 # Actualizar gestor
 # ---------------------------------------------------------------------------
+
 
 async def update_gestor(
     db: AsyncSession,
@@ -545,7 +543,7 @@ async def update_gestor(
     dependencia_principal_id.
     """
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
 
     now = datetime.now(UTC)
@@ -563,10 +561,10 @@ async def update_gestor(
     if "dependencia_principal_id" in update_data:
         nuevo_principal = update_data["dependencia_principal_id"]
         gestor.dependencia_principal_id = nuevo_principal
-        await _marcar_principal(db, usuario.id, municipio_id, nuevo_principal)
+        await _marcar_principal(db, usuario.id, municipio_id, nuevo_principal)  # type: ignore[arg-type]
 
-    usuario.updated_at = now
-    gestor.updated_at = now
+    usuario.updated_at = now  # type: ignore[assignment]
+    gestor.updated_at = now  # type: ignore[assignment]
 
     await db.commit()
 
@@ -575,9 +573,9 @@ async def update_gestor(
         evento_tipo="USER_UPDATED",
         resultado="EXITOSO",
         municipio_id=municipio_id,
-        usuario_id=usuario.id,
+        usuario_id=usuario.id,  # type: ignore[arg-type]
         recurso_tipo="GestorLider",
-        recurso_id=gestor.id,
+        recurso_id=gestor.id,  # type: ignore[arg-type]
         metadata={"campos": list(update_data.keys())},
     )
 
@@ -596,16 +594,14 @@ async def _marcar_principal(
     filas = list(
         (
             await db.execute(
-                select(UsuarioDependencia).where(
-                    UsuarioDependencia.usuario_id == usuario_id
-                )
+                select(UsuarioDependencia).where(UsuarioDependencia.usuario_id == usuario_id)
             )
         )
         .scalars()
         .all()
     )
     for fila in filas:
-        fila.es_principal = fila.dependencia_id == principal_id
+        fila.es_principal = fila.dependencia_id == principal_id  # type: ignore[assignment]
     if principal_id and not any(f.dependencia_id == principal_id for f in filas):
         db.add(
             UsuarioDependencia(
@@ -621,6 +617,7 @@ async def _marcar_principal(
 # Permisos del gestor (rol + dependencias)
 # ---------------------------------------------------------------------------
 
+
 async def update_gestor_permissions(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -633,7 +630,7 @@ async def update_gestor_permissions(
     Si se omite rol_id o dependencias, esos aspectos se conservan.
     """
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
 
     now = datetime.now(UTC)
@@ -652,7 +649,7 @@ async def update_gestor_permissions(
         principal_id = permisos.get("dependencia_principal_id")
         adicionales = permisos.get("dependencias_adicionales") or []
 
-        roles_actuales = await _get_roles(db, usuario.id)
+        roles_actuales = await _get_roles(db, usuario.id)  # type: ignore[arg-type]
         codigos = {r.codigo for r in roles_actuales}
         if rol is not None:
             codigos.add(rol.codigo)
@@ -678,7 +675,7 @@ async def update_gestor_permissions(
             )
             gestor.dependencia_principal_id = principal_id
         else:
-            gestor.dependencia_principal_id = None
+            gestor.dependencia_principal_id = None  # type: ignore[assignment]
         for dep_id in adicionales:
             if dep_id != principal_id:
                 db.add(
@@ -690,7 +687,7 @@ async def update_gestor_permissions(
                     )
                 )
 
-    gestor.updated_at = now
+    gestor.updated_at = now  # type: ignore[assignment]
     await db.commit()
 
     audit = AuditService(db)
@@ -698,13 +695,17 @@ async def update_gestor_permissions(
         evento_tipo="PERMISSIONS_UPDATED",
         resultado="EXITOSO",
         municipio_id=municipio_id,
-        usuario_id=usuario.id,
+        usuario_id=usuario.id,  # type: ignore[arg-type]
         recurso_tipo="GestorLider",
-        recurso_id=gestor.id,
-        metadata={"permisos": {k: [str(x) if isinstance(x, uuid.UUID) else x for x in v]
-                                     if isinstance(v, list)
-                                     else (str(v) if isinstance(v, uuid.UUID) else v)
-                                     for k, v in permisos.items()}},
+        recurso_id=gestor.id,  # type: ignore[arg-type]
+        metadata={
+            "permisos": {
+                k: [str(x) if isinstance(x, uuid.UUID) else x for x in v]
+                if isinstance(v, list)
+                else (str(v) if isinstance(v, uuid.UUID) else v)
+                for k, v in permisos.items()
+            }
+        },
     )
 
     await db.refresh(gestor)
@@ -716,6 +717,7 @@ async def update_gestor_permissions(
 # Activar / Desactivar / Bloquear / Desbloquear
 # ---------------------------------------------------------------------------
 
+
 async def _change_gestor_status(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -726,25 +728,25 @@ async def _change_gestor_status(
 ) -> dict | None:
     """Cambia el estado de un gestor líder y su usuario."""
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
 
     now = datetime.now(UTC)
-    gestor.estado = new_status
-    gestor.updated_at = now
-    usuario.estado = new_status
-    usuario.updated_at = now
+    gestor.estado = new_status  # type: ignore[assignment]
+    gestor.updated_at = now  # type: ignore[assignment]
+    usuario.estado = new_status  # type: ignore[assignment]
+    usuario.updated_at = now  # type: ignore[assignment]
 
     if new_status == ESTADO_BLOQUEADO:
-        usuario.activo = 0
-        usuario.fecha_bloqueo = now
-        usuario.motivo_bloqueo = motivo or "BLOQUEO_ADMINISTRATIVO"
+        usuario.activo = 0  # type: ignore[assignment]
+        usuario.fecha_bloqueo = now  # type: ignore[assignment]
+        usuario.motivo_bloqueo = motivo or "BLOQUEO_ADMINISTRATIVO"  # type: ignore[assignment]
     elif new_status == ESTADO_ACTIVO:
-        usuario.activo = 1
-        usuario.fecha_bloqueo = None
-        usuario.motivo_bloqueo = None
+        usuario.activo = 1  # type: ignore[assignment]
+        usuario.fecha_bloqueo = None  # type: ignore[assignment]
+        usuario.motivo_bloqueo = None  # type: ignore[assignment]
     elif new_status == ESTADO_INACTIVO:
-        usuario.activo = 0
+        usuario.activo = 0  # type: ignore[assignment]
 
     await db.commit()
 
@@ -753,9 +755,9 @@ async def _change_gestor_status(
         evento_tipo=evento,
         resultado="EXITOSO",
         municipio_id=municipio_id,
-        usuario_id=usuario.id,
+        usuario_id=usuario.id,  # type: ignore[arg-type]
         recurso_tipo="GestorLider",
-        recurso_id=gestor.id,
+        recurso_id=gestor.id,  # type: ignore[arg-type]
         metadata={"motivo": motivo} if motivo else None,
     )
 
@@ -769,7 +771,9 @@ async def activate_gestor(db, municipio_id, gestor_id):
 
 
 async def deactivate_gestor(db, municipio_id, gestor_id):
-    return await _change_gestor_status(db, municipio_id, gestor_id, ESTADO_INACTIVO, "USER_DEACTIVATED")
+    return await _change_gestor_status(
+        db, municipio_id, gestor_id, ESTADO_INACTIVO, "USER_DEACTIVATED"
+    )
 
 
 async def block_gestor(db, municipio_id, gestor_id, motivo):
@@ -788,6 +792,7 @@ async def unblock_gestor(db, municipio_id, gestor_id):
 # Restablecer contraseña
 # ---------------------------------------------------------------------------
 
+
 async def reset_password(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -803,14 +808,12 @@ async def reset_password(
     En ambos casos la cuenta se reactiva. La contraseña se muestra una sola vez.
     """
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
 
     if nueva_password is not None:
         if len(nueva_password) < PASSWORD_MIN_LENGTH:
-            raise ValueError(
-                f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres."
-            )
+            raise ValueError(f"La contraseña debe tener al menos {PASSWORD_MIN_LENGTH} caracteres.")
         temp_password = nueva_password
         must_change = False
     else:
@@ -818,15 +821,15 @@ async def reset_password(
         must_change = True
 
     now = datetime.now(UTC)
-    usuario.password_hash = get_password_hash(temp_password)
-    usuario.must_change_password = must_change
-    usuario.fecha_bloqueo = None
-    usuario.motivo_bloqueo = None
-    usuario.activo = 1
-    usuario.estado = ESTADO_ACTIVO
-    usuario.updated_at = now
-    gestor.estado = ESTADO_ACTIVO
-    gestor.updated_at = now
+    usuario.password_hash = get_password_hash(temp_password)  # type: ignore[assignment]
+    usuario.must_change_password = must_change  # type: ignore[assignment]
+    usuario.fecha_bloqueo = None  # type: ignore[assignment]
+    usuario.motivo_bloqueo = None  # type: ignore[assignment]
+    usuario.activo = 1  # type: ignore[assignment]
+    usuario.estado = ESTADO_ACTIVO  # type: ignore[assignment]
+    usuario.updated_at = now  # type: ignore[assignment]
+    gestor.estado = ESTADO_ACTIVO  # type: ignore[assignment]
+    gestor.updated_at = now  # type: ignore[assignment]
 
     await db.commit()
 
@@ -835,9 +838,9 @@ async def reset_password(
         evento_tipo="USER_PASSWORD_RESET",
         resultado="EXITOSO",
         municipio_id=municipio_id,
-        usuario_id=usuario.id,
+        usuario_id=usuario.id,  # type: ignore[arg-type]
         recurso_tipo="GestorLider",
-        recurso_id=gestor.id,
+        recurso_id=gestor.id,  # type: ignore[arg-type]
         metadata={"password_personalizada": nueva_password is not None},
     )
 
@@ -854,6 +857,7 @@ async def reset_password(
 # Eliminación lógica
 # ---------------------------------------------------------------------------
 
+
 async def soft_delete_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -864,22 +868,20 @@ async def soft_delete_gestor(
     No se eliminan registros físicos de la base de datos.
     """
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
 
     now = datetime.now(UTC)
 
     gestor.eliminado = True
-    gestor.updated_at = now
+    gestor.updated_at = now  # type: ignore[assignment]
     usuario.eliminado = True
-    usuario.activo = 0
-    usuario.updated_at = now
+    usuario.activo = 0  # type: ignore[assignment]
+    usuario.updated_at = now  # type: ignore[assignment]
 
     # Desasociar roles y dependencias activos del usuario
     await db.execute(delete(UsuarioRol).where(UsuarioRol.usuario_id == usuario.id))
-    await db.execute(
-        delete(UsuarioDependencia).where(UsuarioDependencia.usuario_id == usuario.id)
-    )
+    await db.execute(delete(UsuarioDependencia).where(UsuarioDependencia.usuario_id == usuario.id))
 
     await db.commit()
 
@@ -888,9 +890,9 @@ async def soft_delete_gestor(
         evento_tipo="USER_SOFT_DELETED",
         resultado="EXITOSO",
         municipio_id=municipio_id,
-        usuario_id=usuario.id,
+        usuario_id=usuario.id,  # type: ignore[arg-type]
         recurso_tipo="GestorLider",
-        recurso_id=gestor.id,
+        recurso_id=gestor.id,  # type: ignore[arg-type]
     )
 
     return {
@@ -906,6 +908,7 @@ async def soft_delete_gestor(
 # Accesos y auditoría
 # ---------------------------------------------------------------------------
 
+
 async def list_gestor_accesos(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -917,7 +920,7 @@ async def list_gestor_accesos(
     Lista los intentos de acceso (exitosos y fallidos) de un gestor líder.
     """
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
-    if gestor is None:
+    if gestor is None or usuario is None:
         return None
 
     stmt = (

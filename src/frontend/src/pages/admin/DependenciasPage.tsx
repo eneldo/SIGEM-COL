@@ -49,6 +49,7 @@ export default function DependenciasPage() {
     finally { setLoading(false) }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [search, filtroEstado])
 
   function openCreate() {

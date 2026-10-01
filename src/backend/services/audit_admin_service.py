@@ -3,6 +3,7 @@ Servicio de Administración de Auditoría - SIGEM Colombia
 ========================================================
 Consultas de auditoría y evidencias del sistema.
 """
+
 import uuid
 from datetime import UTC, datetime
 
@@ -23,9 +24,7 @@ async def list_auditoria(
     page_size = min(100, max(1, filtros.get("page_size", 20)))
     offset = (page - 1) * page_size
 
-    base_query = select(AuditoriaEvento).where(
-        AuditoriaEvento.municipio_id == municipio_id
-    )
+    base_query = select(AuditoriaEvento).where(AuditoriaEvento.municipio_id == municipio_id)
 
     evento_tipo = filtros.get("evento_tipo")
     if evento_tipo:
@@ -63,24 +62,28 @@ async def list_auditoria(
     for e in eventos:
         actor_nombre = None
         if e.usuario_id:
-            u_stmt = select(Usuario.nombre_completo, Usuario.username).where(Usuario.id == e.usuario_id)
+            u_stmt = select(Usuario.nombre_completo, Usuario.username).where(
+                Usuario.id == e.usuario_id
+            )
             u_result = await db.execute(u_stmt)
             u_row = u_result.first()
             if u_row:
                 actor_nombre = f"{u_row[0]} ({u_row[1]})"
 
-        items.append({
-            "id": str(e.id),
-            "evento_tipo": e.evento_tipo,
-            "recurso_tipo": e.recurso_tipo,
-            "recurso_id": str(e.recurso_id) if e.recurso_id else None,
-            "resultado": e.resultado,
-            "ip_address": e.ip_address,
-            "actor_nombre": actor_nombre,
-            "actor_id": str(e.usuario_id) if e.usuario_id else None,
-            "metadata_json": e.metadata_json,
-            "fecha_evento": e.fecha_evento.isoformat(),
-        })
+        items.append(
+            {
+                "id": str(e.id),
+                "evento_tipo": e.evento_tipo,
+                "recurso_tipo": e.recurso_tipo,
+                "recurso_id": str(e.recurso_id) if e.recurso_id else None,
+                "resultado": e.resultado,
+                "ip_address": e.ip_address,
+                "actor_nombre": actor_nombre,
+                "actor_id": str(e.usuario_id) if e.usuario_id else None,
+                "metadata_json": e.metadata_json,
+                "fecha_evento": e.fecha_evento.isoformat(),
+            }
+        )
 
     return {
         "items": items,

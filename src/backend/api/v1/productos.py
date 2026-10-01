@@ -40,6 +40,7 @@ router = APIRouter(prefix="/productos", tags=["Productos"])
 # POST /productos - Crear producto
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=ProductoResponse,
@@ -72,12 +73,12 @@ async def crear_producto(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
-    except Exception:
+        ) from e
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al crear el producto",
-        )
+        ) from exc
 
     return ProductoResponse(**result)
 
@@ -85,6 +86,7 @@ async def crear_producto(
 # ---------------------------------------------------------------------------
 # GET /productos - Listar productos con filtros
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "",
@@ -137,6 +139,7 @@ async def listar_productos(
 # GET /productos/{producto_id} - Obtener detalle de producto
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/{producto_id}",
     response_model=ProductoResponse,
@@ -175,6 +178,7 @@ async def obtener_producto(
 # PUT /productos/{producto_id} - Actualizar producto
 # ---------------------------------------------------------------------------
 
+
 @router.put(
     "/{producto_id}",
     response_model=ProductoResponse,
@@ -208,7 +212,7 @@ async def actualizar_producto(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from e
 
     if not result:
         raise HTTPException(
@@ -222,6 +226,7 @@ async def actualizar_producto(
 # ---------------------------------------------------------------------------
 # DELETE /productos/{producto_id} - Eliminación lógica
 # ---------------------------------------------------------------------------
+
 
 @router.delete(
     "/{producto_id}",

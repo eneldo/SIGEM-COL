@@ -86,6 +86,7 @@ def _allowed_role_codes(current_user: dict) -> set[str] | None:
 # POST /gestores - Crear gestor
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "",
     response_model=GestorPasswordReset,
@@ -104,7 +105,6 @@ async def create_gestor(
 ):
     await require_permission(db, current_user["user"].id, "gestor.crear")
 
-    user = current_user["user"]
     municipio_id = current_user["municipio_id"]
 
     try:
@@ -118,12 +118,12 @@ async def create_gestor(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
-    except Exception:
+        ) from e
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al crear el gestor líder",
-        )
+        ) from exc
 
     return GestorPasswordReset(
         nueva_password_temporal=result["temp_password"],
@@ -136,6 +136,7 @@ async def create_gestor(
 # ---------------------------------------------------------------------------
 # GET /gestores - Listar gestores con filtros
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "",
@@ -150,7 +151,9 @@ async def list_gestores(
     search: str | None = Query(None, description="Búsqueda por nombre, username, email o código"),
     cargo: str | None = Query(None, description="Filtrar por cargo"),
     rol_id: UUID | None = Query(None, description="Filtrar por rol"),
-    estado: str | None = Query(None, description="Filtrar por estado (ACTIVO, INACTIVO, BLOQUEADO)"),
+    estado: str | None = Query(
+        None, description="Filtrar por estado (ACTIVO, INACTIVO, BLOQUEADO)"
+    ),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
     current_user: dict = Depends(get_current_user_from_token),
@@ -186,6 +189,7 @@ async def list_gestores(
 # GET /gestores/{gestor_id} - Obtener detalle de gestor
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/{gestor_id}",
     response_model=GestorResponse,
@@ -218,6 +222,7 @@ async def get_gestor(
 # ---------------------------------------------------------------------------
 # PUT /gestores/{gestor_id} - Actualizar gestor
 # ---------------------------------------------------------------------------
+
 
 @router.put(
     "/{gestor_id}",
@@ -255,6 +260,7 @@ async def update_gestor(
 # POST /gestores/{gestor_id}/permisos - Asignar rol y dependencias
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "/{gestor_id}/permisos",
     response_model=GestorResponse,
@@ -286,7 +292,7 @@ async def update_gestor_permissions(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from e
 
     if not result:
         raise HTTPException(
@@ -300,6 +306,7 @@ async def update_gestor_permissions(
 # ---------------------------------------------------------------------------
 # POST /gestores/{gestor_id}/activate - Activar gestor
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "/{gestor_id}/activate",
@@ -335,6 +342,7 @@ async def activate_gestor(
 # POST /gestores/{gestor_id}/deactivate - Desactivar gestor
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "/{gestor_id}/deactivate",
     response_model=GestorResponse,
@@ -342,8 +350,8 @@ async def activate_gestor(
 )
 async def deactivate_gestor(
     gestor_id: UUID,
+    request: Request,
     accion_data: GestorAccion | None = None,
-    request: Request = None,
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
@@ -369,6 +377,7 @@ async def deactivate_gestor(
 # ---------------------------------------------------------------------------
 # POST /gestores/{gestor_id}/block - Bloquear gestor
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "/{gestor_id}/block",
@@ -404,7 +413,7 @@ async def block_gestor(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from e
 
     if not result:
         raise HTTPException(
@@ -418,6 +427,7 @@ async def block_gestor(
 # ---------------------------------------------------------------------------
 # POST /gestores/{gestor_id}/unblock - Desbloquear gestor
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "/{gestor_id}/unblock",
@@ -453,6 +463,7 @@ async def unblock_gestor(
 # POST /gestores/{gestor_id}/reset-password - Restablecer contraseña
 # ---------------------------------------------------------------------------
 
+
 @router.post(
     "/{gestor_id}/reset-password",
     response_model=GestorPasswordReset,
@@ -465,8 +476,8 @@ async def unblock_gestor(
 )
 async def reset_password(
     gestor_id: UUID,
+    request: Request,
     body: GestorPasswordUpdate | None = None,
-    request: Request = None,
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
@@ -485,7 +496,7 @@ async def reset_password(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
-        )
+        ) from e
 
     if not result:
         raise HTTPException(
@@ -504,6 +515,7 @@ async def reset_password(
 # ---------------------------------------------------------------------------
 # DELETE /gestores/{gestor_id} - Eliminación lógica
 # ---------------------------------------------------------------------------
+
 
 @router.delete(
     "/{gestor_id}",
@@ -539,6 +551,7 @@ async def delete_gestor(
 # ---------------------------------------------------------------------------
 # GET /gestores/{gestor_id}/accesos - Historial de accesos del gestor
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{gestor_id}/accesos",
@@ -580,6 +593,7 @@ async def get_gestor_accesos(
 # ---------------------------------------------------------------------------
 # GET /gestores/{gestor_id}/audit - Eventos de auditoría del gestor
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{gestor_id}/audit",

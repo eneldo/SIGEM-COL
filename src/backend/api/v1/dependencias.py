@@ -1,6 +1,8 @@
 """
 API Routes - CRUD Dependencias del Municipio
 """
+
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -30,7 +32,7 @@ async def listar_dependencias(
     db: AsyncSession = Depends(get_db),
 ):
     municipio_id = UUID(current_user["municipio_id"])
-    filtros = {"page": page, "page_size": page_size}
+    filtros: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
         filtros["search"] = search
     if estado:
@@ -64,7 +66,7 @@ async def crear_dependencia(
         result = await dependencia_service.create_dependencia(db, municipio_id, body.model_dump())
         return DependenciaResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.put("/{dependencia_id}", response_model=DependenciaResponse)
@@ -80,12 +82,14 @@ async def actualizar_dependencia(
     if not data:
         raise HTTPException(status_code=422, detail="No se enviaron campos para actualizar")
     try:
-        result = await dependencia_service.update_dependencia(db, municipio_id, UUID(dependencia_id), data)
+        result = await dependencia_service.update_dependencia(
+            db, municipio_id, UUID(dependencia_id), data
+        )
         if result is None:
             raise HTTPException(status_code=404, detail="Dependencia no encontrada")
         return DependenciaResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.delete("/{dependencia_id}", status_code=204)
@@ -98,7 +102,9 @@ async def eliminar_dependencia(
     municipio_id = UUID(current_user["municipio_id"])
     user_orm = current_user["user"]
     user_id = user_orm.id if isinstance(user_orm.id, UUID) else UUID(str(user_orm.id))
-    result = await dependencia_service.delete_dependencia(db, municipio_id, UUID(dependencia_id), user_id)
+    result = await dependencia_service.delete_dependencia(
+        db, municipio_id, UUID(dependencia_id), user_id
+    )
     if not result:
         raise HTTPException(status_code=404, detail="Dependencia no encontrada")
     return None

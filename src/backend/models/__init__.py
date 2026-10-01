@@ -1,4 +1,5 @@
 """Models package - Modelos de base de datos SQLAlchemy"""
+
 from .auditoria_evento import AuditoriaEvento
 from .avance_producto import AvanceProducto
 from .base import Base, BaseModel

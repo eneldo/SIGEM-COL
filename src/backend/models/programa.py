@@ -1,4 +1,5 @@
 """Programa model - Modelo para programas"""
+
 from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,8 +10,12 @@ from .base import BaseModel
 class Programa(BaseModel):
     __tablename__ = "programas"
 
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
-    linea_estrategica_id = Column(UUID(as_uuid=True), ForeignKey("lineas_estrategicas.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
+    linea_estrategica_id = Column(
+        UUID(as_uuid=True), ForeignKey("lineas_estrategicas.id"), nullable=False, index=True
+    )
     codigo = Column(String(50), nullable=False)
     nombre = Column(String(500), nullable=False)
     sector = Column(String(100), nullable=True)

@@ -1,4 +1,5 @@
 """Base model - Modelo base para todas las entidades"""
+
 import uuid
 from datetime import UTC, datetime
 
@@ -14,11 +15,17 @@ class Base(DeclarativeBase):
 
 class BaseModel(Base):
     """Modelo base con campos transversales"""
+
     __abstract__ = True
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
     version = Column(Integer, default=1, nullable=False)
     estado = Column(String(50), default="ACTIVO", nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -26,9 +33,9 @@ class BaseModel(Base):
 
     def soft_delete(self, user_id: uuid.UUID):
         """Eliminación lógica"""
-        self.deleted_at = datetime.now(UTC)
-        self.deleted_by = user_id
-        self.estado = "ELIMINADO_LOGICAMENTE"
+        self.deleted_at = datetime.now(UTC)  # type: ignore[assignment]
+        self.deleted_by = user_id  # type: ignore[assignment]
+        self.estado = "ELIMINADO_LOGICAMENTE"  # type: ignore[assignment]
 
     @property
     def is_deleted(self) -> bool:
@@ -45,6 +52,6 @@ class BaseModel(Base):
 
     @eliminado.inplace.setter
     def _eliminado_setter(self, value: bool) -> None:
-        self.deleted_at = datetime.now(UTC) if value else None
+        self.deleted_at = datetime.now(UTC) if value else None  # type: ignore[assignment]
         if value:
-            self.estado = "ELIMINADO_LOGICAMENTE"
+            self.estado = "ELIMINADO_LOGICAMENTE"  # type: ignore[assignment]

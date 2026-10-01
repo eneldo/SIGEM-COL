@@ -1,4 +1,5 @@
 """Tests del sistema de evidencias múltiples."""
+
 from io import BytesIO
 
 from PIL import Image
@@ -10,7 +11,9 @@ class TestEvidenciasEndpoint:
     """Pruebas de los endpoints de evidencias múltiples."""
 
     def test_listar_evidencias_requires_auth(self, api):
-        resp = api.get(f"{API_PREFIX}/gestor/dashboard/avances/00000000-0000-0000-0000-000000000000/evidencias")
+        resp = api.get(
+            f"{API_PREFIX}/gestor/dashboard/avances/00000000-0000-0000-0000-000000000000/evidencias"
+        )
         assert resp.status_code == 401
 
     def test_subir_evidencia_requires_auth(self, api):
@@ -106,8 +109,7 @@ class TestSubirYListarEvidencias:
         resp = api.post(
             f"{API_PREFIX}/gestor/dashboard/avances/{avance_id}/evidencias",
             files=[
-                ("files", (f"evidencia{i}.png", png, "image/png"))
-                for i in range(1, 5)
+                ("files", (f"evidencia{i}.png", png, "image/png")) for i in range(1, 5)
             ],
             headers=auth_header(gestor_token),
         )
@@ -121,8 +123,7 @@ class TestSubirYListarEvidencias:
         primera_carga = api.post(
             f"{API_PREFIX}/gestor/dashboard/avances/{avance_id}/evidencias",
             files=[
-                ("files", (f"evidencia{i}.png", png, "image/png"))
-                for i in range(1, 5)
+                ("files", (f"evidencia{i}.png", png, "image/png")) for i in range(1, 5)
             ],
             headers=auth_header(gestor_token),
         )
@@ -135,7 +136,10 @@ class TestSubirYListarEvidencias:
         )
 
         assert resp.status_code == 422
-        assert resp.json()["detail"] == "El avance admite máximo 4 evidencias; actualmente tiene 4."
+        assert (
+            resp.json()["detail"]
+            == "El avance admite máximo 4 evidencias; actualmente tiene 4."
+        )
 
     def test_listar_evidencias_despues_de_subir(self, api, gestor_token):
         avance_id = self._create_avance(api, gestor_token)

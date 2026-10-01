@@ -1,4 +1,5 @@
 """Municipio model - Modelo para municipios"""
+
 from sqlalchemy import Column, Integer, String
 
 from .base import BaseModel

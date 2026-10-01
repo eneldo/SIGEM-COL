@@ -50,6 +50,7 @@ router = APIRouter(prefix="/gestor/dashboard", tags=["Gestor Dashboard"])
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class AvanceCreate(BaseModel):
     avance_porcentaje: float = Field(..., ge=0, le=100, description="Porcentaje de avance (0-100)")
     avance_valor: int | None = Field(None, ge=0, description="Valor numérico del avance")
@@ -58,12 +59,16 @@ class AvanceCreate(BaseModel):
     indicador: str | None = Field(None, max_length=300, description="Indicador del producto")
     periodo: str | None = Field(None, max_length=50, description="Periodo del avance")
     estado_revision: str | None = Field("PENDIENTE", description="Estado de revisión")
-    evidencia_nombre: str | None = Field(None, max_length=255, description="Nombre del archivo de evidencia")
+    evidencia_nombre: str | None = Field(
+        None, max_length=255, description="Nombre del archivo de evidencia"
+    )
     evidencia_tipo: str | None = Field(None, max_length=50, description="Tipo MIME del archivo")
 
 
 class AvanceUpdate(BaseModel):
-    avance_porcentaje: float | None = Field(None, ge=0, le=100, description="Porcentaje de avance (0-100)")
+    avance_porcentaje: float | None = Field(
+        None, ge=0, le=100, description="Porcentaje de avance (0-100)"
+    )
     avance_valor: int | None = Field(None, ge=0, description="Valor numérico del avance")
     observaciones: str | None = Field(None, max_length=1000, description="Observaciones del avance")
     indicador: str | None = Field(None, max_length=300, description="Indicador del producto")
@@ -140,7 +145,9 @@ class EstadisticasRevision(BaseModel):
 
 class RevisionAvanceRequest(BaseModel):
     nuevo_estado: str = Field(..., description="APROBADO o RECHAZADO")
-    observacion: str | None = Field(None, max_length=1000, description="Observación (obligatoria si se devuelve)")
+    observacion: str | None = Field(
+        None, max_length=1000, description="Observación (obligatoria si se devuelve)"
+    )
 
 
 class EvidenciaResponse(BaseModel):
@@ -157,7 +164,9 @@ class EvidenciaResponse(BaseModel):
 
 
 class EvidenciaDescripcionUpdate(BaseModel):
-    descripcion: str | None = Field(None, max_length=1000, description="Descripción de la evidencia")
+    descripcion: str | None = Field(
+        None, max_length=1000, description="Descripción de la evidencia"
+    )
 
 
 ALLOWED_EVIDENCE_TYPES = {
@@ -181,6 +190,7 @@ def _valid_evidence_signature(content_type: str, content: bytes) -> bool:
 # ---------------------------------------------------------------------------
 # Helper: obtener gestor_lider_id del usuario actual
 # ---------------------------------------------------------------------------
+
 
 async def _get_gestor_lider_id(db, user, municipio_id):
     gestor_stmt = select(GestorLider.id).where(
@@ -209,9 +219,7 @@ async def _require_revision_access(db, current_user) -> UUID | None:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Usuario no autenticado",
             )
-        gestor_lider_id = await _get_gestor_lider_id(
-            db, user, UUID(current_user["municipio_id"])
-        )
+        gestor_lider_id = await _get_gestor_lider_id(db, user, UUID(current_user["municipio_id"]))
         if gestor_lider_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -229,6 +237,7 @@ async def _require_revision_access(db, current_user) -> UUID | None:
 # Static routes FIRST (before /avances/{producto_id})
 # ---------------------------------------------------------------------------
 
+
 @router.get(
     "/mis-productos",
     response_model=list[ProductoAsignado],
@@ -240,7 +249,9 @@ async def obtener_mis_productos(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     productos = await get_mis_productos(
         db=db,
@@ -261,7 +272,9 @@ async def obtener_resumen_avances(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     resumen = await get_resumen_avances(
         db=db,
@@ -274,6 +287,7 @@ async def obtener_resumen_avances(
 # ---------------------------------------------------------------------------
 # Revision routes (static, before /avances/{producto_id})
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/revision/avances",
@@ -289,7 +303,9 @@ async def obtener_avances_revision(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     municipio_id = UUID(current_user["municipio_id"])
     gestor_lider_id = await _require_revision_access(db, current_user)
@@ -319,7 +335,9 @@ async def obtener_estadisticas_revision(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     municipio_id = UUID(current_user["municipio_id"])
     gestor_lider_id = await _require_revision_access(db, current_user)
@@ -345,7 +363,9 @@ async def revisar_avance_endpoint(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     gestor_lider_id = await _require_revision_access(db, current_user)
 
@@ -362,10 +382,13 @@ async def revisar_avance_endpoint(
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    except Exception as exc:
         logger.exception("Error interno al revisar avance")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al revisar el avance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al revisar el avance",
+        ) from exc
 
     return result
 
@@ -373,6 +396,7 @@ async def revisar_avance_endpoint(
 # ---------------------------------------------------------------------------
 # POST /avances - Registrar avance (static, before /avances/{producto_id})
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "/avances",
@@ -388,7 +412,9 @@ async def crear_avance(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     try:
         result = await registrar_avance(
@@ -399,10 +425,13 @@ async def crear_avance(
             avance_data=avance_data.model_dump(),
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    except Exception as exc:
         logger.exception("Error interno al registrar avance")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al registrar el avance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al registrar el avance",
+        ) from exc
 
     return AvanceResponse(**result)
 
@@ -410,6 +439,7 @@ async def crear_avance(
 # ---------------------------------------------------------------------------
 # Dynamic routes LAST
 # ---------------------------------------------------------------------------
+
 
 @router.put(
     "/avances/{avance_id}",
@@ -424,11 +454,16 @@ async def editar_avance(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     payload = avance_data.model_dump(exclude_unset=True)
     if not payload:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No se enviaron campos para actualizar.")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No se enviaron campos para actualizar.",
+        )
 
     try:
         result = await actualizar_avance(
@@ -439,12 +474,15 @@ async def editar_avance(
             avance_data=payload,
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except Exception as exc:
         logger.exception("Error interno al actualizar avance")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al actualizar el avance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al actualizar el avance",
+        ) from exc
 
     return AvanceResponse(**result)
 
@@ -461,7 +499,9 @@ async def borrar_avance(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     try:
         result = await eliminar_avance(
@@ -471,12 +511,15 @@ async def borrar_avance(
             usuario_id=UUID(str(user.id)),
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except Exception as exc:
         logger.exception("Error interno al eliminar avance")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al eliminar el avance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al eliminar el avance",
+        ) from exc
 
     return result
 
@@ -493,7 +536,9 @@ async def obtener_avances_producto(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     avances = await get_avances_producto(
         db=db,
@@ -506,6 +551,7 @@ async def obtener_avances_producto(
 # ---------------------------------------------------------------------------
 # Evidencia: subir y descargar archivo
 # ---------------------------------------------------------------------------
+
 
 @router.post(
     "/avances/{avance_id}/evidencia",
@@ -521,7 +567,9 @@ async def subir_evidencia(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     content_type = file.content_type or ""
     if content_type not in ALLOWED_EVIDENCE_TYPES:
@@ -567,12 +615,14 @@ async def subir_evidencia(
             content_type=content_type,
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    except Exception as exc:
         logger.exception("Error al subir evidencia")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al subir la evidencia")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al subir la evidencia"
+        ) from exc
 
     return result
 
@@ -588,7 +638,9 @@ async def descargar_evidencia(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     roles = current_user.get("roles", [])
     try:
@@ -600,7 +652,7 @@ async def descargar_evidencia(
             roles=roles,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     return FileResponse(
         path=str(path),
@@ -612,6 +664,7 @@ async def descargar_evidencia(
 # ---------------------------------------------------------------------------
 # Evidencias múltiples: subir, listar, descargar, editar, eliminar
 # ---------------------------------------------------------------------------
+
 
 def _validate_evidence_file(file: UploadFile) -> tuple[str, bytes]:
     content_type = file.content_type or ""
@@ -662,7 +715,9 @@ async def subir_evidencias(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     if len(files) > 4:
         raise HTTPException(
@@ -673,12 +728,14 @@ async def subir_evidencias(
     archivos = []
     for file in files:
         filename, content = _validate_evidence_file(file)
-        archivos.append({
-            "content": content,
-            "filename": filename,
-            "content_type": file.content_type or "",
-            "descripcion": descripcion,
-        })
+        archivos.append(
+            {
+                "content": content,
+                "filename": filename,
+                "content_type": file.content_type or "",
+                "descripcion": descripcion,
+            }
+        )
 
     try:
         results = await agregar_evidencias(
@@ -689,12 +746,15 @@ async def subir_evidencias(
             archivos=archivos,
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    except Exception as exc:
         logger.exception("Error al subir evidencias")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al subir las evidencias")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al subir las evidencias",
+        ) from exc
 
     return [EvidenciaResponse(**r) for r in results]
 
@@ -711,7 +771,9 @@ async def obtener_evidencias(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     try:
         evidencias = await listar_evidencias(
@@ -720,7 +782,7 @@ async def obtener_evidencias(
             municipio_id=UUID(current_user["municipio_id"]),
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     return [EvidenciaResponse(**e) for e in evidencias]
 
@@ -737,7 +799,9 @@ async def descargar_evidencia_por_id(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     roles = current_user.get("roles", [])
     try:
@@ -750,9 +814,9 @@ async def descargar_evidencia_por_id(
             roles=roles,
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     return FileResponse(
         path=str(path),
@@ -775,7 +839,9 @@ async def actualizar_evidencia(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     try:
         result = await actualizar_descripcion_evidencia(
@@ -787,9 +853,9 @@ async def actualizar_evidencia(
             descripcion=data.descripcion,
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     return result
 
@@ -807,7 +873,9 @@ async def borrar_evidencia(
 ):
     user = current_user.get("user")
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no autenticado"
+        )
 
     try:
         result = await eliminar_evidencia(
@@ -818,8 +886,8 @@ async def borrar_evidencia(
             usuario_id=UUID(str(user.id)),
         )
     except PermissionError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     return result

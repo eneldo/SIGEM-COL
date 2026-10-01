@@ -55,6 +55,9 @@ dependencies = [
     "fpdf2>=2.8.0",
     "Pillow>=11.0.0,<13.0.0",
     "pypdf>=6.0.0,<7.0.0",
+
+    # Observability
+    "prometheus-client>=0.21.0",
 ]
 
 [project.optional-dependencies]
@@ -94,6 +97,8 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "B008",  # Depends(...) in FastAPI parameter defaults is the framework-idiomatic
+             # dependency-injection pattern; there is no equivalent non-default form.
 ]
 
 [tool.ruff.lint.isort]

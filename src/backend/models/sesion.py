@@ -1,4 +1,5 @@
 """Sesion model - Modelo para sesiones de usuario"""
+
 import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
@@ -12,7 +13,9 @@ class Sesion(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True)
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
     token_jti = Column(String(36), unique=True, nullable=False, index=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)

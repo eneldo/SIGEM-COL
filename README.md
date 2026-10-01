@@ -49,19 +49,20 @@ SIGEM Colombia es un sistema institucional diseñado para el seguimiento, medici
 
 ```
 SIGEM_COLOMBIA/
+├── .github/             # Pipelines de GitHub Actions
 ├── agents/              # Agentes especializados
 ├── context/             # Contexto del proyecto
 ├── orchestration/       # Orquestación de workflows
 ├── roles/               # Definición de roles
 ├── specs/               # Especificaciones por módulo
-├── docs/                # Documentación técnica
+├── docs/                # Documentación técnica y runbooks
 ├── src/
 │   ├── backend/         # Código Python/FastAPI
 │   └── frontend/        # Código React/TypeScript
 ├── tests/               # Pruebas automatizadas
 ├── migrations/          # Migraciones Alembic
 ├── scripts/             # Scripts de soporte
-├── infra/               # Infraestructura Docker
+├── infra/               # Infraestructura Docker, nginx y TLS
 └── security/            # Seguridad y hardening
 ```
 
@@ -73,7 +74,7 @@ SIGEM_COLOMBIA/
 
 - Docker y Docker Compose
 - Python 3.12+
-- Node.js 18+
+- Node.js 20+
 
 ### Instalación
 
@@ -91,18 +92,27 @@ cp .env.example .env
 
 3. Levantar servicios:
 ```bash
-docker-compose up -d
+docker compose -f infra/docker/docker-compose.yml up -d --build
 ```
 
 4. Ejecutar migraciones:
 ```bash
-docker-compose exec backend alembic upgrade head
+docker compose -f infra/docker/docker-compose.yml exec backend alembic upgrade head
 ```
 
-5. Acceder a la aplicación:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000/docs
-- Adminer (DB): http://localhost:8080
+5. Acceder a la aplicación (puertos de desarrollo):
+- Frontend: http://localhost:3001
+- Backend API: http://localhost:8001/docs
+- PostgreSQL: localhost:5433 (usuario `sigem`)
+
+### Endpoints operativos del backend
+
+| Endpoint | Descripción |
+|---|---|
+| `GET /health` | salud agregada: `200` healthy / `503` degraded (depende de la base de datos) |
+| `GET /health/live` | proceso vivo (liveness) |
+| `GET /health/ready` | readiness: listo para recibir tráfico |
+| `GET /metrics` | métricas Prometheus; si `METRICS_TOKEN` está definido requiere `Authorization: Bearer <token>` |
 
 ---
 
@@ -111,7 +121,26 @@ docker-compose exec backend alembic upgrade head
 - [Auditoría Inicial](docs/architecture/auditoria_inicial.md)
 - [Matriz de Requisitos](docs/architecture/matriz_requisitos.md)
 - [Orden de Implementación V1](docs/architecture/orden_implementacion_v1.md)
+- [CI/CD](docs/operations/ci-cd.md)
 - [MASTER_PROMPT](MASTER_PROMPT_SIGEM_COLOMBIA_V1.md)
+
+---
+
+## Producción
+
+El stack productivo usa `infra/docker/docker-compose.prod.yml` (proyecto `sigem-prod`) y expone **solo nginx en 80/443 con TLS**:
+
+```bash
+bash scripts/setup/deploy.sh <tag>
+```
+
+Runbooks de operación (leer antes de tocar producción):
+
+- [Despliegue y rollback](docs/operations/deployment.md) — topología, primer despliegue, checklist, job `deploy` de CI/CD y secretos
+- [TLS](docs/operations/tls.md) — certificados en `infra/tls/` y `nginx.prod.conf`
+- [Backups](docs/operations/backups.md) — dump de BD + evidencias, retención y verificación
+- [Monitoreo](docs/operations/monitoring.md) — perfil `monitoring`, Prometheus y alertas
+- [CI/CD](docs/operations/ci-cd.md) — pipeline, gates, umbrales y secretos de GitHub
 
 ---
 

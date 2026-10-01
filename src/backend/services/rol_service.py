@@ -3,6 +3,7 @@ Servicio de Gestión de Roles y Permisos - SIGEM Colombia
 ========================================================
 CRUD completo para administración de roles y permisos del sistema.
 """
+
 import uuid
 from datetime import UTC, datetime
 
@@ -28,9 +29,7 @@ async def create_rol(
     if not nombre:
         raise ValueError("El nombre es obligatorio.")
 
-    exists_stmt = select(Rol.id).where(
-        and_(Rol.codigo == codigo, Rol.deleted_at.is_(None))
-    )
+    exists_stmt = select(Rol.id).where(and_(Rol.codigo == codigo, Rol.deleted_at.is_(None)))
     exists_result = await db.execute(exists_stmt)
     if exists_result.scalar_one_or_none() is not None:
         raise ValueError(f"Ya existe un rol con el código '{codigo}'.")
@@ -50,9 +49,7 @@ async def create_rol(
     await db.flush()
 
     for pid in permisos_ids:
-        permiso_stmt = select(Permiso).where(
-            and_(Permiso.id == pid, Permiso.deleted_at.is_(None))
-        )
+        permiso_stmt = select(Permiso).where(and_(Permiso.id == pid, Permiso.deleted_at.is_(None)))
         permiso_result = await db.execute(permiso_stmt)
         if permiso_result.scalar_one_or_none():
             rp = RolPermiso(rol_id=rol.id, permiso_id=pid)
@@ -61,7 +58,7 @@ async def create_rol(
     await db.commit()
     await db.refresh(rol)
 
-    permisos_list = await _get_rol_permisos(db, rol.id)
+    permisos_list = await _get_rol_permisos(db, rol.id)  # type: ignore[arg-type]
 
     return {
         "id": str(rol.id),
@@ -90,9 +87,7 @@ async def list_roles(
     search = filtros.get("search")
     if search:
         sp = f"%{search}%"
-        base_query = base_query.where(
-            or_(Rol.codigo.ilike(sp), Rol.nombre.ilike(sp))
-        )
+        base_query = base_query.where(or_(Rol.codigo.ilike(sp), Rol.nombre.ilike(sp)))
 
     count_stmt = select(func.count()).select_from(base_query.subquery())
     total_result = await db.execute(count_stmt)
@@ -104,18 +99,20 @@ async def list_roles(
 
     items = []
     for r in roles:
-        permisos_list = await _get_rol_permisos(db, r.id)
-        items.append({
-            "id": str(r.id),
-            "codigo": r.codigo,
-            "nombre": r.nombre,
-            "descripcion": r.descripcion,
-            "nivel": r.nivel,
-            "estado": r.estado,
-            "permisos": permisos_list,
-            "created_at": r.created_at.isoformat(),
-            "updated_at": r.updated_at.isoformat(),
-        })
+        permisos_list = await _get_rol_permisos(db, r.id)  # type: ignore[arg-type]
+        items.append(
+            {
+                "id": str(r.id),
+                "codigo": r.codigo,
+                "nombre": r.nombre,
+                "descripcion": r.descripcion,
+                "nivel": r.nivel,
+                "estado": r.estado,
+                "permisos": permisos_list,
+                "created_at": r.created_at.isoformat(),
+                "updated_at": r.updated_at.isoformat(),
+            }
+        )
 
     return {
         "items": items,
@@ -130,15 +127,13 @@ async def get_rol(
     db: AsyncSession,
     rol_id: uuid.UUID,
 ) -> dict | None:
-    stmt = select(Rol).where(
-        and_(Rol.id == rol_id, Rol.deleted_at.is_(None))
-    )
+    stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
     result = await db.execute(stmt)
     rol = result.scalar_one_or_none()
     if rol is None:
         return None
 
-    permisos_list = await _get_rol_permisos(db, rol.id)
+    permisos_list = await _get_rol_permisos(db, rol.id)  # type: ignore[arg-type]
 
     return {
         "id": str(rol.id),
@@ -158,9 +153,7 @@ async def update_rol(
     rol_id: uuid.UUID,
     update_data: dict,
 ) -> dict | None:
-    stmt = select(Rol).where(
-        and_(Rol.id == rol_id, Rol.deleted_at.is_(None))
-    )
+    stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
     result = await db.execute(stmt)
     rol = result.scalar_one_or_none()
     if rol is None:
@@ -192,7 +185,7 @@ async def update_rol(
                 rp = RolPermiso(rol_id=rol_id, permiso_id=pid)
                 db.add(rp)
 
-    rol.updated_at = now
+    rol.updated_at = now  # type: ignore[assignment]
     await db.commit()
     await db.refresh(rol)
 
@@ -203,17 +196,15 @@ async def delete_rol(
     db: AsyncSession,
     rol_id: uuid.UUID,
 ) -> dict | None:
-    stmt = select(Rol).where(
-        and_(Rol.id == rol_id, Rol.deleted_at.is_(None))
-    )
+    stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
     result = await db.execute(stmt)
     rol = result.scalar_one_or_none()
     if rol is None:
         return None
 
     now = datetime.now(UTC)
-    rol.deleted_at = now
-    rol.updated_at = now
+    rol.deleted_at = now  # type: ignore[assignment]
+    rol.updated_at = now  # type: ignore[assignment]
     await db.commit()
 
     return {
@@ -242,15 +233,17 @@ async def list_permisos(
 
     items = []
     for p in permisos:
-        items.append({
-            "id": str(p.id),
-            "codigo": p.codigo,
-            "nombre": p.nombre,
-            "descripcion": p.descripcion,
-            "modulo": p.modulo,
-            "accion": p.accion,
-            "estado": p.estado,
-        })
+        items.append(
+            {
+                "id": str(p.id),
+                "codigo": p.codigo,
+                "nombre": p.nombre,
+                "descripcion": p.descripcion,
+                "modulo": p.modulo,
+                "accion": p.accion,
+                "estado": p.estado,
+            }
+        )
 
     return {"items": items, "total": len(items)}
 

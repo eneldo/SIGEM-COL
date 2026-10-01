@@ -26,6 +26,7 @@ from ..models.programa import Programa
 # Creación de producto
 # ---------------------------------------------------------------------------
 
+
 async def create_producto(
     db: AsyncSession,
     municipio_id: uuid.UUID,
@@ -79,9 +80,7 @@ async def create_producto(
     programa = programa_result.scalar_one_or_none()
 
     if programa is None:
-        raise ValueError(
-            "El programa no existe o no pertenece a este municipio."
-        )
+        raise ValueError("El programa no existe o no pertenece a este municipio.")
 
     # Validar que la dependencia exista si se proporciona
     if dependencia_responsable_id:
@@ -111,9 +110,7 @@ async def create_producto(
         gestor_result = await db.execute(gestor_stmt)
         gestor = gestor_result.scalar_one_or_none()
         if gestor is None:
-            raise ValueError(
-                "El gestor líder no existe o no pertenece a este municipio."
-            )
+            raise ValueError("El gestor líder no existe o no pertenece a este municipio.")
 
     # Validar unicidad de código dentro del mismo programa
     exists_stmt = select(Producto.id).where(
@@ -125,10 +122,7 @@ async def create_producto(
     )
     exists_result = await db.execute(exists_stmt)
     if exists_result.scalar_one_or_none() is not None:
-        raise ValueError(
-            f"Ya existe un producto con el código '{codigo}' "
-            f"en este programa."
-        )
+        raise ValueError(f"Ya existe un producto con el código '{codigo}' en este programa.")
 
     now = datetime.now(UTC)
 
@@ -171,7 +165,9 @@ async def create_producto(
         "meta_cuatrienio": producto.meta_cuatrienio,
         "descripcion": producto.descripcion,
         "unidad_medida": producto.unidad_medida,
-        "dependencia_responsable_id": str(producto.dependencia_responsable_id) if producto.dependencia_responsable_id else None,
+        "dependencia_responsable_id": str(producto.dependencia_responsable_id)
+        if producto.dependencia_responsable_id
+        else None,
         "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
         "estado": producto.estado,
         "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
@@ -183,6 +179,7 @@ async def create_producto(
 # ---------------------------------------------------------------------------
 # Listado de productos
 # ---------------------------------------------------------------------------
+
 
 async def list_productos(
     db: AsyncSession,
@@ -265,16 +262,12 @@ async def list_productos(
     # Filtro por dependencia
     dependencia_id = filtros.get("dependencia_id")
     if dependencia_id:
-        base_query = base_query.where(
-            Producto.dependencia_responsable_id == dependencia_id
-        )
+        base_query = base_query.where(Producto.dependencia_responsable_id == dependencia_id)
 
     # Filtro por gestor líder
     gestor_lider_id = filtros.get("gestor_lider_id")
     if gestor_lider_id:
-        base_query = base_query.where(
-            Producto.gestor_lider_id == gestor_lider_id
-        )
+        base_query = base_query.where(Producto.gestor_lider_id == gestor_lider_id)
 
     # Filtro por estado
     estado = filtros.get("estado")
@@ -295,30 +288,36 @@ async def list_productos(
 
     productos = []
     for producto, prog_nombre, prog_codigo, dep_nombre, gestor_nombre in rows:
-        productos.append({
-            "id": str(producto.id),
-            "municipio_id": str(producto.municipio_id),
-            "programa_id": str(producto.programa_id),
-            "programa_nombre": prog_nombre,
-            "programa_codigo": prog_codigo,
-            "codigo": producto.codigo,
-            "nombre": producto.nombre,
-            "codigo_indicador": producto.codigo_indicador,
-            "indicador": producto.indicador,
-            "meta_redactada": producto.meta_redactada,
-            "linea_base": producto.linea_base,
-            "meta_cuatrienio": producto.meta_cuatrienio,
-            "descripcion": producto.descripcion,
-            "unidad_medida": producto.unidad_medida,
-            "dependencia_responsable_id": str(producto.dependencia_responsable_id) if producto.dependencia_responsable_id else None,
-            "dependencia_responsable_nombre": dep_nombre,
-            "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
-            "gestor_lider_nombre": gestor_nombre,
-            "estado": producto.estado,
-            "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
-            "created_at": producto.created_at.isoformat(),
-            "updated_at": producto.updated_at.isoformat(),
-        })
+        productos.append(
+            {
+                "id": str(producto.id),
+                "municipio_id": str(producto.municipio_id),
+                "programa_id": str(producto.programa_id),
+                "programa_nombre": prog_nombre,
+                "programa_codigo": prog_codigo,
+                "codigo": producto.codigo,
+                "nombre": producto.nombre,
+                "codigo_indicador": producto.codigo_indicador,
+                "indicador": producto.indicador,
+                "meta_redactada": producto.meta_redactada,
+                "linea_base": producto.linea_base,
+                "meta_cuatrienio": producto.meta_cuatrienio,
+                "descripcion": producto.descripcion,
+                "unidad_medida": producto.unidad_medida,
+                "dependencia_responsable_id": str(producto.dependencia_responsable_id)
+                if producto.dependencia_responsable_id
+                else None,
+                "dependencia_responsable_nombre": dep_nombre,
+                "gestor_lider_id": str(producto.gestor_lider_id)
+                if producto.gestor_lider_id
+                else None,
+                "gestor_lider_nombre": gestor_nombre,
+                "estado": producto.estado,
+                "asignado_at": producto.asignado_at.isoformat() if producto.asignado_at else None,
+                "created_at": producto.created_at.isoformat(),
+                "updated_at": producto.updated_at.isoformat(),
+            }
+        )
 
     return {
         "productos": productos,
@@ -332,6 +331,7 @@ async def list_productos(
 # ---------------------------------------------------------------------------
 # Obtener producto por ID
 # ---------------------------------------------------------------------------
+
 
 async def get_producto(
     db: AsyncSession,
@@ -405,7 +405,9 @@ async def get_producto(
         "meta_cuatrienio": producto.meta_cuatrienio,
         "descripcion": producto.descripcion,
         "unidad_medida": producto.unidad_medida,
-        "dependencia_responsable_id": str(producto.dependencia_responsable_id) if producto.dependencia_responsable_id else None,
+        "dependencia_responsable_id": str(producto.dependencia_responsable_id)
+        if producto.dependencia_responsable_id
+        else None,
         "dependencia_responsable_nombre": dep_nombre,
         "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
         "gestor_lider_nombre": gestor_nombre,
@@ -419,6 +421,7 @@ async def get_producto(
 # ---------------------------------------------------------------------------
 # Actualizar producto
 # ---------------------------------------------------------------------------
+
 
 async def update_producto(
     db: AsyncSession,
@@ -474,9 +477,7 @@ async def update_producto(
         programa_result = await db.execute(programa_stmt)
         programa = programa_result.scalar_one_or_none()
         if programa is None:
-            raise ValueError(
-                "El programa no existe o no pertenece a este municipio."
-            )
+            raise ValueError("El programa no existe o no pertenece a este municipio.")
         producto.programa_id = new_programa_id
 
     # Si se cambia la dependencia, validar que exista
@@ -512,13 +513,11 @@ async def update_producto(
             gestor_result = await db.execute(gestor_stmt)
             gestor = gestor_result.scalar_one_or_none()
             if gestor is None:
-                raise ValueError(
-                    "El gestor líder no existe o no pertenece a este municipio."
-                )
+                raise ValueError("El gestor líder no existe o no pertenece a este municipio.")
         prev_gestor_id = producto.gestor_lider_id
         if new_gestor_id != prev_gestor_id:
             producto.gestor_lider_id = new_gestor_id
-            producto.asignado_at = now if new_gestor_id is not None else None
+            producto.asignado_at = now if new_gestor_id is not None else None  # type: ignore[assignment]
         else:
             producto.gestor_lider_id = new_gestor_id
 
@@ -537,42 +536,49 @@ async def update_producto(
         exists_result = await db.execute(exists_stmt)
         if exists_result.scalar_one_or_none() is not None:
             raise ValueError(
-                f"Ya existe un producto con el código '{new_codigo}' "
-                f"en este programa."
+                f"Ya existe un producto con el código '{new_codigo}' en este programa."
             )
         producto.codigo = new_codigo
 
     # Actualizar campos simples
-    updatable_fields = ["nombre", "codigo_indicador", "indicador", "meta_redactada", "linea_base", "meta_cuatrienio", "descripcion", "unidad_medida", "estado"]
+    updatable_fields = [
+        "nombre",
+        "codigo_indicador",
+        "indicador",
+        "meta_redactada",
+        "linea_base",
+        "meta_cuatrienio",
+        "descripcion",
+        "unidad_medida",
+        "estado",
+    ]
     for field in updatable_fields:
         if field in update_data:
             setattr(producto, field, update_data[field])
 
-    producto.updated_at = now
+    producto.updated_at = now  # type: ignore[assignment]
     await db.commit()
     await db.refresh(producto)
 
     # Obtener datos relacionados para la respuesta
-    programa_stmt = select(Programa).where(
-        Programa.id == producto.programa_id
-    )
+    programa_stmt = select(Programa).where(Programa.id == producto.programa_id)
     prog_result = await db.execute(programa_stmt)
     prog = prog_result.scalar_one()
 
     dep_nombre = None
     if producto.dependencia_responsable_id:
-        dep_stmt = select(Dependencia.nombre).where(
+        dep_nombre_stmt = select(Dependencia.nombre).where(
             Dependencia.id == producto.dependencia_responsable_id
         )
-        dep_result = await db.execute(dep_stmt)
+        dep_result = await db.execute(dep_nombre_stmt)
         dep_nombre = dep_result.scalar_one_or_none()
 
     gestor_nombre = None
     if producto.gestor_lider_id:
-        gestor_stmt = select(GestorLider.nombre_completo).where(
+        gestor_nombre_stmt = select(GestorLider.nombre_completo).where(
             GestorLider.id == producto.gestor_lider_id
         )
-        gestor_result = await db.execute(gestor_stmt)
+        gestor_result = await db.execute(gestor_nombre_stmt)
         gestor_nombre = gestor_result.scalar_one_or_none()
 
     return {
@@ -590,7 +596,9 @@ async def update_producto(
         "meta_cuatrienio": producto.meta_cuatrienio,
         "descripcion": producto.descripcion,
         "unidad_medida": producto.unidad_medida,
-        "dependencia_responsable_id": str(producto.dependencia_responsable_id) if producto.dependencia_responsable_id else None,
+        "dependencia_responsable_id": str(producto.dependencia_responsable_id)
+        if producto.dependencia_responsable_id
+        else None,
         "dependencia_responsable_nombre": dep_nombre,
         "gestor_lider_id": str(producto.gestor_lider_id) if producto.gestor_lider_id else None,
         "gestor_lider_nombre": gestor_nombre,
@@ -604,6 +612,7 @@ async def update_producto(
 # ---------------------------------------------------------------------------
 # Eliminación lógica de producto
 # ---------------------------------------------------------------------------
+
 
 async def delete_producto(
     db: AsyncSession,
@@ -637,10 +646,10 @@ async def delete_producto(
         return None
 
     now = datetime.now(UTC)
-    producto.deleted_at = now
+    producto.deleted_at = now  # type: ignore[assignment]
     if user_id:
-        producto.deleted_by = user_id
-    producto.updated_at = now
+        producto.deleted_by = user_id  # type: ignore[assignment]
+    producto.updated_at = now  # type: ignore[assignment]
 
     await db.commit()
 

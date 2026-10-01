@@ -1,6 +1,7 @@
 """
 Schemas para Cumplimiento de Metas - SIGEM Colombia
 """
+
 from pydantic import BaseModel
 
 

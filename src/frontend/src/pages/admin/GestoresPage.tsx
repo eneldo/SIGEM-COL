@@ -71,6 +71,7 @@ export function GestoresPage() {
     finally { setLoading(false) }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [deferredSearch, status])
   useEffect(() => {
     Promise.all([catalogos.roles(), catalogos.dependencias()]).then(([r, d]) => { setRoles(r.data); setDependencies(d.data) }).catch(() => setError('No fue posible cargar los catálogos.'))

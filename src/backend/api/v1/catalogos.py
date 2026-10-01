@@ -38,14 +38,10 @@ async def list_roles(
     current_user: dict = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = (
-        select(Rol)
-        .where(Rol.deleted_at.is_(None))
-        .order_by(Rol.nivel.asc())
-    )
+    stmt = select(Rol).where(Rol.deleted_at.is_(None)).order_by(Rol.nivel.asc())
     result = await db.execute(stmt)
     rows = list(result.scalars().all())
-    return [RolOut(id=r.id, codigo=r.codigo, nombre=r.nombre, nivel=r.nivel) for r in rows]
+    return [RolOut(id=r.id, codigo=r.codigo, nombre=r.nombre, nivel=r.nivel) for r in rows]  # type: ignore[arg-type]
 
 
 @router.get(
@@ -74,17 +70,13 @@ async def list_dependencias(
 
     if not is_admin:
         user_id = current_user["user"].id
-        asignadas = (
-            select(UsuarioDependencia.dependencia_id)
-            .where(UsuarioDependencia.usuario_id == user_id)
+        asignadas = select(UsuarioDependencia.dependencia_id).where(
+            UsuarioDependencia.usuario_id == user_id
         )
-        propias_gestor = (
-            select(GestorLider.dependencia_principal_id)
-            .where(
-                and_(
-                    GestorLider.usuario_id == user_id,
-                    GestorLider.dependencia_principal_id.is_not(None),
-                )
+        propias_gestor = select(GestorLider.dependencia_principal_id).where(
+            and_(
+                GestorLider.usuario_id == user_id,
+                GestorLider.dependencia_principal_id.is_not(None),
             )
         )
         stmt = stmt.where(
@@ -109,10 +101,10 @@ async def list_dependencias(
 
     return [
         DependenciaOut(
-            id=r.id,
-            codigo=r.codigo,
-            nombre=r.nombre,
-            descripcion=r.descripcion,
+            id=r.id,  # type: ignore[arg-type]
+            codigo=r.codigo,  # type: ignore[arg-type]
+            nombre=r.nombre,  # type: ignore[arg-type]
+            descripcion=r.descripcion,  # type: ignore[arg-type]
         )
         for r in rows
     ]

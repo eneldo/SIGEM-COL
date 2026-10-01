@@ -1,4 +1,5 @@
 """MFAFactor model - Modelo para factores MFA"""
+
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
@@ -12,7 +13,9 @@ class MFAFactor(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True)
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
+    )
     tipo = Column(String(50), nullable=False)  # TOTP, WEBAUTHN
     nombre = Column(String(255), nullable=False)
     secret_encrypted = Column(Text, nullable=True)

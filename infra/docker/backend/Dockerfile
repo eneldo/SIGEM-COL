@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
 
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 COPY src/backend/pyproject.toml .
 RUN pip install --no-cache-dir -e ".[dev]" || pip install --no-cache-dir -e .
 

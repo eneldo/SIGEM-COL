@@ -1,4 +1,5 @@
 """Tests de integración - Flujos completos de trabajo."""
+
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -9,11 +10,15 @@ class TestFullWorkflow:
         h = auth_header(admin_token)
 
         # 1. Create a línea estratégica
-        resp = api.post(f"{API_PREFIX}/lineas-estrategicas", json={
-            "nombre": "Línea Test Integración",
-            "codigo": "LT-TEST-001",
-            "descripcion": "Línea de prueba para integración",
-        }, headers=h)
+        resp = api.post(
+            f"{API_PREFIX}/lineas-estrategicas",
+            json={
+                "nombre": "Línea Test Integración",
+                "codigo": "LT-TEST-001",
+                "descripcion": "Línea de prueba para integración",
+            },
+            headers=h,
+        )
         if resp.status_code == 201:
             linea_id = resp.json()["id"]
 
@@ -23,18 +28,26 @@ class TestFullWorkflow:
             assert resp.json()["nombre"] == "Línea Test Integración"
 
             # 3. Update
-            resp = api.put(f"{API_PREFIX}/lineas-estrategicas/{linea_id}", json={
-                "descripcion": "Actualizada para testing",
-            }, headers=h)
+            resp = api.put(
+                f"{API_PREFIX}/lineas-estrategicas/{linea_id}",
+                json={
+                    "descripcion": "Actualizada para testing",
+                },
+                headers=h,
+            )
             assert resp.status_code == 200
 
             # 4. Create a programa under this línea
-            resp = api.post(f"{API_PREFIX}/programas", json={
-                "nombre": "Programa Test Integración",
-                "codigo": "PR-TEST-001",
-                "linea_estrategica_id": linea_id,
-                "descripcion": "Programa de prueba",
-            }, headers=h)
+            resp = api.post(
+                f"{API_PREFIX}/programas",
+                json={
+                    "nombre": "Programa Test Integración",
+                    "codigo": "PR-TEST-001",
+                    "linea_estrategica_id": linea_id,
+                    "descripcion": "Programa de prueba",
+                },
+                headers=h,
+            )
             if resp.status_code == 201:
                 prog_id = resp.json()["id"]
 
@@ -43,12 +56,16 @@ class TestFullWorkflow:
                 assert resp.status_code == 200
 
                 # 6. Create a producto
-                resp = api.post(f"{API_PREFIX}/productos", json={
-                    "nombre": "Producto Test Integración",
-                    "codigo": "PD-TEST-001",
-                    "programa_id": prog_id,
-                    "descripcion": "Producto de prueba",
-                }, headers=h)
+                resp = api.post(
+                    f"{API_PREFIX}/productos",
+                    json={
+                        "nombre": "Producto Test Integración",
+                        "codigo": "PD-TEST-001",
+                        "programa_id": prog_id,
+                        "descripcion": "Producto de prueba",
+                    },
+                    headers=h,
+                )
                 if resp.status_code == 201:
                     prod_id = resp.json()["id"]
 
@@ -89,11 +106,15 @@ class TestCatalogos:
     """Pruebas de catálogos del sistema."""
 
     def test_list_roles(self, api, admin_token):
-        resp = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token))
+        resp = api.get(
+            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
+        )
         assert resp.status_code == 200
 
     def test_list_dependencias(self, api, admin_token):
-        resp = api.get(f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token))
+        resp = api.get(
+            f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token)
+        )
         assert resp.status_code == 200
 
     def test_list_roles_unauthenticated(self, api):

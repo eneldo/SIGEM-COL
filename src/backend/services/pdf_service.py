@@ -3,6 +3,7 @@ Servicio de Generación de PDF - SIGEM Colombia
 ================================================
 Genera el Informe de Gestión en formato PDF.
 """
+
 import uuid
 from datetime import datetime
 
@@ -33,7 +34,9 @@ class InformePDF(FPDF):
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(100, 100, 100)
         self.cell(0, 8, "SIGEM Colombia - Informe de Gestion", align="L")
-        self.cell(0, 8, datetime.now().strftime("%d/%m/%Y"), align="R", new_x="LMARGIN", new_y="NEXT")
+        self.cell(
+            0, 8, datetime.now().strftime("%d/%m/%Y"), align="R", new_x="LMARGIN", new_y="NEXT"
+        )
         self.set_draw_color(0, 100, 80)
         self.set_line_width(0.5)
         self.line(10, self.get_y(), 200, self.get_y())
@@ -115,12 +118,26 @@ async def generar_informe_gestion_pdf(
     pdf.set_font("Helvetica", "", 14)
     pdf.set_text_color(80, 80, 80)
     pdf.cell(0, 10, "Plan de Desarrollo Municipal", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 10, "Sistema de Informacion para el Seguimiento (SIGEM)", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0,
+        10,
+        "Sistema de Informacion para el Seguimiento (SIGEM)",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
 
     pdf.ln(10)
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, f"Fecha de generacion: {datetime.now().strftime('%d de %B de %Y')}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0,
+        10,
+        f"Fecha de generacion: {datetime.now().strftime('%d de %B de %Y')}",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
 
     pdf.ln(30)
     pdf.set_draw_color(0, 100, 80)
@@ -150,7 +167,13 @@ async def generar_informe_gestion_pdf(
     pdf.kpi_row("Sin Avance:", cumplimiento["sin_avance"])
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(0, 100, 80)
-    pdf.cell(0, 10, f"Porcentaje Cumplimiento General: {cumplimiento['porcentaje_cumplimiento_general']}%", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0,
+        10,
+        f"Porcentaje Cumplimiento General: {cumplimiento['porcentaje_cumplimiento_general']}%",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
     pdf.ln(3)
 
     # Cumplimiento por linea
@@ -161,7 +184,13 @@ async def generar_informe_gestion_pdf(
         pdf.table_header(cols, widths)
         for i, cl in enumerate(cumplimiento_lineas):
             pdf.table_row(
-                [cl["codigo"], cl["nombre"][:30], cl["total_productos"], cl["completados"], f"{cl['porcentaje_cumplimiento']}%"],
+                [
+                    cl["codigo"],
+                    cl["nombre"][:30],
+                    cl["total_productos"],
+                    cl["completados"],
+                    f"{cl['porcentaje_cumplimiento']}%",
+                ],
                 widths,
                 fill=(i % 2 == 0),
             )
@@ -170,11 +199,18 @@ async def generar_informe_gestion_pdf(
     # === CALIDAD DE LA INFORMACION ===
     pdf.section_title("3. Calidad de la Informacion")
 
-    pdf.kpi_row("Productos con Indicador:", f"{metricas['con_indicador']}/{metricas['total_productos']}")
+    pdf.kpi_row(
+        "Productos con Indicador:", f"{metricas['con_indicador']}/{metricas['total_productos']}"
+    )
     pdf.kpi_row("Porcentaje Indicador:", f"{metricas['porcentaje_cumplimiento_indicador']}%")
-    pdf.kpi_row("Productos con Meta Cuatrienio:", f"{metricas['con_meta_cuatrienio']}/{metricas['total_productos']}")
+    pdf.kpi_row(
+        "Productos con Meta Cuatrienio:",
+        f"{metricas['con_meta_cuatrienio']}/{metricas['total_productos']}",
+    )
     pdf.kpi_row("Porcentaje Meta:", f"{metricas['porcentaje_cumplimiento_meta']}%")
-    pdf.kpi_row("Productos con Gestor:", f"{metricas['con_gestor_asignado']}/{metricas['total_productos']}")
+    pdf.kpi_row(
+        "Productos con Gestor:", f"{metricas['con_gestor_asignado']}/{metricas['total_productos']}"
+    )
     pdf.kpi_row("Promedio de Avance:", f"{metricas['promedio_avance']}%")
     pdf.ln(5)
 
@@ -185,9 +221,15 @@ async def generar_informe_gestion_pdf(
         cols = ["Codigo", "Nombre", "Programas", "Productos", "Estado"]
         widths = [20, 65, 25, 25, 25]
         pdf.table_header(cols, widths)
-        for i, l in enumerate(lineas):
+        for i, linea in enumerate(lineas):
             pdf.table_row(
-                [l["codigo"], l["nombre"][:32], l["total_programas"], l["total_productos"], l["estado"]],
+                [
+                    linea["codigo"],
+                    linea["nombre"][:32],
+                    linea["total_programas"],
+                    linea["total_productos"],
+                    linea["estado"],
+                ],
                 widths,
                 fill=(i % 2 == 0),
             )
@@ -202,7 +244,13 @@ async def generar_informe_gestion_pdf(
         pdf.table_header(cols, widths)
         for i, p in enumerate(programas):
             pdf.table_row(
-                [p["codigo"], p["nombre"][:27], (p.get("sector") or "N/A")[:15], p["total_productos"], p["estado"]],
+                [
+                    p["codigo"],
+                    p["nombre"][:27],
+                    (p.get("sector") or "N/A")[:15],
+                    p["total_productos"],
+                    p["estado"],
+                ],
                 widths,
                 fill=(i % 2 == 0),
             )
@@ -253,8 +301,22 @@ async def generar_informe_gestion_pdf(
     pdf.ln(5)
     pdf.set_font("Helvetica", "I", 9)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 6, "Informe generado automaticamente por SIGEM Colombia", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 6, f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(
+        0,
+        6,
+        "Informe generado automaticamente por SIGEM Colombia",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
+    pdf.cell(
+        0,
+        6,
+        f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        align="C",
+        new_x="LMARGIN",
+        new_y="NEXT",
+    )
 
     # Exportar a bytes
     pdf_bytes = pdf.output()

@@ -1,4 +1,5 @@
 """Auth service - Authentication and authorization logic"""
+
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -30,7 +31,12 @@ class AuthService:
         self.db = db
 
     async def authenticate_user(
-        self, username: str, password: str, municipio_codigo: str = None, ip_address: str = None, user_agent: str = None
+        self,
+        username: str,
+        password: str,
+        municipio_codigo: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> dict | None:
         # Municipality is mandatory: it scopes the login lookup under RLS.
         if not municipio_codigo:
@@ -38,7 +44,9 @@ class AuthService:
 
         # municipios is a global table (no RLS), safe to query unscoped.
         result = await self.db.execute(
-            select(Municipio).where(Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO")
+            select(Municipio).where(
+                Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO"
+            )
         )
         municipio = result.scalar_one_or_none()
         if not municipio:
@@ -49,7 +57,7 @@ class AuthService:
         await set_tenant_context(self.db, municipio.id)
 
         # Get user by username + municipio
-        result = await self.db.execute(
+        user_result = await self.db.execute(
             select(Usuario).where(
                 and_(
                     Usuario.username == username,
@@ -58,7 +66,7 @@ class AuthService:
                 )
             )
         )
-        user = result.scalar_one_or_none()
+        user = user_result.scalar_one_or_none()
 
         # Record login attempt
         attempt = IntentoLogin(
@@ -71,53 +79,53 @@ class AuthService:
         )
 
         if not user:
-            attempt.exitoso = False
-            attempt.razon_fallo = "USER_NOT_FOUND"
+            attempt.exitoso = False  # type: ignore[assignment]
+            attempt.razon_fallo = "USER_NOT_FOUND"  # type: ignore[assignment]
             self.db.add(attempt)
             await self.db.commit()
             return None
 
         # Check if account is locked
         if user.fecha_bloqueo:
-            attempt.exitoso = False
-            attempt.razon_fallo = "ACCOUNT_LOCKED"
+            attempt.exitoso = False  # type: ignore[assignment]
+            attempt.razon_fallo = "ACCOUNT_LOCKED"  # type: ignore[assignment]
             self.db.add(attempt)
             await self.db.commit()
             return None
 
         # Check if account is active
         if not user.activo or user.estado == "ELIMINADO_LOGICAMENTE":
-            attempt.exitoso = False
-            attempt.razon_fallo = "ACCOUNT_INACTIVE"
+            attempt.exitoso = False  # type: ignore[assignment]
+            attempt.razon_fallo = "ACCOUNT_INACTIVE"  # type: ignore[assignment]
             self.db.add(attempt)
             await self.db.commit()
             return None
 
         # Verify password
         if not verify_password(password, str(user.password_hash)):
-            user.intentos_fallidos += 1
-            user.ultimo_intento_fallido = datetime.now(UTC)
+            user.intentos_fallidos += 1  # type: ignore[assignment]
+            user.ultimo_intento_fallido = datetime.now(UTC)  # type: ignore[assignment]
 
             # Lock account after max attempts
             if user.intentos_fallidos >= settings.RATE_LIMIT_LOGIN_ATTEMPTS:
-                user.fecha_bloqueo = datetime.now(UTC)
-                user.motivo_bloqueo = "MAX_LOGIN_ATTEMPTS"
+                user.fecha_bloqueo = datetime.now(UTC)  # type: ignore[assignment]
+                user.motivo_bloqueo = "MAX_LOGIN_ATTEMPTS"  # type: ignore[assignment]
 
-            attempt.exitoso = False
-            attempt.razon_fallo = "INVALID_PASSWORD"
+            attempt.exitoso = False  # type: ignore[assignment]
+            attempt.razon_fallo = "INVALID_PASSWORD"  # type: ignore[assignment]
             attempt.usuario_id = user.id
             self.db.add(attempt)
             await self.db.commit()
             return None
 
         # Successful login
-        user.intentos_fallidos = 0
-        user.ultimo_intento_fallido = None
-        user.ultimo_acceso = datetime.now(UTC)
-        user.ip_ultimo_acceso = ip_address
-        user.user_agent_ultimo_acceso = user_agent
+        user.intentos_fallidos = 0  # type: ignore[assignment]
+        user.ultimo_intento_fallido = None  # type: ignore[assignment]
+        user.ultimo_acceso = datetime.now(UTC)  # type: ignore[assignment]
+        user.ip_ultimo_acceso = ip_address  # type: ignore[assignment]
+        user.user_agent_ultimo_acceso = user_agent  # type: ignore[assignment]
 
-        attempt.exitoso = True
+        attempt.exitoso = True  # type: ignore[assignment]
         attempt.usuario_id = user.id
         self.db.add(attempt)
 
@@ -150,7 +158,12 @@ class AuthService:
             }
 
         return await self._issue_tokens(
-            user, municipio.id, roles, token_data, ip_address, user_agent
+            user,
+            municipio.id,  # type: ignore[arg-type]
+            roles,
+            token_data,
+            ip_address,
+            user_agent,
         )
 
     async def _issue_tokens(
@@ -170,6 +183,8 @@ class AuthService:
         session_id = uuid.uuid4()
         refresh_token = create_refresh_token(token_data)
         refresh_payload = decode_token(refresh_token)
+        if refresh_payload is None or "jti" not in refresh_payload:
+            raise ValueError("Token de refresco inválido")
         access_token = create_access_token({**token_data, "sid": str(session_id)})
 
         session = Sesion(
@@ -246,9 +261,7 @@ class AuthService:
 
         await set_tenant_context(self.db, uuid.UUID(payload["municipio_id"]))
 
-        result = await self.db.execute(
-            select(Sesion).where(Sesion.token_jti == payload["jti"])
-        )
+        result = await self.db.execute(select(Sesion).where(Sesion.token_jti == payload["jti"]))
         session = result.scalar_one_or_none()
         if session is None:
             return None
@@ -259,7 +272,7 @@ class AuthService:
 
         now = datetime.now(UTC)
         if session.activa != 1 or session.fecha_expiracion <= now:
-            await self.revoke_all_sessions(uuid.UUID(str(user.id)))
+            await self.revoke_session(uuid.UUID(str(session.id)), uuid.UUID(str(user.id)))
             return None
 
         roles = await self.get_user_roles(uuid.UUID(str(user.id)))
@@ -271,10 +284,12 @@ class AuthService:
 
         # Rotate: close the current session and issue a new one under a new
         # `sid`. The old row keeps its jti so a replay can be recognized.
-        session.activa = 0
+        session.activa = 0  # type: ignore[assignment]
         new_session_id = uuid.uuid4()
         new_refresh = create_refresh_token(token_data)
         new_payload = decode_token(new_refresh)
+        if new_payload is None or "jti" not in new_payload:
+            raise ValueError("Token de refresco inválido")
         new_session = Sesion(
             id=new_session_id,
             usuario_id=uuid.UUID(str(user.id)),
@@ -348,8 +363,8 @@ class AuthService:
         if user.mfa_activo:
             raise ValueError("MFA ya está activo; desactívelo antes de volver a configurarlo.")
         secret = pyotp.random_base32()
-        user.mfa_secret = secret
-        user.mfa_activo = False
+        user.mfa_secret = secret  # type: ignore[assignment]
+        user.mfa_activo = False  # type: ignore[assignment]
         await self.db.commit()
         totp = pyotp.TOTP(secret)
         return {
@@ -364,7 +379,7 @@ class AuthService:
             raise ValueError("No hay un secreto MFA pendiente; ejecute setup primero.")
         if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
             return False
-        user.mfa_activo = True
+        user.mfa_activo = True  # type: ignore[assignment]
         await self.db.commit()
         return True
 
@@ -375,8 +390,8 @@ class AuthService:
             return False
         if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
             return False
-        user.mfa_activo = False
-        user.mfa_secret = None
+        user.mfa_activo = False  # type: ignore[assignment]
+        user.mfa_secret = None  # type: ignore[assignment]
         await self.db.commit()
         return True
 
@@ -403,6 +418,7 @@ class AuthService:
     async def get_user_permissions(self, user_id: uuid.UUID) -> list[str]:
         from ..models.rol import Permiso
         from ..models.usuario_rol import RolPermiso
+
         result = await self.db.execute(
             select(Permiso.codigo)
             .join(RolPermiso, RolPermiso.permiso_id == Permiso.id)
@@ -418,12 +434,12 @@ class AuthService:
         if not user:
             return False
 
-        if not verify_password(current_password, user.password_hash):
+        if not verify_password(current_password, user.password_hash):  # type: ignore[arg-type]
             return False
 
-        user.password_hash = get_password_hash(new_password)
-        user.must_change_password = False
-        user.ultimo_cambio_password = datetime.now(UTC)
+        user.password_hash = get_password_hash(new_password)  # type: ignore[assignment]
+        user.must_change_password = False  # type: ignore[assignment]
+        user.ultimo_cambio_password = datetime.now(UTC)  # type: ignore[assignment]
         await self.db.commit()
         return True
 
@@ -432,14 +448,12 @@ class AuthService:
 
     async def revoke_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         result = await self.db.execute(
-            select(Sesion).where(
-                and_(Sesion.id == session_id, Sesion.usuario_id == user_id)
-            )
+            select(Sesion).where(and_(Sesion.id == session_id, Sesion.usuario_id == user_id))
         )
         session = result.scalar_one_or_none()
         if not session:
             return False
-        session.activa = 0
+        session.activa = 0  # type: ignore[assignment]
         await self.db.commit()
         return True
 

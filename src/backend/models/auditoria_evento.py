@@ -1,4 +1,5 @@
 """AuditoriaEvento model - Modelo para eventos de auditoría"""
+
 import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, String, Text
@@ -11,7 +12,9 @@ class AuditoriaEvento(Base):
     __tablename__ = "auditoria_eventos"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=True, index=True)
+    municipio_id = Column(
+        UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=True, index=True
+    )
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True, index=True)
     actor_id = Column(UUID(as_uuid=True), nullable=True)  # Quién realizó la acción
     evento_tipo = Column(String(50), nullable=False, index=True)

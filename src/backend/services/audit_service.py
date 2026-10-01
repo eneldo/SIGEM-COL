@@ -1,4 +1,5 @@
 """Audit service - Event logging for security and compliance"""
+
 import json
 from datetime import UTC, datetime
 from uuid import UUID

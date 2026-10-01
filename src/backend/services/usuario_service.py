@@ -3,6 +3,7 @@ Servicio de Gestión de Usuarios - SIGEM Colombia
 =================================================
 CRUD completo para administración de usuarios del sistema.
 """
+
 import uuid
 from datetime import UTC, datetime
 
@@ -93,9 +94,7 @@ async def create_usuario(
         ) from exc
 
     if rol_id:
-        rol_stmt = select(Rol).where(
-            and_(Rol.id == rol_id, Rol.deleted_at.is_(None))
-        )
+        rol_stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
         rol_result = await db.execute(rol_stmt)
         rol = rol_result.scalar_one_or_none()
         if rol:
@@ -140,13 +139,10 @@ async def list_usuarios(
     page_size = min(100, max(1, filtros.get("page_size", 20)))
     offset = (page - 1) * page_size
 
-    base_query = (
-        select(Usuario)
-        .where(
-            and_(
-                Usuario.municipio_id == municipio_id,
-                Usuario.deleted_at.is_(None),
-            )
+    base_query = select(Usuario).where(
+        and_(
+            Usuario.municipio_id == municipio_id,
+            Usuario.deleted_at.is_(None),
         )
     )
 
@@ -186,24 +182,26 @@ async def list_usuarios(
         roles_result = await db.execute(roles_stmt)
         roles = [{"codigo": r[0], "nombre": r[1]} for r in roles_result.all()]
 
-        items.append({
-            "id": str(u.id),
-            "municipio_id": str(u.municipio_id),
-            "codigo": u.codigo,
-            "username": u.username,
-            "email": u.email,
-            "nombre_completo": u.nombre_completo,
-            "telefono": u.telefono,
-            "cargo": u.cargo,
-            "activo": u.activo,
-            "roles": roles,
-            "must_change_password": u.must_change_password,
-            "mfa_activo": u.mfa_activo,
-            "ultimo_acceso": u.ultimo_acceso.isoformat() if u.ultimo_acceso else None,
-            "intentos_fallidos": u.intentos_fallidos,
-            "created_at": u.created_at.isoformat(),
-            "updated_at": u.updated_at.isoformat(),
-        })
+        items.append(
+            {
+                "id": str(u.id),
+                "municipio_id": str(u.municipio_id),
+                "codigo": u.codigo,
+                "username": u.username,
+                "email": u.email,
+                "nombre_completo": u.nombre_completo,
+                "telefono": u.telefono,
+                "cargo": u.cargo,
+                "activo": u.activo,
+                "roles": roles,
+                "must_change_password": u.must_change_password,
+                "mfa_activo": u.mfa_activo,
+                "ultimo_acceso": u.ultimo_acceso.isoformat() if u.ultimo_acceso else None,
+                "intentos_fallidos": u.intentos_fallidos,
+                "created_at": u.created_at.isoformat(),
+                "updated_at": u.updated_at.isoformat(),
+            }
+        )
 
     return {
         "items": items,
@@ -300,15 +298,13 @@ async def update_usuario(
 
         rol_id = update_data["rol_id"]
         if rol_id:
-            rol_stmt = select(Rol).where(
-                and_(Rol.id == rol_id, Rol.deleted_at.is_(None))
-            )
+            rol_stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
             rol_result = await db.execute(rol_stmt)
             if rol_result.scalar_one_or_none():
                 ur = UsuarioRol(usuario_id=usuario_id, rol_id=rol_id, municipio_id=municipio_id)
                 db.add(ur)
 
-    usuario.updated_at = now
+    usuario.updated_at = now  # type: ignore[assignment]
     await db.commit()
     await db.refresh(usuario)
 
@@ -334,10 +330,10 @@ async def delete_usuario(
         return None
 
     now = datetime.now(UTC)
-    usuario.deleted_at = now
+    usuario.deleted_at = now  # type: ignore[assignment]
     if user_id:
-        usuario.deleted_by = user_id
-    usuario.updated_at = now
+        usuario.deleted_by = user_id  # type: ignore[assignment]
+    usuario.updated_at = now  # type: ignore[assignment]
     await db.commit()
 
     return {
