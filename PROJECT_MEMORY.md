@@ -78,12 +78,115 @@
 4. Refresh token rotation sin revocación masiva por expiración
 5. ValueError → 422 handler para UUID inválidos
 
+### Validación de Continuidad (2026-10-01)
+- Cambios frontend pendientes validados: 29 tests focalizados aprobados, ESLint aprobado y build aprobado (`tsc` + Vite).
+- El proyecto no define script `npm run typecheck`; el typecheck se ejecuta como parte de `npm run build`.
+- `docker compose -f infra/docker/docker-compose.prod.yml config --quiet` aprobado con Docker 28.3.2.
+- Preflight productivo: imágenes `sigem-backend`, `sigem-frontend` y `sigem-backup` disponibles; `.env.prod` presente; stack productivo detenido.
+- Smoke test TLS completo bloqueado: faltan `infra/tls/cert.pem` y `infra/tls/key.pem`, y el puerto 443 continúa ocupado por HTTP.sys (PID 4). Puerto 80 libre.
+
 ### Próximos Pasos para 10/10 Readiness
-1. Smoke test prod stack (requiere puerto 443 libre en host - HTTP.sys ocupa 443 en Windows)
-2. Generar certs self-signed para test local TLS
-3. Re-auditoría completa contra checklist
-4. Commit + push a GitHub
+1. Liberar o remapear el puerto 443 para la validación local.
+2. Generar certificados self-signed para el smoke test local TLS.
+3. Levantar el stack productivo y ejecutar el checklist post-despliegue.
+4. Re-auditoría completa contra checklist.
+5. Commit + push a GitHub.
 
 ### Bloqueantes Conocidos
-- Puerto 443 ocupado por HTTP.sys (PID 4) en host Windows → nginx prod no puede publicar 443 localmente
-- Vulnerabilidades npm audit en react-router-dom (transitivas, alpha)
+- Puerto 443 ocupado por HTTP.sys (PID 4) en host Windows → nginx prod no puede publicar 443 localmente.
+- Certificados locales TLS aún no generados.
+- Vulnerabilidades npm audit en React Router: 2 moderadas; la corrección automática exige migración disruptiva a React Router 7.
+
+## Continuidad de Producción (2026-10-01)
+
+### Auditoría y correcciones realizadas
+- Se ejecutó una auditoría exhaustiva de preparación para producción sobre Docker Compose, Nginx, TLS, CI/CD, backups, rollback, configuración backend y frontend.
+- `Settings.validate_production()` ahora rechaza placeholders, secretos débiles o iguales, rol DB distinto de `sigem_app`, Redis sin autenticación, URLs no HTTPS, dominios de ejemplo, CORS inseguro, MFA/rate limiting desactivados y métricas sin token.
+- Nginx ahora sobrescribe `X-Forwarded-For` con `$remote_addr` para impedir spoofing de IP desde clientes.
+- Cada backup ejecuta `verify_backup.sh` inmediatamente y falla si la verificación no pasa.
+- `deploy.sh` y `rollback.sh` validan tags Docker, requieren las tres imágenes inmutables (backend, frontend y backup), usan `--no-build` y ya no construyen código en el servidor.
+- `deploy.sh` rechaza placeholders del entorno, certificados inválidos/próximos a expirar y pares certificado/clave que no coincidan; ya no recomienda certificados de desarrollo para producción.
+- Se añadieron pruebas para las nuevas validaciones y representaciones de modelos, manteniendo el gate backend al 100%.
+
+### Gates verificados
+- Backend: Ruff, Ruff format, mypy y Bandit aprobados.
+- Backend: **845 passed, 1 skipped**, 5.078 sentencias, **100% cobertura de líneas**.
+- Frontend: TypeScript, ESLint, cobertura y build aprobados.
+- Frontend: **443 tests aprobados**, 48,32% líneas / 95,67% branches / 96,18% functions.
+- Docker Compose productivo: configuración válida.
+- Build frontend: aprobado; advertencia no bloqueante por bundle JS de 572,67 kB.
+- `npm audit`: 2 vulnerabilidades moderadas de React Router; la corrección disponible instala React Router 7 y es breaking.
+
+### Decisiones del usuario
+- Dominio público: disponible, pero falta recibir el nombre exacto.
+- Registro de imágenes: **GitHub Container Registry (GHCR)**.
+- Backups externos: **almacenamiento S3 compatible**.
+
+### Datos externos pendientes para completar producción
+1. Dominio público exacto y confirmación de DNS apuntando al servidor.
+2. Organización/propietario y ruta GHCR (`ghcr.io/<owner>`).
+3. Endpoint, región y nombre del bucket S3 compatible.
+4. Credenciales de GHCR y S3 configuradas directamente como secretos, nunca compartidas ni guardadas en el repositorio.
+5. Certificado TLS confiable para el dominio y puertos públicos 80/443 disponibles.
+6. Servidor de producción o staging accesible para levantar el stack, ejecutar migraciones, smoke tests, validación RLS, cabeceras y recuperación de backup.
+
+### Estado de readiness
+- Código y gates locales: aprobados.
+- Producción real: **aún no aprobada** hasta publicar imágenes inmutables en GHCR, configurar TLS/dominio, habilitar backups S3 cifrados y probar restauración, desplegar en el host objetivo y completar el checklist post-despliegue.
+
+## Auditoría de despliegue Oracle Cloud (2026-10-02)
+
+### Veredicto
+- El proyecto todavía no está listo para desplegarse en una VM Oracle Cloud limpia.
+- La arquitectura productiva es adecuada: Docker Compose, Nginx TLS, PostgreSQL, Redis, migraciones Alembic, health checks, volúmenes persistentes, límites de recursos, logs rotados y backups locales.
+- El despliegue queda condicionado a corregir el empaquetado backend, implementar la distribución de imágenes y completar la preparación del host Oracle.
+
+### Validaciones ejecutadas
+- Backend: Ruff, Ruff format, mypy y Bandit aprobados.
+- Backend: **845 passed, 1 skipped**, **100% cobertura**.
+- Frontend: ESLint, TypeScript, **443 tests**, cobertura y build aprobados.
+- Docker Compose productivo: `config --quiet` aprobado.
+- Build frontend aprobado con advertencia no bloqueante por bundle JS de 572,67 kB.
+- Estado Git durante la auditoría: **11 archivos modificados y 38 archivos sin seguimiento**; no desplegar ni etiquetar hasta revisar y limpiar el árbol de trabajo.
+
+### Bloqueantes técnicos
+1. Revisar/corregir `infra/docker/backend/Dockerfile`: actualmente intenta instalar el paquete editable antes de copiar `src/backend`, por lo que un build limpio puede fallar; producción tampoco debe instalar extras `dev`.
+2. Implementar entrega de imágenes. `deploy.sh` exige imágenes inmutables, usa `--no-build` y solo intenta descargar nombres locales no cualificados; CI construye backend/frontend sin publicarlos y tampoco construye la imagen de backup.
+3. Publicar `sigem-backend`, `sigem-frontend` y `sigem-backup` en GHCR con tags inmutables o digest, y configurar autenticación de la VM.
+4. Crear un `.env.prod` exclusivo del servidor con secretos fuertes y únicos, URLs HTTPS reales, CORS restringido y rate limiting/MFA activos. El archivo local de pruebas no debe usarse en Oracle.
+5. Instalar certificado TLS confiable y clave coincidente para el dominio real.
+6. Corregir Prometheus: `/metrics` exige Bearer token, pero la configuración actual de Prometheus no lo envía. Mantener el perfil de monitoring desactivado hasta resolverlo.
+7. Configurar backups externos S3 compatibles y realizar una restauración completa. Los backups actuales permanecen en la misma VM.
+8. Documentar/automatizar la rotación de contraseña de `sigem_app`; el script de inicialización PostgreSQL solo se ejecuta con un volumen nuevo.
+
+### Preparación requerida de Oracle Cloud
+- VM Linux recomendada para pruebas: mínimo 2 vCPU y 4 GB RAM; preferible 8 GB si se construyen imágenes en el host o se habilita Prometheus.
+- Confirmar arquitectura `amd64` o `arm64` y publicar imágenes compatibles.
+- Instalar Docker Engine, Docker Compose v2, Git, Bash y OpenSSL; habilitar Docker al iniciar.
+- Configurar DNS del dominio hacia la IP pública de la VM.
+- OCI NSG/Security List y firewall del sistema: publicar únicamente 80/443; restringir 22 a IPs administrativas; no publicar 5432, 6379, 8000, 3000 ni 9090.
+- Dimensionar disco para imágenes, PostgreSQL, Redis, evidencias, logs y retención de backups.
+- Mantener PostgreSQL, Redis, backend y frontend únicamente en la red interna de Compose.
+
+### Secuencia acordada de despliegue
+1. Corregir Dockerfile backend y pipeline de imágenes GHCR.
+2. Revisar y dejar limpio el árbol Git; crear commit/tag inmutable y publicarlo.
+3. Preparar VM, DNS, firewall y Docker.
+4. Crear `.env.prod` directamente en el servidor sin versionarlo.
+5. Instalar certificados en `infra/tls/` y validar vigencia, SAN y correspondencia con la clave.
+6. Autenticar Docker contra GHCR y descargar las tres imágenes del mismo tag/digest.
+7. Ejecutar `bash scripts/setup/deploy.sh <tag>`.
+8. Verificar migración Alembic, estado de contenedores, `/health`, `/health/ready`, frontend, login, MFA, carga/descarga, permisos y aislamiento RLS multi-municipio.
+9. Ejecutar y verificar backup, copiarlo fuera del host y completar un ensayo de restauración.
+10. Validar cabeceras TLS, logs, reinicio de la VM y procedimiento de rollback.
+
+### Gate para autorizar el servidor de pruebas
+- Build limpio de las tres imágenes aprobado.
+- Imágenes publicadas y descargables desde GHCR.
+- Git limpio y tag inmutable.
+- Dominio, DNS, TLS y secretos productivos configurados.
+- Migración desde base vacía aprobada y un único head Alembic.
+- Aplicación conectada como `sigem_app`, sin superusuario ni `BYPASSRLS`.
+- Smoke tests y pruebas de aislamiento aprobados en Oracle.
+- Backup externo y restauración comprobados.
+- Monitoreo corregido o explícitamente desactivado.

@@ -25,6 +25,9 @@ if [ $# -ne 1 ]; then
 fi
 
 PREV_TAG="$1"
+if [[ ! "$PREV_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+    fail "invalid immutable image tag"
+fi
 export SIGEM_IMAGE_TAG="$PREV_TAG"
 
 cd "$REPO_ROOT"
@@ -50,14 +53,18 @@ echo "  docker compose -f $COMPOSE_FILE -p $PROJECT run --rm backup /backup/rest
 echo "  bash scripts/setup/rollback.sh $PREV_TAG"
 echo ""
 
-if ! docker image inspect "sigem-backend:$PREV_TAG" >/dev/null 2>&1; then
-    compose pull backend >/dev/null 2>&1 || true
-fi
-if ! docker image inspect "sigem-backend:$PREV_TAG" >/dev/null 2>&1; then
-    fail "image sigem-backend:$PREV_TAG not available locally and could not be pulled"
-fi
+for pair in "sigem-backend:backend" "sigem-frontend:frontend" "sigem-backup:backup"; do
+    image="${pair%%:*}"
+    service="${pair##*:}"
+    if ! docker image inspect "$image:$PREV_TAG" >/dev/null 2>&1; then
+        compose pull "$service" || fail "unable to pull immutable image for $service"
+    fi
+    if ! docker image inspect "$image:$PREV_TAG" >/dev/null 2>&1; then
+        fail "image $image:$PREV_TAG is unavailable"
+    fi
+done
 
-if ! compose up -d --remove-orphans; then
+if ! compose up -d --remove-orphans --no-build; then
     fail "compose up with tag $PREV_TAG failed"
 fi
 

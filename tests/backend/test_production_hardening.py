@@ -36,7 +36,7 @@ from src.backend.core.middleware import (
 
 PROD_SECRET = "P" * 40
 PROD_JWT_SECRET = "J" * 40
-PROD_DATABASE_URL = "postgresql+asyncpg://sigem:ProdPass_2026!@db:5432/sigem_db"
+PROD_DATABASE_URL = "postgresql+asyncpg://sigem_app:ProdPass_2026!@db:5432/sigem_db"
 
 
 async def _check_ok() -> str:
@@ -63,7 +63,12 @@ def _prod_settings(**overrides: Any) -> Settings:
         "SECRET_KEY": PROD_SECRET,
         "JWT_SECRET_KEY": PROD_JWT_SECRET,
         "DATABASE_URL": PROD_DATABASE_URL,
+        "REDIS_URL": "redis://:redis-production-secret@redis:6379/0",
+        "REDIS_PASSWORD": "redis-production-secret",
+        "FRONTEND_URL": "https://sigem.gov.co",
+        "BACKEND_URL": "https://sigem.gov.co",
         "CORS_ORIGINS": ["https://sigem.gov.co"],
+        "METRICS_TOKEN": "metrics-production-secret-with-32-characters",
     }
     values.update(overrides)
     return Settings(**values)
@@ -384,6 +389,7 @@ def test_validate_production_mensaje_en_espanol():
         ({"SECRET_KEY": "corto"}, "SECRET_KEY"),
         ({"SECRET_KEY": DEV_SECRET_KEY_PLACEHOLDER}, "SECRET_KEY"),
         ({"JWT_SECRET_KEY": DEV_JWT_SECRET_PLACEHOLDER}, "JWT_SECRET_KEY"),
+        ({"JWT_SECRET_KEY": PROD_SECRET}, "JWT_SECRET_KEY"),
         ({"DATABASE_URL": ""}, "DATABASE_URL"),
         (
             {
@@ -392,6 +398,31 @@ def test_validate_production_mensaje_en_espanol():
             "DATABASE_URL",
         ),
         ({"CORS_ORIGINS": ["*"]}, "CORS_ORIGINS"),
+        ({"SECRET_KEY": "CHANGE_ME_openssl_rand_base64_48"}, "SECRET_KEY"),
+        (
+            {"JWT_SECRET_KEY": "changeme-production-secret-that-is-long-enough"},
+            "JWT_SECRET_KEY",
+        ),
+        (
+            {
+                "DATABASE_URL": "postgresql+asyncpg://sigem_app:CHANGE_ME@postgres:5432/sigem_db"
+            },
+            "DATABASE_URL",
+        ),
+        (
+            {
+                "DATABASE_URL": "postgresql+asyncpg://sigem:strong-password@postgres:5432/sigem_db"
+            },
+            "DATABASE_URL",
+        ),
+        ({"REDIS_URL": "redis://redis:6379/0"}, "REDIS_URL"),
+        ({"REDIS_PASSWORD": "CHANGE_ME_openssl_rand_base64_48"}, "REDIS_PASSWORD"),
+        ({"FRONTEND_URL": "https://CHANGE_ME.example"}, "FRONTEND_URL"),
+        ({"BACKEND_URL": "http://sigem.gov.co"}, "BACKEND_URL"),
+        ({"CORS_ORIGINS": ["http://sigem.gov.co"]}, "CORS_ORIGINS"),
+        ({"METRICS_TOKEN": "CHANGE_ME_openssl_rand_base64_48"}, "METRICS_TOKEN"),
+        ({"MFA_ENABLED": False}, "MFA_ENABLED"),
+        ({"RATE_LIMIT_ENABLED": False}, "RATE_LIMIT_ENABLED"),
     ],
 )
 def test_validate_production_rechaza_configuracion_debil(

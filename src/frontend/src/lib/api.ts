@@ -47,6 +47,7 @@ import type {
   DependenciaCreatePayload,
   DependenciaUpdatePayload,
   Evidencia,
+  Personalizacion,
 } from './types'
 
 const api = axios.create({
@@ -416,6 +417,14 @@ export const gestorDashboard = {
     api.delete<{ id: string; eliminada: boolean }>(
       `/api/v1/gestor/dashboard/avances/${avanceId}/evidencias/${evidenciaId}`,
     ),
+}
+
+export const personalizacion = {
+  get: () =>
+    api.get<Personalizacion>('/api/v1/personalizacion'),
+
+  update: (data: Personalizacion) =>
+    api.put<Personalizacion>('/api/v1/personalizacion', data),
 }
 
 export default api

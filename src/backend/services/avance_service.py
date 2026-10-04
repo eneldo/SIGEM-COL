@@ -194,9 +194,7 @@ async def registrar_avance(
     meta = Decimal(str(producto.meta_cuatrienio or 0))
     valor = Decimal(str(avance_data.get("avance_valor") or 0))
     estado_revision = avance_data.get("estado_revision", "PENDIENTE")
-    acumulado_reservado = await _sumar_avances_que_reservan_meta(
-        db, producto_id, municipio_id
-    )
+    acumulado_reservado = await _sumar_avances_que_reservan_meta(db, producto_id, municipio_id)
     acumulado_proyectado = acumulado_reservado + valor
     porcentaje = calcular_porcentaje_cumplimiento(acumulado_proyectado, meta)
 

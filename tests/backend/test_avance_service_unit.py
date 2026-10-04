@@ -138,7 +138,9 @@ async def test_registrar_avance_errores(ids):
 
 
 def test_calcular_porcentaje_cumplimiento_desde_cero():
-    assert service.calcular_porcentaje_cumplimiento(Decimal("209"), Decimal("500")) == 41.8
+    assert (
+        service.calcular_porcentaje_cumplimiento(Decimal("209"), Decimal("500")) == 41.8
+    )
 
 
 def test_calcular_porcentaje_rechaza_meta_invalida_y_exceso():
@@ -166,7 +168,11 @@ async def test_registrar_avance_calcula_porcentaje_proyectado(ids):
             ids.usuario,
             ids.municipio,
             ids.producto,
-            {"avance_valor": Decimal("120"), "avance_porcentaje": 99, "indicador": "Alterado"},
+            {
+                "avance_valor": Decimal("120"),
+                "avance_porcentaje": 99,
+                "indicador": "Alterado",
+            },
         )
 
     assert result["avance_valor"] == Decimal("120")
@@ -267,6 +273,24 @@ async def test_actualizar_avance_exitoso(ids):
     assert result["fecha_registro"] is None
     assert result["created_at"] is None
     assert audit.log_event.await_args.kwargs["metadata"]["campos"] == ["avance_valor"]
+
+
+@pytest.mark.asyncio
+async def test_actualizar_avance_producto_no_encontrado(ids):
+    avance = entity(registrado_por=ids.usuario)
+    db = db_mock(scalars=[None])
+    with (
+        patch.object(service, "_get_avance_or_404", AsyncMock(return_value=avance)),
+        patch.object(service, "_check_evidence_permission", AsyncMock()),
+        pytest.raises(ValueError, match="Producto no encontrado"),
+    ):
+        await service.actualizar_avance(
+            db,
+            ids.avance,
+            ids.municipio,
+            ids.usuario,
+            {"avance_valor": Decimal("80")},
+        )
 
 
 @pytest.mark.asyncio

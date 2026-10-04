@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from urllib.parse import quote, urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -95,11 +96,21 @@ async def _check_database() -> str:
         return "error"
 
 
+def _redis_url_with_auth() -> str:
+    url = settings.REDIS_URL
+    password = settings.REDIS_PASSWORD
+    if password and not urlparse(url).password:
+        scheme, sep, rest = url.partition("://")
+        if sep:
+            return f"{scheme}://:{quote(password, safe='')}@{rest}"
+    return url
+
+
 async def _check_redis() -> str:
     try:
         async with asyncio.timeout(HEALTH_CHECK_TIMEOUT_SECONDS):
             client = redis_asyncio.from_url(
-                settings.REDIS_URL,
+                _redis_url_with_auth(),
                 socket_connect_timeout=1,
                 socket_timeout=1,
             )

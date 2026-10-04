@@ -36,6 +36,8 @@ EOF
 
 cp "$MANIFEST" "$BACKUP_DIR/manifest.json"
 
+"$SCRIPT_DIR/verify_backup.sh" "$MANIFEST"
+
 if [ -n "$BACKUP_RSYNC_TARGET" ]; then
     rsync -a "$DB_FILE" "$EV_FILE" "$MANIFEST" "$BACKUP_RSYNC_TARGET"
 fi

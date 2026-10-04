@@ -185,6 +185,26 @@ describe('subida de evidencias', () => {
     expect(subir).not.toHaveBeenCalled()
   })
 
+  it('informa que ya no quedan cupos disponibles', async () => {
+    listar.mockResolvedValue({
+      data: [
+        evidencia({ id: 'ev-1' }),
+        evidencia({ id: 'ev-2' }),
+        evidencia({ id: 'ev-3' }),
+        evidencia({ id: 'ev-4' }),
+      ],
+    } as never)
+    renderModal()
+    await act(async () => {})
+
+    selectFiles([new File(['a'], 'a.png', { type: 'image/png' })])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Cada avance permite máximo 4 evidencias.',
+    )
+    expect(subir).not.toHaveBeenCalled()
+  })
+
   it('deshabilita la carga al alcanzar el máximo', async () => {
     listar.mockResolvedValue({
       data: [

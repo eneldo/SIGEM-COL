@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -108,6 +108,21 @@ describe('ChangePasswordPage', () => {
 
     expect(screen.getByText('Las contraseñas no coinciden')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cambiar Contraseña' })).toBeDisabled()
+  })
+
+  it('muestra el error del envío cuando las contraseñas no coinciden', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await llenarFormulario(user, 'NuevaClave123*', 'OtraClave123*')
+    const formulario = screen
+      .getByRole('button', { name: 'Cambiar Contraseña' })
+      .closest('form') as HTMLFormElement
+    fireEvent.submit(formulario)
+
+    expect(await screen.findByText('Las contraseñas no coinciden.')).toBeInTheDocument()
+    expect(mockedAuth.changePassword).not.toHaveBeenCalled()
+    expect(mockedAuth.getMe).not.toHaveBeenCalled()
   })
 
   it('cambia la contraseña y redirige al panel del gestor', async () => {

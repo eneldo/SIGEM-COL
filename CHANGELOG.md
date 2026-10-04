@@ -7,6 +7,7 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 ## [Unreleased]
 
 ### Added
+- Módulo Configuración → Personalización: colores de marca, nombre del sistema y logotipo por municipio (`GET`/`PUT /api/v1/personalizacion` con RLS y permiso `CONFIGURACION_EDITAR`), theming en vivo vía variables CSS RGB, logo en Sidebar/favicon y página con preview (logo ≤ 2MB)
 - Endpoints operativos: `GET /health` (503 cuando la base de datos no responde), `GET /health/live`, `GET /health/ready` y `GET /metrics` (Prometheus, con bearer opcional vía `METRICS_TOKEN`)
 - Pipeline de CI/CD en `.github/workflows/ci.yml`: `backend-quality` (ruff, ruff format, mypy, bandit), `backend-tests` (PostgreSQL 17 + Redis 7, cobertura 80 %), `frontend-quality` (tsc, eslint con cero warnings, vitest con umbrales, build), `security` (gitleaks, pip-audit, npm audit), `docker-build` (imágenes sin push, caché GHA) y `deploy` manual por SSH con validación de secretos
 - Configuración ESLint del frontend (`.eslintrc.cjs`, `.eslintignore`)
@@ -20,6 +21,13 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 ### Changed
 - Rate limiting configurable: `RATE_LIMIT_DEFAULT_REQUESTS`, `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_WINDOW` y `TRUST_PROXY_HEADERS`
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
+
+### Fixed
+- `DependenciasPage` consultaba `page_size=200` y el backend limita a 100 → 422 silencioso que dejaba vacío el selector de dependencia padre
+- Favicon: se referenciaba `/vite.svg` inexistente (404 en cada carga); ahora `/favicon.svg` con la marca SIGEM
+- `ProductoResponse` serializa `linea_base` y `meta_cuatrienio` como número JSON (el cambio a `NUMERIC(18,4)` los devolvía como string y rompía el contrato del frontend)
+- `GET /health/ready` autentica en Redis con `REDIS_PASSWORD` (URL `redis://:password@host`); antes respondía 503 por `NOAUTH`
+- Tests de avances (`test_crud_avances`, `test_ejemplos_avances`, `test_avance_flujo`) recalculan el porcentaje esperado desde el acumulado reservado y la meta, eliminando la dependencia del orden de ejecución
 
 ### Security
 - Salud del servicio reportada con 503 en `GET /health` cuando la base de datos está caída

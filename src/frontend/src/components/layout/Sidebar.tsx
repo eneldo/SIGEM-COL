@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
+import { useBrandingStore } from '../../lib/branding'
 import { clsx } from 'clsx'
 
 interface SidebarProps {
@@ -43,6 +44,7 @@ const gestorLinks = [
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuthStore()
+  const logoDataUrl = useBrandingStore((state) => state.config.logo_data_url)
   const isAdmin = user?.roles?.some((role) =>
     ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL'].includes(role),
   )
@@ -67,9 +69,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <div className="relative overflow-hidden border-b border-white/10 px-6 py-6">
           <div className="absolute -right-10 -top-12 h-28 w-28 rounded-full border border-white/10" aria-hidden="true" />
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ochre text-white shadow-lg shadow-pine-deep/20">
-              <span className="font-bold text-lg">S</span>
-            </div>
+            {logoDataUrl ? (
+              <img
+                src={logoDataUrl}
+                alt="Logotipo del sistema"
+                className="h-10 w-10 shrink-0 rounded-xl bg-white object-contain p-1 shadow-lg shadow-pine-deep/20"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ochre text-white shadow-lg shadow-pine-deep/20">
+                <span className="font-bold text-lg">S</span>
+              </div>
+            )}
             <div>
               <h1 className="text-white font-bold text-lg leading-tight">SIGEM</h1>
               <p className="text-white/60 text-xs leading-tight">Gestión municipal</p>

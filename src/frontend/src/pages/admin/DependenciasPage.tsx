@@ -31,7 +31,7 @@ export default function DependenciasPage() {
 
   const loadDependencias = useCallback(async () => {
     try {
-      const resp = await configDependencias.list({ page: 1, page_size: 200 })
+      const resp = await configDependencias.list({ page: 1, page_size: 100 })
       setDependenciasList(resp.data.items)
     } catch { /* silent */ }
   }, [])

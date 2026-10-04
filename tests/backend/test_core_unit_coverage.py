@@ -332,3 +332,20 @@ async def test_redis_health_check_error_still_closes_client(monkeypatch):
 
     assert await main._check_redis() == "error"
     client.aclose.assert_awaited_once()
+
+
+def test_redis_url_with_auth_branches(monkeypatch):
+    monkeypatch.setattr(main.settings, "REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setattr(main.settings, "REDIS_PASSWORD", "s3cret")
+    assert main._redis_url_with_auth() == "redis://:s3cret@redis:6379/0"
+
+    monkeypatch.setattr(main.settings, "REDIS_URL", "redis://user:pass@redis:6379/0")
+    assert main._redis_url_with_auth() == "redis://user:pass@redis:6379/0"
+
+    monkeypatch.setattr(main.settings, "REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setattr(main.settings, "REDIS_PASSWORD", "")
+    assert main._redis_url_with_auth() == "redis://redis:6379/0"
+
+    monkeypatch.setattr(main.settings, "REDIS_PASSWORD", "s3cret")
+    monkeypatch.setattr(main.settings, "REDIS_URL", "localhost:6379")
+    assert main._redis_url_with_auth() == "localhost:6379"

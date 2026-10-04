@@ -10,6 +10,7 @@ from .intento_login import IntentoLogin
 from .linea_estrategica import LineaEstrategica
 from .mfa_factor import MFAFactor
 from .municipio import Municipio
+from .personalizacion import Personalizacion
 from .plan_desarrollo import PlanDesarrollo
 from .producto import Producto
 from .programa import Programa
@@ -43,4 +44,5 @@ __all__ = [
     "AuditoriaEvento",
     "AvanceProducto",
     "Evidencia",
+    "Personalizacion",
 ]

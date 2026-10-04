@@ -1,5 +1,8 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
+import { useBrandingStore } from './lib/branding'
+import { personalizacion } from './lib/api'
 import { Layout } from './components/layout/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { ChangePasswordPage } from './pages/auth/ChangePasswordPage'
@@ -72,6 +75,25 @@ function RootRedirect() {
 }
 
 export default function App() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const setBranding = useBrandingStore((state) => state.setBranding)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    let cancelled = false
+    personalizacion
+      .get()
+      .then((response) => {
+        if (!cancelled) setBranding(response.data)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, setBranding])
+
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>

@@ -1,17 +1,95 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../../components/ui/icons'
 import { Button } from '../../components/ui/Button'
 import { selectClass } from '../../components/ui/icons'
+import { personalizacion } from '../../lib/api'
+import { DEFAULT_BRANDING, useBrandingStore } from '../../lib/branding'
+import type { Personalizacion } from '../../lib/types'
 
 export function PersonalizacionPage() {
-  const [colorPrimario, setColorPrimario] = useState('#0A2B29')
-  const [colorSecundario, setColorSecundario] = useState('#D4A843')
-  const [nombreMunicipio, setNombreMunicipio] = useState('SIGEM Colombia')
+  const [colorPrimario, setColorPrimario] = useState(DEFAULT_BRANDING.color_primario)
+  const [colorSecundario, setColorSecundario] = useState(DEFAULT_BRANDING.color_secundario)
+  const [nombreSistema, setNombreSistema] = useState(DEFAULT_BRANDING.nombre_sistema)
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(DEFAULT_BRANDING.logo_data_url)
   const [guardado, setGuardado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const setBranding = useBrandingStore((state) => state.setBranding)
 
-  function handleGuardar() {
-    setGuardado(true)
-    setTimeout(() => setGuardado(false), 3000)
+  useEffect(() => {
+    let cancelled = false
+    personalizacion
+      .get()
+      .then((response) => {
+        if (cancelled) return
+        const data = response.data
+        setColorPrimario(data.color_primario)
+        setColorSecundario(data.color_secundario)
+        setNombreSistema(data.nombre_sistema)
+        setLogoDataUrl(data.logo_data_url)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function leerLogo(file: File) {
+    const esImagenValida =
+      file.type === 'image/png' ||
+      file.type === 'image/svg+xml' ||
+      /\.(png|svg)$/i.test(file.name)
+    if (!esImagenValida) {
+      setLogoError('El logotipo debe ser una imagen PNG o SVG.')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('El logotipo supera el tamaño máximo de 2MB.')
+      return
+    }
+    setLogoError(null)
+    const reader = new FileReader()
+    reader.onload = () => setLogoDataUrl(String(reader.result))
+    reader.onerror = () => setLogoError('No se pudo leer el archivo seleccionado.')
+    reader.readAsDataURL(file)
+  }
+
+  function handleLogo(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (file) leerLogo(file)
+  }
+
+  function handleLogoClick(event: React.MouseEvent<HTMLInputElement>) {
+    event.currentTarget.value = ''
+  }
+
+  function handleDropLogo(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    const file = event.dataTransfer.files?.[0]
+    if (file) leerLogo(file)
+  }
+
+  function handleQuitarLogo() {
+    setLogoDataUrl(null)
+  }
+
+  async function handleGuardar() {
+    const payload: Personalizacion = {
+      color_primario: colorPrimario,
+      color_secundario: colorSecundario,
+      nombre_sistema: nombreSistema,
+      logo_data_url: logoDataUrl,
+    }
+    try {
+      const response = await personalizacion.update(payload)
+      setBranding(response.data)
+      setError(null)
+      setGuardado(true)
+      setTimeout(() => setGuardado(false), 3000)
+    } catch {
+      setGuardado(false)
+      setError('No se pudieron guardar los cambios. Revise los datos e intente de nuevo.')
+    }
   }
 
   return <div className="space-y-6 pb-8">
@@ -54,25 +132,43 @@ export function PersonalizacionPage() {
         <div className="mt-6 space-y-4">
           <div>
             <label className="text-sm font-bold text-ink">Nombre del sistema</label>
-            <input value={nombreMunicipio} onChange={(e) => setNombreMunicipio(e.target.value)} className={`${selectClass} mt-1`} />
+            <input value={nombreSistema} onChange={(e) => setNombreSistema(e.target.value)} className={`${selectClass} mt-1`} />
           </div>
           <div>
-            <label className="text-sm font-bold text-ink">Logotipo</label>
-            <div className="mt-2 flex items-center gap-4">
-              <div className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-line bg-paper/50">
-                <Icon name="plus" />
-              </div>
+            <label htmlFor="logo-input" className="text-sm font-bold text-ink">Logotipo</label>
+            <input id="logo-input" type="file" accept="image/png,image/svg+xml" onChange={handleLogo} onClick={handleLogoClick} className="mt-2 block w-full text-xs text-ink-faint file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-paper file:px-3 file:py-2 file:text-xs file:font-bold file:text-ink" />
+            <div className="mt-3 flex items-center gap-4">
+              <label
+                htmlFor="logo-input"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={handleDropLogo}
+                className="flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-line bg-paper/50 transition-colors hover:border-pine"
+              >
+                {logoDataUrl ? (
+                  <img src={logoDataUrl} alt="Logotipo cargado" className="h-full w-full object-contain p-1" />
+                ) : (
+                  <Icon name="plus" />
+                )}
+              </label>
               <div>
                 <p className="text-sm text-ink-faint">Formatos aceptados: PNG, SVG</p>
                 <p className="text-xs text-ink-faint">Tamaño máximo: 2MB</p>
+                <p className="text-xs text-ink-faint">Haga clic sobre el recuadro o arrastre el archivo</p>
+                {logoDataUrl && (
+                  <button type="button" onClick={handleQuitarLogo} className="mt-1 text-xs font-bold text-warn underline">
+                    Quitar logotipo
+                  </button>
+                )}
               </div>
             </div>
+            {logoError && <p role="alert" className="mt-2 text-xs font-bold text-warn">{logoError}</p>}
           </div>
         </div>
       </div>
     </div>
 
-    <div className="flex justify-end gap-3">
+    <div className="flex justify-end items-center gap-3">
+      {error && <p className="text-sm text-warn font-bold">{error}</p>}
       {guardado && <p className="text-sm text-forest font-bold">Cambios guardados exitosamente.</p>}
       <Button onClick={handleGuardar}>Guardar cambios</Button>
     </div>

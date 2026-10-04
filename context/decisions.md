@@ -1,5 +1,42 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-04: Módulo de Personalización (branding por municipio)
+
+**Contexto:** Configuración → Personalización requiere colores primario/secundario, nombre del sistema y logotipo compartidos por municipio, con el logotipo visible en el Sidebar y como favicon.
+
+**Decisión:**
+- Tabla `personalizaciones` (migración `020_personalizacion`) con RLS `ENABLE`/`FORCE` y policy fail-closed `municipio_isolation_personalizaciones` (patrón de `017_enforce_rls.py`), índice en `municipio_id` y permiso `CONFIGURACION_EDITAR` sembrado con `INSERT` idempotente.
+- Backend: validación de colores `#RRGGBB` (normalizados a minúsculas), logo como data URL PNG/SVG base64 con tope de 2MB verificado sobre la longitud del payload **antes** de decodificar (anti-DoS), servicio con defaults `#0f3d3b` / `#b9852f` / `SIGEM Colombia` y upsert, `GET` autenticado y `PUT` con `require_permission("configuracion.editar")` (bypass natural para ADMINISTRADOR_MUNICIPAL/SUPERADMIN_PLATAFORMA).
+- Frontend: `tailwind.config.js` e `index.css` pasan a variables CSS RGB (`rgb(var(--pine) / <alpha-value>)`); `lib/branding.ts` concentra store zustand persistido (`sigem-branding`), `applyBranding` (título del documento, favicon, variables en línea) y defaults; `App.tsx` carga la configuración al autenticar; `PersonalizacionPage` lee/guarda con preview y quita-logo; `Sidebar` muestra el logo (fallback "S").
+
+**Colores derivados:** `pine-deep` (70 % primario + negro), `ochre-deep` (77 % secundario + negro) y `ochre-soft` (85 % secundario + blanco) se recalculan en el cliente en vez de persistirlos (una sola fuente de verdad). Cuando la configuración es idéntica a los defaults no se inyectan variables en línea, de modo que se preserva exactamente la paleta autorada del CSS.
+
+---
+
+## 2026-10-04: `ProductoResponse` serializa meta y línea base como número JSON
+
+**Contexto:** El cambio a `NUMERIC(18,4)` convirtió `meta_cuatrienio` y `linea_base` en `Decimal` dentro de `ProductoResponse`; Pydantic v2 serializa `Decimal` como string (`"200.0000"`), mientras que los endpoints que devuelven dicts ya usaban el encoder de FastAPI a número. El contrato de la API y `src/frontend/src/lib/types.ts` esperan `number`.
+
+**Decisión:** Mantener `Decimal` en el modelo de respuesta y serializar `linea_base`/`meta_cuatrienio` a `float` mediante `field_serializer`, preservando el contrato JSON numérico en todo el API.
+
+---
+
+## 2026-10-04: Health check de Redis autentica con `REDIS_PASSWORD`
+
+**Contexto:** `/health/ready` reportaba `redis: error` (503) en Docker aunque el contenedor estaba sano: `REDIS_URL` no incluye credenciales y `_check_redis` conectaba sin `AUTH`.
+
+**Decisión:** `_check_redis` inyecta `settings.REDIS_PASSWORD` en la URL cuando esta no lleva contraseña, en el formato RFC 3986 `redis://:password@host` (sin el `:`, Redis interpreta la contraseña como username y falla con `invalid username-password pair`), sin exponer secretos en la configuración de conexión ni cambiar `REDIS_URL` de los entornos.
+
+---
+
+## 2026-10-04: Tests de avances actualizados a la semántica acumulada
+
+**Contexto:** Tras el cálculo acumulado de avances (`e7e3762`), cuatro tests seguían asumiendo que el backend devolvía el `avance_porcentaje` enviado por el cliente.
+
+**Decisión:** `test_crud_avances.py` y `test_ejemplos_avances.py` calculan el porcentaje esperado desde el acumulado reservado previo y la meta del producto, validando la regla de negocio y eliminando la dependencia del estado previo.
+
+---
+
 ## 2026-10-03: Avances incrementales calculados contra la meta cuatrienal
 
 **Contexto:** Un producto puede recibir múltiples reportes de avance con evidencias independientes. El porcentaje no debe ser suministrado por el gestor.

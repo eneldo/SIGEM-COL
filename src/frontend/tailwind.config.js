@@ -8,32 +8,32 @@ export default {
     extend: {
       colors: {
         pine: {
-          DEFAULT: '#0F3D3B',
-          deep: '#0A2B29',
+          DEFAULT: 'rgb(var(--pine) / <alpha-value>)',
+          deep: 'rgb(var(--pine-deep) / <alpha-value>)',
         },
         forest: {
-          DEFAULT: '#1F6F54',
-          soft: '#E7EFE9',
+          DEFAULT: 'rgb(var(--forest) / <alpha-value>)',
+          soft: 'rgb(var(--forest-soft) / <alpha-value>)',
         },
         paper: {
-          DEFAULT: '#F5F3EC',
-          raised: '#FFFFFF',
+          DEFAULT: 'rgb(var(--paper) / <alpha-value>)',
+          raised: 'rgb(var(--paper-raised) / <alpha-value>)',
         },
         ink: {
-          DEFAULT: '#26241F',
-          soft: '#5B5A54',
-          faint: '#8B887C',
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
+          soft: 'rgb(var(--ink-soft) / <alpha-value>)',
+          faint: 'rgb(var(--ink-faint) / <alpha-value>)',
         },
-        line: '#DFDACB',
+        line: 'rgb(var(--line) / <alpha-value>)',
         ochre: {
-          DEFAULT: '#B9852F',
-          deep: '#8F6620',
-          soft: '#F5E9D4',
+          DEFAULT: 'rgb(var(--ochre) / <alpha-value>)',
+          deep: 'rgb(var(--ochre-deep) / <alpha-value>)',
+          soft: 'rgb(var(--ochre-soft) / <alpha-value>)',
         },
-        done: '#3E7C5A',
+        done: 'rgb(var(--done) / <alpha-value>)',
         warn: {
-          DEFAULT: '#B5502E',
-          soft: '#F6E4DA',
+          DEFAULT: 'rgb(var(--warn) / <alpha-value>)',
+          soft: 'rgb(var(--warn-soft) / <alpha-value>)',
         },
       },
     },

@@ -170,7 +170,7 @@ export function DashboardAdmin() {
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-ink-faint">Equipo gestor</p>
             <h2 id="equipo-title" className="mt-1 text-xl font-bold text-ink">Capacidad operativa</h2>
             <div className="mt-5 flex items-center gap-5">
-              <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full" style={{ background: `conic-gradient(var(--forest) ${activeRate * 3.6}deg, var(--forest-soft) 0deg)` }}>
+              <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full" style={{ background: `conic-gradient(rgb(var(--forest)) ${activeRate * 3.6}deg, rgb(var(--forest-soft)) 0deg)` }}>
                 <div className="flex h-[74px] w-[74px] flex-col items-center justify-center rounded-full bg-white">
                   <span className="text-2xl font-bold text-pine">{activeRate}%</span>
                   <span className="text-[10px] uppercase tracking-wider text-ink-faint">activos</span>

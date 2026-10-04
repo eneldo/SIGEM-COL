@@ -101,3 +101,8 @@ Thumbs.db
 
 # Storage (evidencias uploaded by users)
 storage/
+
+# Scratch/debug scripts (root only)
+/check_*.py
+/test_*.py
+/test_login.json

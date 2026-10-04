@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 
 class ProductoCreate(BaseModel):
@@ -56,6 +56,10 @@ class ProductoResponse(BaseModel):
     asignado_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+    @field_serializer("linea_base", "meta_cuatrienio")
+    def _serialize_decimal(self, value: Decimal | None) -> float | None:
+        return None if value is None else float(value)
 
 
 class ProductoListResponse(BaseModel):

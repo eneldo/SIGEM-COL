@@ -8,7 +8,25 @@ import pytest
 from PIL import Image
 from pypdf.errors import PdfReadError
 
+from src.backend.models.auditoria_evento import AuditoriaEvento
+from src.backend.models.avance_producto import AvanceProducto
 from src.backend.models.base import BaseModel
+from src.backend.models.dependencia import Dependencia
+from src.backend.models.evidencia import Evidencia
+from src.backend.models.gestor_lider import GestorLider
+from src.backend.models.intento_login import IntentoLogin
+from src.backend.models.linea_estrategica import LineaEstrategica
+from src.backend.models.mfa_factor import MFAFactor
+from src.backend.models.municipio import Municipio
+from src.backend.models.plan_desarrollo import PlanDesarrollo
+from src.backend.models.producto import Producto
+from src.backend.models.programa import Programa
+from src.backend.models.rol import Permiso, Rol
+from src.backend.models.sesion import Sesion
+from src.backend.models.usuario import Usuario
+from src.backend.models.usuario_dependencia import UsuarioDependencia
+from src.backend.models.usuario_rol import RolPermiso, UsuarioRol
+from src.backend.models.vigencia import Vigencia
 from src.backend.services import evidence_optimizer as optimizer
 
 
@@ -193,3 +211,31 @@ def test_base_model_eliminado_setter_and_class_expression():
     model.eliminado = False
     assert model.deleted_at is None
     assert str(BaseModel.eliminado.expression).endswith("IS NOT NULL")
+
+
+def test_model_representations():
+    identifier = uuid4()
+    models = [
+        AuditoriaEvento(evento_tipo="LOGIN", resultado="EXITOSO"),
+        AvanceProducto(id=identifier),
+        Dependencia(codigo="DEP", nombre="Dependencia"),
+        Evidencia(nombre="evidencia.pdf"),
+        GestorLider(usuario_id=identifier),
+        IntentoLogin(username_intentado="usuario"),
+        LineaEstrategica(codigo="L1", nombre="Línea"),
+        MFAFactor(usuario_id=identifier),
+        Municipio(codigo="12345", nombre="Municipio"),
+        PlanDesarrollo(nombre="Plan"),
+        Producto(codigo="P1", nombre="Producto"),
+        Programa(codigo="PR1", nombre="Programa"),
+        Rol(codigo="ADMIN", nombre="Administrador"),
+        Permiso(codigo="usuarios.ver"),
+        Sesion(usuario_id=identifier, token_jti="token-session-identifier"),
+        Usuario(username="usuario", codigo="GES-000001"),
+        UsuarioDependencia(usuario_id=identifier, dependencia_id=identifier),
+        UsuarioRol(usuario_id=identifier, rol_id=identifier),
+        RolPermiso(rol_id=identifier, permiso_id=identifier),
+        Vigencia(anio=2026),
+    ]
+
+    assert all(repr(model).startswith("<") for model in models)

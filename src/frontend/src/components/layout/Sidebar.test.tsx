@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_BRANDING, useBrandingStore } from '../../lib/branding'
 import type { User } from '../../lib/types'
 import { useAuthStore } from '../../stores/authStore'
 import { Sidebar } from './Sidebar'
@@ -47,6 +48,7 @@ beforeEach(() => {
     loginTimestamp: null,
     passwordChangeDismissed: false,
   })
+  useBrandingStore.setState({ config: DEFAULT_BRANDING })
 })
 
 describe('Sidebar', () => {
@@ -172,5 +174,25 @@ describe('Sidebar', () => {
     expect(screen.getByText('U')).toBeInTheDocument()
     expect(screen.getByText('Gestor')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Mis Productos' })).toBeInTheDocument()
+  })
+
+  it('muestra la marca por defecto cuando no hay logotipo configurado', () => {
+    montarSidebar(crearUsuario())
+
+    expect(screen.getByText('S')).toBeInTheDocument()
+    expect(screen.queryByAltText('Logotipo del sistema')).not.toBeInTheDocument()
+  })
+
+  it('muestra el logotipo configurado cuando existe', () => {
+    useBrandingStore.setState({
+      config: { ...DEFAULT_BRANDING, logo_data_url: 'data:image/png;base64,AAAA' },
+    })
+    montarSidebar(crearUsuario())
+
+    expect(screen.getByAltText('Logotipo del sistema')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,AAAA',
+    )
+    expect(screen.queryByText('S')).not.toBeInTheDocument()
   })
 })

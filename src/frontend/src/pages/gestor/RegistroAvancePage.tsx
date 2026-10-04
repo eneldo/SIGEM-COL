@@ -496,7 +496,7 @@ export default function RegistroAvancePage() {
             <div className="p-6">
               <div className="flex items-center justify-between gap-4">
                 <div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/55">Progreso del formulario</p><p className="mt-1 text-2xl font-bold">{progresoFormulario}% listo</p></div>
-                <div className="grid h-16 w-16 place-items-center rounded-full" style={{ background: `conic-gradient(var(--ochre) ${progresoFormulario}%, rgba(255,255,255,.12) 0)` }}><div className="grid h-12 w-12 place-items-center rounded-full bg-pine text-xs font-bold">{camposCompletos}/3</div></div>
+                <div className="grid h-16 w-16 place-items-center rounded-full" style={{ background: `conic-gradient(rgb(var(--ochre)) ${progresoFormulario}%, rgba(255,255,255,.12) 0)` }}><div className="grid h-12 w-12 place-items-center rounded-full bg-pine text-xs font-bold">{camposCompletos}/3</div></div>
               </div>
               <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-ochre transition-all duration-500" style={{ width: `${progresoFormulario}%` }} /></div>
             </div>

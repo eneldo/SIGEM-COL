@@ -12,6 +12,7 @@ import api, {
   gestores,
   gestorDashboard,
   lineas,
+  personalizacion,
   productos,
   programas,
   reportes,
@@ -201,6 +202,12 @@ describe('endpoints', () => {
     confirm_password: 'Nueva1234*',
   }
   const avancePayload = { avance_porcentaje: 50 }
+  const personalizacionPayload = {
+    color_primario: '#123abc',
+    color_secundario: '#456def',
+    nombre_sistema: 'SIGEM Demo',
+    logo_data_url: null,
+  }
   const file = new File(['contenido'], 'evidencia.png', { type: 'image/png' })
 
   const casos: Array<[string, () => Promise<unknown>, string, string]> = [
@@ -264,6 +271,8 @@ describe('endpoints', () => {
     ['configRoles.permisos', () => configRoles.permisos(), 'get', '/api/v1/roles/permisos'],
     ['configAuditoria.list', () => configAuditoria.list(), 'get', '/api/v1/auditoria'],
     ['configAuditoria.stats', () => configAuditoria.stats(), 'get', '/api/v1/auditoria/stats'],
+    ['personalizacion.get', () => personalizacion.get(), 'get', '/api/v1/personalizacion'],
+    ['personalizacion.update', () => personalizacion.update(personalizacionPayload), 'put', '/api/v1/personalizacion'],
     ['reportes.resumenGeneral', () => reportes.resumenGeneral(), 'get', '/api/v1/reportes/resumen-general'],
     ['reportes.porLinea', () => reportes.porLinea(), 'get', '/api/v1/reportes/por-linea'],
     ['reportes.porPrograma', () => reportes.porPrograma(), 'get', '/api/v1/reportes/por-programa'],

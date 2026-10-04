@@ -10,6 +10,7 @@ from .gestor_dashboard import router as gestor_dashboard_router
 from .gestores import router as gestores_router
 from .health import router as health_router
 from .lineas import router as lineas_router
+from .personalizacion import router as personalizacion_router
 from .productos import router as productos_router
 from .programas import router as programas_router
 from .reportes import router as reportes_router
@@ -34,3 +35,4 @@ api_router.include_router(auditoria_router)
 api_router.include_router(reportes_router)
 api_router.include_router(cumplimiento_router)
 api_router.include_router(dependencias_router)
+api_router.include_router(personalizacion_router)

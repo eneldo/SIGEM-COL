@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -25,6 +27,12 @@ _DEV_DATABASE_PASSWORD_MARKERS = (
 )
 
 _PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
+_PLACEHOLDER_MARKERS = ("change_me", "changeme", ".example", "example.com")
+
+
+def _contains_placeholder(value: str) -> bool:
+    normalized = value.strip().lower()
+    return any(marker in normalized for marker in _PLACEHOLDER_MARKERS)
 
 
 class Settings(BaseSettings):
@@ -129,20 +137,57 @@ class Settings(BaseSettings):
 
         for field_name in ("SECRET_KEY", "JWT_SECRET_KEY"):
             value = str(getattr(self, field_name) or "")
-            if len(value) < 32 or value.strip().lower() in _DEV_SECRET_PLACEHOLDERS:
+            if (
+                len(value) < 32
+                or value.strip().lower() in _DEV_SECRET_PLACEHOLDERS
+                or _contains_placeholder(value)
+            ):
                 problems.append(
                     f"{field_name} debe definirse con un valor de al menos 32 caracteres "
                     "que no sea el placeholder de desarrollo"
                 )
 
+        if self.SECRET_KEY == self.JWT_SECRET_KEY:
+            problems.append("SECRET_KEY y JWT_SECRET_KEY deben ser diferentes")
+
         database_url = (self.DATABASE_URL or "").strip()
+        parsed_database = urlparse(database_url)
         if not database_url:
             problems.append("DATABASE_URL no puede estar vacío en producción")
-        elif any(marker in database_url.lower() for marker in _DEV_DATABASE_PASSWORD_MARKERS):
+        elif any(
+            marker in database_url.lower() for marker in _DEV_DATABASE_PASSWORD_MARKERS
+        ) or _contains_placeholder(database_url):
             problems.append("DATABASE_URL contiene una contraseña de desarrollo")
+        elif parsed_database.username != "sigem_app":
+            problems.append("DATABASE_URL debe usar el rol restringido sigem_app")
 
-        if "*" in (self.CORS_ORIGINS or []):
-            problems.append("CORS_ORIGINS no puede contener '*' en producción")
+        redis_url = (self.REDIS_URL or "").strip()
+        if not self.REDIS_PASSWORD or _contains_placeholder(self.REDIS_PASSWORD):
+            problems.append("REDIS_PASSWORD debe definirse con un valor real")
+        if not redis_url or not urlparse(redis_url).password or _contains_placeholder(redis_url):
+            problems.append("REDIS_URL debe incluir autenticación y no usar placeholders")
+
+        for field_name in ("FRONTEND_URL", "BACKEND_URL"):
+            value = str(getattr(self, field_name) or "")
+            parsed = urlparse(value)
+            if parsed.scheme != "https" or not parsed.hostname or _contains_placeholder(value):
+                problems.append(f"{field_name} debe ser una URL HTTPS real")
+
+        cors_origins = self.CORS_ORIGINS or []
+        if "*" in cors_origins or any(
+            urlparse(origin).scheme != "https" or _contains_placeholder(origin)
+            for origin in cors_origins
+        ):
+            problems.append("CORS_ORIGINS debe contener únicamente orígenes HTTPS explícitos")
+
+        if not self.MFA_ENABLED:
+            problems.append("MFA_ENABLED debe estar activo en producción")
+        if not self.RATE_LIMIT_ENABLED:
+            problems.append("RATE_LIMIT_ENABLED debe estar activo en producción")
+        if self.METRICS_ENABLED and (
+            not self.METRICS_TOKEN or _contains_placeholder(self.METRICS_TOKEN)
+        ):
+            problems.append("METRICS_TOKEN debe definirse cuando las métricas están activas")
 
         if problems:
             raise RuntimeError("Configuración de producción inválida: " + "; ".join(problems))

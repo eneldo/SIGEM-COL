@@ -43,6 +43,7 @@ export default defineConfig({
         'src/lib/types.ts',
         '**/*.config.js',
         '**/*.config.ts',
+        '**/*.cjs',
         'postcss.config.js',
         'tailwind.config.js',
       ],

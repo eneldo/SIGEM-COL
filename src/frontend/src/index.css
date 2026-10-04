@@ -5,22 +5,22 @@
 @tailwind utilities;
 
 :root {
-  --pine: #0F3D3B;
-  --pine-deep: #0A2B29;
-  --forest: #1F6F54;
-  --forest-soft: #E7EFE9;
-  --paper: #F5F3EC;
-  --paper-raised: #FFFFFF;
-  --ink: #26241F;
-  --ink-soft: #5B5A54;
-  --ink-faint: #8B887C;
-  --line: #DFDACB;
-  --ochre: #B9852F;
-  --ochre-deep: #8F6620;
-  --ochre-soft: #F5E9D4;
-  --done: #3E7C5A;
-  --warn: #B5502E;
-  --warn-soft: #F6E4DA;
+  --pine: 15 61 59;
+  --pine-deep: 10 43 41;
+  --forest: 31 111 84;
+  --forest-soft: 231 239 233;
+  --paper: 245 243 236;
+  --paper-raised: 255 255 255;
+  --ink: 38 36 31;
+  --ink-soft: 91 90 84;
+  --ink-faint: 139 136 124;
+  --line: 223 218 203;
+  --ochre: 185 133 47;
+  --ochre-deep: 143 102 32;
+  --ochre-soft: 245 233 212;
+  --done: 62 124 90;
+  --warn: 181 80 46;
+  --warn-soft: 246 228 218;
 }
 
 html,
@@ -35,8 +35,8 @@ body {
   font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
   margin: 0;
   padding: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
   overflow-x: hidden;
 }
 
@@ -55,7 +55,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--ochre) 65%, white);
+  outline: 3px solid color-mix(in srgb, rgb(var(--ochre)) 65%, white);
   outline-offset: 2px;
 }
 

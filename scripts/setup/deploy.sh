@@ -38,6 +38,9 @@ if [ $# -ne 1 ]; then
 fi
 
 TAG="$1"
+if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+    fail "invalid immutable image tag"
+fi
 export SIGEM_IMAGE_TAG="$TAG"
 
 cd "$REPO_ROOT"
@@ -51,7 +54,21 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 if [ ! -f "$TLS_DIR/fullchain.pem" ] || [ ! -f "$TLS_DIR/privkey.pem" ]; then
-    fail "missing TLS certificates in infra/tls (run: bash scripts/setup/generate_dev_cert.sh or follow docs/operations/tls.md)"
+    fail "missing trusted TLS certificates in infra/tls (follow docs/operations/tls.md)"
+fi
+
+if grep -Eqi 'CHANGE_ME|CHANGEME|\.example' "$ENV_FILE"; then
+    fail "production environment still contains placeholder values"
+fi
+
+if ! openssl x509 -in "$TLS_DIR/fullchain.pem" -noout -checkend 2592000 >/dev/null 2>&1; then
+    fail "TLS certificate is invalid or expires in less than 30 days"
+fi
+
+CERT_PUBKEY="$(openssl x509 -in "$TLS_DIR/fullchain.pem" -pubkey -noout 2>/dev/null | openssl pkey -pubin -outform pem 2>/dev/null)"
+KEY_PUBKEY="$(openssl pkey -in "$TLS_DIR/privkey.pem" -pubout -outform pem 2>/dev/null)"
+if [ -z "$CERT_PUBKEY" ] || [ "$CERT_PUBKEY" != "$KEY_PUBKEY" ]; then
+    fail "TLS certificate and private key do not match"
 fi
 
 echo "deploying SIGEM Colombia with tag: $TAG"
@@ -66,25 +83,20 @@ for pair in "$BACKEND_IMAGE:backend" "$FRONTEND_IMAGE:frontend" "$BACKUP_IMAGE:b
 done
 
 if [ -n "$missing_services" ]; then
-    echo "images not present locally for tag $TAG, trying pull then build:$missing_services"
+    echo "images not present locally for tag $TAG, pulling:$missing_services"
     for service in $missing_services; do
-        compose pull "$service" >/dev/null 2>&1 || true
+        compose pull "$service" || fail "unable to pull immutable image for $service"
     done
-    still_missing=""
-    for pair in "$BACKEND_IMAGE:backend" "$FRONTEND_IMAGE:frontend" "$BACKUP_IMAGE:backup"; do
-        image="${pair%%:*}"
-        service="${pair##*:}"
-        if ! docker image inspect "$image:$TAG" >/dev/null 2>&1; then
-            still_missing="$still_missing $service"
-        fi
-    done
-    if [ -n "$still_missing" ]; then
-        echo "building locally:$still_missing"
-        compose build $still_missing || fail "image build failed"
-    fi
 fi
 
-if ! compose up -d --remove-orphans; then
+for pair in "$BACKEND_IMAGE:backend" "$FRONTEND_IMAGE:frontend" "$BACKUP_IMAGE:backup"; do
+    image="${pair%%:*}"
+    if ! docker image inspect "$image:$TAG" >/dev/null 2>&1; then
+        fail "required image $image:$TAG is unavailable"
+    fi
+done
+
+if ! compose up -d --remove-orphans --no-build; then
     fail "docker compose up failed (check the migrate service logs: compose logs migrate)"
 fi
 

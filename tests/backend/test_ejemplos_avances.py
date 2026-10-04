@@ -9,7 +9,46 @@ Ejecutar:
     python -m pytest tests/backend/test_ejemplos_avances.py -v
 """
 
+from decimal import ROUND_HALF_UP, Decimal
+
 from tests.conftest import API_PREFIX, auth_header
+
+ESTADOS_QUE_RESERVAN_META = ("PENDIENTE", "EN_REVISION", "APROBADO")
+
+
+def _producto_gestor(api, gestor_token, producto_id=None):
+    productos = api.get(
+        f"{API_PREFIX}/gestor/dashboard/mis-productos",
+        headers=auth_header(gestor_token),
+    ).json()
+    assert productos, "El gestor debe tener al menos un producto asignado"
+    if producto_id is None:
+        return productos[0]
+    return next(p for p in productos if p["id"] == producto_id)
+
+
+def _acumulado_reservado(api, gestor_token, producto_id, excluir_id=None):
+    resp = api.get(
+        f"{API_PREFIX}/gestor/dashboard/avances/{producto_id}",
+        headers=auth_header(gestor_token),
+    )
+    assert resp.status_code == 200, resp.text
+    total = Decimal("0")
+    for avance in resp.json():
+        if avance["estado_revision"] not in ESTADOS_QUE_RESERVAN_META:
+            continue
+        if excluir_id is not None and avance["id"] == excluir_id:
+            continue
+        total += Decimal(str(avance["avance_valor"] or 0))
+    return total
+
+
+def _porcentaje_esperado(acumulado, meta):
+    return float(
+        (Decimal(str(acumulado)) / meta * Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+    )
 
 
 def _crear_avance(api, gestor_token, producto_id=None, **overrides):
@@ -44,10 +83,16 @@ class TestCrearAvance:
     """Ejemplos de tests para el registro de avances."""
 
     def test_crear_avance_exitoso(self, api, gestor_token):
-        avance = _crear_avance(api, gestor_token)
+        producto = _producto_gestor(api, gestor_token)
+        meta = Decimal(str(producto["meta_cuatrienio"]))
+        previo = _acumulado_reservado(api, gestor_token, producto["id"])
 
-        assert avance["avance_porcentaje"] == 30.0
+        avance = _crear_avance(api, gestor_token, producto_id=producto["id"])
+
         assert avance["avance_valor"] == 300
+        assert avance["avance_porcentaje"] == _porcentaje_esperado(
+            previo + Decimal("300"), meta
+        )
         assert avance["estado_revision"] == "PENDIENTE"
         assert avance["estado"] == "REGISTRADO"
         assert avance["id"]
@@ -86,16 +131,26 @@ class TestEditarAvance:
     """Ejemplos de tests para la edición de avances."""
 
     def test_editar_avance_pendiente(self, api, gestor_token):
-        avance = _crear_avance(api, gestor_token, avance_porcentaje=20.0)
+        producto = _producto_gestor(api, gestor_token)
+        meta = Decimal(str(producto["meta_cuatrienio"]))
+        avance = _crear_avance(
+            api, gestor_token, producto_id=producto["id"], avance_porcentaje=20.0
+        )
+        previo = _acumulado_reservado(
+            api, gestor_token, producto["id"], excluir_id=avance["id"]
+        )
 
         resp = api.put(
             f"{API_PREFIX}/gestor/dashboard/avances/{avance['id']}",
-            json={"avance_porcentaje": 45.0, "observaciones": "Actualizado en prueba"},
+            json={"avance_valor": 450, "observaciones": "Actualizado en prueba"},
             headers=auth_header(gestor_token),
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["avance_porcentaje"] == 45.0
+        assert data["avance_valor"] == 450
+        assert data["avance_porcentaje"] == _porcentaje_esperado(
+            previo + Decimal("450"), meta
+        )
         assert data["observaciones"] == "Actualizado en prueba"
 
     def test_editar_avance_aprobado_prohibido(self, api, gestor_token, admin_token):

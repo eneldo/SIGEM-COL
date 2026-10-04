@@ -581,3 +581,10 @@ export interface Evidencia {
   optimizada: boolean
   created_at: string | null
 }
+
+export interface Personalizacion {
+  color_primario: string
+  color_secundario: string
+  nombre_sistema: string
+  logo_data_url: string | null
+}

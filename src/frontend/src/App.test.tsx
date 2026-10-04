@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { personalizacion } from './lib/api'
 import type { User } from './lib/types'
 import { useAuthStore } from './stores/authStore'
 
@@ -10,6 +11,19 @@ vi.mock('./lib/api', () => ({
     logout: vi.fn(),
     getMe: vi.fn(),
     changePassword: vi.fn(),
+  },
+  personalizacion: {
+    get: vi.fn(() =>
+      Promise.resolve({
+        data: {
+          color_primario: '#0f3d3b',
+          color_secundario: '#b9852f',
+          nombre_sistema: 'SIGEM Colombia',
+          logo_data_url: null,
+        },
+      }),
+    ),
+    update: vi.fn(),
   },
   default: {},
 }))
@@ -283,5 +297,24 @@ describe('rutas del gestor', () => {
     expect(await screen.findByText(texto)).toBeInTheDocument()
     expect(window.location.pathname).toBe(ruta)
     expect(screen.getByText('Gestión de productos')).toBeInTheDocument()
+  })
+})
+
+describe('carga de personalización', () => {
+  it('sigue funcionando cuando la configuración no se puede cargar', async () => {
+    vi.mocked(personalizacion.get).mockRejectedValueOnce(new Error('sin conexión'))
+    iniciarSesion(usuarioAdmin)
+    montarApp('/admin/dashboard')
+
+    expect(await screen.findByText('pagina dashboard admin')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/admin/dashboard')
+  })
+
+  it('aplica la configuración del servidor cuando hay sesión', async () => {
+    iniciarSesion(usuarioAdmin)
+    montarApp('/admin/dashboard')
+
+    expect(await screen.findByText('pagina dashboard admin')).toBeInTheDocument()
+    expect(vi.mocked(personalizacion.get)).toHaveBeenCalled()
   })
 })
