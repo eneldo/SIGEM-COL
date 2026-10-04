@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -136,10 +137,67 @@ async def test_registrar_avance_errores(ids):
         )
 
 
+def test_calcular_porcentaje_cumplimiento_desde_cero():
+    assert service.calcular_porcentaje_cumplimiento(Decimal("209"), Decimal("500")) == 41.8
+
+
+def test_calcular_porcentaje_rechaza_meta_invalida_y_exceso():
+    with pytest.raises(ValueError, match="meta cuatrienal"):
+        service.calcular_porcentaje_cumplimiento(Decimal("1"), Decimal("0"))
+    with pytest.raises(ValueError, match="supera"):
+        service.calcular_porcentaje_cumplimiento(Decimal("501"), Decimal("500"))
+
+
+@pytest.mark.asyncio
+async def test_registrar_avance_calcula_porcentaje_proyectado(ids):
+    gestor_id = uuid.uuid4()
+    producto = entity(meta_cuatrienio=Decimal("500"), indicador="Árboles sembrados")
+    db = db_mock(scalars=[gestor_id, producto, Decimal("89")])
+
+    async def refresh(avance):
+        avance.id = ids.avance
+
+    db.refresh.side_effect = refresh
+    with patch.object(
+        service, "AuditService", return_value=SimpleNamespace(log_event=AsyncMock())
+    ):
+        result = await service.registrar_avance(
+            db,
+            ids.usuario,
+            ids.municipio,
+            ids.producto,
+            {"avance_valor": Decimal("120"), "avance_porcentaje": 99, "indicador": "Alterado"},
+        )
+
+    assert result["avance_valor"] == Decimal("120")
+    assert result["avance_porcentaje"] == 41.8
+    added = db.add.call_args.args[0]
+    assert added.indicador == "Árboles sembrados"
+
+
+@pytest.mark.asyncio
+async def test_registrar_avance_rechaza_total_proyectado_superior_meta(ids):
+    db = db_mock(
+        scalars=[
+            uuid.uuid4(),
+            entity(meta_cuatrienio=Decimal("500")),
+            Decimal("450"),
+        ]
+    )
+    with pytest.raises(ValueError, match="supera"):
+        await service.registrar_avance(
+            db,
+            ids.usuario,
+            ids.municipio,
+            ids.producto,
+            {"avance_valor": Decimal("51")},
+        )
+
+
 @pytest.mark.asyncio
 async def test_registrar_avance_exitoso(ids):
     gestor_id = uuid.uuid4()
-    db = db_mock(scalars=[gestor_id, entity()])
+    db = db_mock(scalars=[gestor_id, entity(), Decimal("0")])
 
     async def refresh(avance):
         avance.id = ids.avance
@@ -162,7 +220,7 @@ async def test_registrar_avance_exitoso(ids):
             db, ids.usuario, ids.municipio, ids.producto, data
         )
     assert result["id"] == str(ids.avance)
-    assert result["avance_porcentaje"] == 25.0
+    assert result["avance_porcentaje"] == 5.0
     assert result["estado_revision"] == "BORRADOR"
     db.add.assert_called_once()
     db.commit.assert_awaited_once()
@@ -171,7 +229,7 @@ async def test_registrar_avance_exitoso(ids):
 
 @pytest.mark.asyncio
 async def test_registrar_avance_valores_predeterminados(ids):
-    db = db_mock(scalars=[uuid.uuid4(), entity()])
+    db = db_mock(scalars=[uuid.uuid4(), entity(), Decimal("0")])
 
     async def refresh(avance):
         avance.id = ids.avance
@@ -191,7 +249,7 @@ async def test_registrar_avance_valores_predeterminados(ids):
 @pytest.mark.asyncio
 async def test_actualizar_avance_exitoso(ids):
     avance = entity(registrado_por=ids.usuario, fecha_registro=None, created_at=None)
-    db = db_mock()
+    db = db_mock(scalars=[entity(meta_cuatrienio=Decimal("100")), Decimal("0")])
     audit = SimpleNamespace(log_event=AsyncMock())
     with (
         patch.object(service, "_get_avance_or_404", AsyncMock(return_value=avance)),
@@ -203,14 +261,12 @@ async def test_actualizar_avance_exitoso(ids):
             ids.avance,
             ids.municipio,
             ids.usuario,
-            {"avance_porcentaje": 80.0, "observaciones": None, "ignorado": "x"},
+            {"avance_valor": Decimal("80"), "observaciones": None, "ignorado": "x"},
         )
     assert result["avance_porcentaje"] == 80.0
     assert result["fecha_registro"] is None
     assert result["created_at"] is None
-    assert audit.log_event.await_args.kwargs["metadata"]["campos"] == [
-        "avance_porcentaje"
-    ]
+    assert audit.log_event.await_args.kwargs["metadata"]["campos"] == ["avance_valor"]
 
 
 @pytest.mark.asyncio
@@ -289,7 +345,7 @@ async def test_resumen_con_y_sin_avances(ids):
     assert await service.get_resumen_avances(db, ids.usuario, ids.municipio) == {
         "total_productos": 3,
         "productos_con_avance": 2,
-        "avance_promedio": 75.0,
+        "avance_promedio": 50.0,
         "productos_completados": 1,
     }
     empty = db_mock(scalars=[gestor], executes=[ResultFake(productos), ResultFake([])])

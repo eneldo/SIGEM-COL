@@ -12,6 +12,7 @@ Fecha: 2026-09-21
 import asyncio
 import uuid
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from sqlalchemy import and_, func, select
@@ -24,6 +25,39 @@ from ..models.gestor_lider import GestorLider
 from ..models.producto import Producto
 from ..services.audit_service import AuditService
 from ..services.evidence_optimizer import optimize_evidence
+
+ESTADOS_QUE_RESERVAN_META = ("PENDIENTE", "EN_REVISION", "APROBADO")
+
+
+def calcular_porcentaje_cumplimiento(acumulado: Decimal, meta: Decimal) -> float:
+    if meta <= 0:
+        raise ValueError("El producto debe tener una meta cuatrienal mayor que cero.")
+    if acumulado > meta:
+        raise ValueError("El valor reportado supera el saldo disponible de la meta cuatrienal.")
+    porcentaje = (acumulado / meta * Decimal("100")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    return float(porcentaje)
+
+
+async def _sumar_avances_que_reservan_meta(
+    db: AsyncSession,
+    producto_id: uuid.UUID,
+    municipio_id: uuid.UUID,
+    excluir_avance_id: uuid.UUID | None = None,
+) -> Decimal:
+    conditions = [
+        AvanceProducto.producto_id == producto_id,
+        AvanceProducto.municipio_id == municipio_id,
+        AvanceProducto.deleted_at.is_(None),
+        AvanceProducto.estado_revision.in_(ESTADOS_QUE_RESERVAN_META),
+    ]
+    if excluir_avance_id is not None:
+        conditions.append(AvanceProducto.id != excluir_avance_id)
+    total = await db.scalar(
+        select(func.coalesce(func.sum(AvanceProducto.avance_valor), 0)).where(and_(*conditions))
+    )
+    return Decimal(str(total or 0))
 
 
 async def get_mis_productos(
@@ -141,31 +175,44 @@ async def registrar_avance(
     if not gestor_id:
         raise ValueError("No se encontró un gestor líder asociado al usuario actual.")
 
-    producto_stmt = select(Producto).where(
-        and_(
-            Producto.id == producto_id,
-            Producto.municipio_id == municipio_id,
-            Producto.gestor_lider_id == gestor_id,
-            Producto.deleted_at.is_(None),
+    producto_stmt = (
+        select(Producto)
+        .where(
+            and_(
+                Producto.id == producto_id,
+                Producto.municipio_id == municipio_id,
+                Producto.gestor_lider_id == gestor_id,
+                Producto.deleted_at.is_(None),
+            )
         )
+        .with_for_update()
     )
     producto = await db.scalar(producto_stmt)
     if not producto:
         raise ValueError("El producto no existe o no está asignado a este gestor.")
+
+    meta = Decimal(str(producto.meta_cuatrienio or 0))
+    valor = Decimal(str(avance_data.get("avance_valor") or 0))
+    estado_revision = avance_data.get("estado_revision", "PENDIENTE")
+    acumulado_reservado = await _sumar_avances_que_reservan_meta(
+        db, producto_id, municipio_id
+    )
+    acumulado_proyectado = acumulado_reservado + valor
+    porcentaje = calcular_porcentaje_cumplimiento(acumulado_proyectado, meta)
 
     now = datetime.now(UTC)
     avance = AvanceProducto(
         municipio_id=municipio_id,
         producto_id=producto_id,
         gestor_lider_id=gestor_id,
-        avance_porcentaje=avance_data.get("avance_porcentaje", 0.0),
-        avance_valor=avance_data.get("avance_valor"),
+        avance_porcentaje=porcentaje,
+        avance_valor=valor,
         observaciones=avance_data.get("observaciones"),
         evidencia_url=avance_data.get("evidencia_url"),
-        indicador=avance_data.get("indicador"),
+        indicador=producto.indicador,
         periodo=avance_data.get("periodo"),
         fecha_registro=now,
-        estado_revision=avance_data.get("estado_revision", "PENDIENTE"),
+        estado_revision=estado_revision,
         evidencia_nombre=avance_data.get("evidencia_nombre"),
         evidencia_tipo=avance_data.get("evidencia_tipo"),
         estado="REGISTRADO",
@@ -229,19 +276,35 @@ async def actualizar_avance(
     if avance.estado_revision == "APROBADO":
         raise PermissionError("No se puede editar un avance ya aprobado.")
 
-    editable = {
-        "avance_porcentaje",
-        "avance_valor",
-        "observaciones",
-        "indicador",
-        "periodo",
-        "estado_revision",
-    }
+    editable = {"avance_valor", "observaciones", "periodo", "estado_revision"}
     changed = False
     for key in editable:
         if key in avance_data and avance_data[key] is not None:
             setattr(avance, key, avance_data[key])
             changed = True
+
+    if "avance_valor" in avance_data and avance_data["avance_valor"] is not None:
+        producto = await db.scalar(
+            select(Producto).where(
+                and_(
+                    Producto.id == avance.producto_id,
+                    Producto.municipio_id == municipio_id,
+                    Producto.deleted_at.is_(None),
+                )
+            )
+        )
+        if not producto:
+            raise ValueError("Producto no encontrado.")
+        acumulado = await _sumar_avances_que_reservan_meta(
+            db,
+            uuid.UUID(str(avance.producto_id)),
+            municipio_id,
+            uuid.UUID(str(avance.id)),
+        )
+        acumulado += Decimal(str(avance_data["avance_valor"]))
+        avance.avance_porcentaje = calcular_porcentaje_cumplimiento(  # type: ignore[assignment]
+            acumulado, Decimal(str(producto.meta_cuatrienio or 0))
+        )
 
     if not changed:
         raise ValueError("No se enviaron campos para actualizar.")
@@ -371,21 +434,30 @@ async def get_resumen_avances(
     avances_stmt = (
         select(
             AvanceProducto.producto_id,
-            func.max(AvanceProducto.avance_porcentaje).label("max_avance"),
+            func.coalesce(func.sum(AvanceProducto.avance_valor), 0).label("acumulado"),
         )
         .where(
             and_(
                 AvanceProducto.gestor_lider_id == gestor_id,
                 AvanceProducto.municipio_id == municipio_id,
+                AvanceProducto.estado_revision == "APROBADO",
                 AvanceProducto.deleted_at.is_(None),
             )
         )
         .group_by(AvanceProducto.producto_id)
     )
     avances_result = await db.execute(avances_stmt)
-    avances_map = {row[0]: row[1] for row in avances_result.all()}
+    acumulados = {row[0]: Decimal(str(row[1])) for row in avances_result.all()}
+    avances_map = {
+        producto.id: calcular_porcentaje_cumplimiento(
+            acumulados.get(producto.id, Decimal("0")),
+            Decimal(str(producto.meta_cuatrienio)),
+        )
+        for producto in productos
+        if producto.meta_cuatrienio and Decimal(str(producto.meta_cuatrienio)) > 0
+    }
 
-    productos_con_avance = len(avances_map)
+    productos_con_avance = sum(1 for valor in acumulados.values() if valor > 0)
     avances_values = list(avances_map.values())
     avance_promedio = sum(avances_values) / len(avances_values) if avances_values else 0.0
     productos_completados = sum(1 for v in avances_values if v >= 100.0)

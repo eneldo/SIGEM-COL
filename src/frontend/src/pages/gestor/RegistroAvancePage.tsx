@@ -13,6 +13,8 @@ interface ProductoOption {
   indicador: string | null
   codigo_indicador: string | null
   meta_redactada: string | null
+  linea_base: number | null
+  meta_cuatrienio: number | null
   unidad_medida: string | null
 }
 
@@ -72,10 +74,8 @@ export default function RegistroAvancePage() {
   const [error, setError] = useState('')
 
   const [productoId, setProductoId] = useState(productoParam)
-  const [indicador, setIndicador] = useState('')
   const [periodo, setPeriodo] = useState('')
   const [avanceValor, setAvanceValor] = useState('')
-  const [porcentaje, setPorcentaje] = useState('')
   const [observaciones, setObservaciones] = useState('')
   const [archivos, setArchivos] = useState<{ file: File; descripcion: string }[]>([])
   const [dragOver, setDragOver] = useState(false)
@@ -86,7 +86,7 @@ export default function RegistroAvancePage() {
   const [detailAvance, setDetailAvance] = useState<Avance | null>(null)
   const [evidenciasAvance, setEvidenciasAvance] = useState<Avance | null>(null)
   const [editAvance, setEditAvance] = useState<Avance | null>(null)
-  const [editForm, setEditForm] = useState({ avance_porcentaje: 0, avance_valor: '', observaciones: '', periodo: '', indicador: '' })
+  const [editForm, setEditForm] = useState({ avance_valor: '', observaciones: '', periodo: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Avance | null>(null)
@@ -113,11 +113,9 @@ export default function RegistroAvancePage() {
   const openEditAvance = (a: Avance) => {
     setEditError('')
     setEditForm({
-      avance_porcentaje: a.avance_porcentaje,
       avance_valor: a.avance_valor != null ? String(a.avance_valor) : '',
       observaciones: a.observaciones || '',
       periodo: a.periodo || '',
-      indicador: a.indicador || '',
     })
     setEditAvance(a)
   }
@@ -128,11 +126,9 @@ export default function RegistroAvancePage() {
     setEditError('')
     try {
       await gestorDashboard.actualizarAvance(editAvance.id, {
-        avance_porcentaje: editForm.avance_porcentaje,
-        avance_valor: editForm.avance_valor ? parseInt(editForm.avance_valor, 10) : null,
+        avance_valor: editForm.avance_valor ? Number(editForm.avance_valor) : null,
         observaciones: editForm.observaciones || null,
         periodo: editForm.periodo || null,
-        indicador: editForm.indicador || null,
       })
       setEditAvance(null)
       await loadAvances(productos)
@@ -169,24 +165,30 @@ export default function RegistroAvancePage() {
           : r.data[0]
         if (preferred) {
           setProductoId(preferred.id)
-          setIndicador(preferred.indicador || '')
         }
         void loadAvances(r.data)
       })
       .catch(() => setLoadingAvances(false))
   }, [productoParam])
 
-  useEffect(() => {
-    const p = productos.find((p) => p.id === productoId)
-    if (p) setIndicador(p.indicador || '')
-  }, [productoId, productos])
-
   const gestorCodigo = user?.username || ''
   const gestorNombre = user?.nombre_completo || ''
   const today = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
   const productoSeleccionado = productos.find((producto) => producto.id === productoId)
-  const porcentajeNumero = Math.min(100, Math.max(0, Number(porcentaje) || 0))
-  const camposCompletos = [productoId, periodo, porcentaje].filter(Boolean).length
+  const avancesProducto = avances.filter((avance) => avance.producto_id === productoId)
+  const acumuladoOficial = avancesProducto
+    .filter((avance) => avance.estado_revision === 'APROBADO')
+    .reduce((total, avance) => total + Number(avance.avance_valor || 0), 0)
+  const acumuladoReservado = avancesProducto
+    .filter((avance) => ['PENDIENTE', 'EN_REVISION', 'APROBADO'].includes(avance.estado_revision))
+    .reduce((total, avance) => total + Number(avance.avance_valor || 0), 0)
+  const metaCuatrienio = Number(productoSeleccionado?.meta_cuatrienio || 0)
+  const nuevoValor = Number(avanceValor || 0)
+  const acumuladoProyectado = acumuladoReservado + nuevoValor
+  const porcentajeNumero = metaCuatrienio > 0 ? Math.min(100, (acumuladoProyectado / metaCuatrienio) * 100) : 0
+  const porcentajeOficial = metaCuatrienio > 0 ? Math.min(100, (acumuladoOficial / metaCuatrienio) * 100) : 0
+  const saldoDisponible = Math.max(metaCuatrienio - acumuladoReservado, 0)
+  const camposCompletos = [productoId, periodo, avanceValor].filter(Boolean).length
   const progresoFormulario = Math.round((camposCompletos / 3) * 100)
 
   const handleFiles = (fileList: FileList | File[]) => {
@@ -239,9 +241,10 @@ export default function RegistroAvancePage() {
   const handleSubmit = async (modo: 'borrador' | 'enviar') => {
     if (!productoId) { setError('Seleccione un producto.'); return }
     if (!periodo) { setError('Seleccione un período.'); return }
-    if (!porcentaje) { setError('Ingrese el porcentaje de cumplimiento.'); return }
-    if (Number(porcentaje) < 0 || Number(porcentaje) > 100) {
-      setError('El porcentaje de cumplimiento debe estar entre 0% y 100%.')
+    if (!avanceValor || Number(avanceValor) <= 0) { setError('Ingrese un valor reportado mayor que cero.'); return }
+    if (metaCuatrienio <= 0) { setError('El producto debe tener una meta cuatrienal mayor que cero.'); return }
+    if (nuevoValor > saldoDisponible) {
+      setError(`El valor reportado supera el saldo disponible de ${saldoDisponible.toLocaleString('es-CO')} ${productoSeleccionado?.unidad_medida || 'unidades'}.`)
       return
     }
 
@@ -251,10 +254,8 @@ export default function RegistroAvancePage() {
 
     try {
       const data = {
-        avance_porcentaje: parseFloat(porcentaje),
-        avance_valor: avanceValor ? parseInt(avanceValor) : undefined,
+        avance_valor: Number(avanceValor),
         observaciones: observaciones || undefined,
-        indicador,
         periodo,
         estado_revision: modo === 'enviar' ? 'PENDIENTE' : 'BORRADOR',
         evidencia_nombre: archivos[0]?.file.name || undefined,
@@ -317,7 +318,7 @@ export default function RegistroAvancePage() {
           <div className="grid grid-cols-3 gap-2 sm:min-w-[390px]">
             {[
               ['1', 'Producto', Boolean(productoId)],
-              ['2', 'Avance', Boolean(periodo && porcentaje)],
+                      ['2', 'Avance', Boolean(periodo && avanceValor)],
               ['3', 'Evidencia', archivos.length > 0],
             ].map(([step, label, done]) => (
               <div key={label as string} className={clsx('rounded-2xl border px-3 py-3 transition', done ? 'border-white/20 bg-white/15' : 'border-white/10 bg-pine-deep/35')}>
@@ -408,16 +409,14 @@ export default function RegistroAvancePage() {
                 <span><strong className="block text-sm text-ink">Resultado alcanzado</strong><small className="text-xs text-ink-faint">Registra el valor ejecutado y el nivel de cumplimiento.</small></span>
               </legend>
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-                <label className="text-xs font-bold text-ink">Valor reportado
-                  <div className="relative"><input type="number" min={0} value={avanceValor} onChange={(e) => setAvanceValor(e.target.value)} placeholder="Ej. 125" className={`${inputClass} pr-20`} /><span className="absolute bottom-3.5 right-4 text-xs font-bold text-ink-faint">{productoSeleccionado?.unidad_medida || 'Unidades'}</span></div>
+                <label className="text-xs font-bold text-ink">Valor reportado <span className="text-warn">*</span>
+                  <div className="relative"><input type="number" min={0} max={saldoDisponible || undefined} step="0.0001" value={avanceValor} onChange={(e) => setAvanceValor(e.target.value)} placeholder="Ej. 89" className={`${inputClass} pr-20`} /><span className="absolute bottom-3.5 right-4 text-xs font-bold text-ink-faint">{productoSeleccionado?.unidad_medida || 'Unidades'}</span></div>
+                  <span className="mt-1 block text-[11px] font-normal text-ink-faint">Saldo disponible: {saldoDisponible.toLocaleString('es-CO')}</span>
                 </label>
-                <div>
-                  <div className="flex items-center justify-between"><label htmlFor="porcentaje" className="text-xs font-bold text-ink">Porcentaje de cumplimiento <span className="text-warn">*</span></label><strong className="text-xl text-pine">{porcentajeNumero}%</strong></div>
-                  <input id="porcentaje" type="range" min={0} max={100} step={1} value={porcentajeNumero} onChange={(e) => setPorcentaje(e.target.value)} className="mt-4 h-2 w-full cursor-pointer accent-forest" />
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {[25, 50, 75, 100].map((valor) => <button key={valor} type="button" onClick={() => setPorcentaje(String(valor))} className={clsx('rounded-lg border px-3 py-1.5 text-xs font-bold transition', porcentajeNumero === valor ? 'border-pine bg-pine text-white' : 'border-line bg-white text-ink-soft hover:border-forest hover:text-forest')}>{valor}%</button>)}
-                    <input aria-label="Porcentaje exacto" type="number" min={0} max={100} value={porcentaje} onChange={(e) => setPorcentaje(e.target.value)} placeholder="Otro" className="h-8 w-20 rounded-lg border border-line px-2 text-xs outline-none focus:border-forest" />
-                  </div>
+                <div className="rounded-xl border border-line bg-paper/60 p-4">
+                  <div className="flex items-center justify-between"><span className="text-xs font-bold text-ink">Cumplimiento proyectado</span><strong className="text-xl text-pine">{porcentajeNumero.toLocaleString('es-CO', { maximumFractionDigits: 2 })}%</strong></div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-forest transition-all" style={{ width: `${porcentajeNumero}%` }} /></div>
+                  <p className="mt-3 text-xs text-ink-faint">{acumuladoProyectado.toLocaleString('es-CO')} de {metaCuatrienio.toLocaleString('es-CO')} {productoSeleccionado?.unidad_medida || 'unidades'}. El porcentaje es calculado automáticamente.</p>
                 </div>
               </div>
               <label className="mt-5 block text-xs font-bold text-ink">Observaciones del período <span className="font-normal text-ink-faint">(opcional)</span>
@@ -503,7 +502,7 @@ export default function RegistroAvancePage() {
             </div>
             <div className="border-t border-white/10 bg-pine-deep/35 p-5">
               <p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/50">Producto seleccionado</p>
-              {productoSeleccionado ? <><p className="mt-2 font-mono text-xs font-bold text-ochre-soft">{productoSeleccionado.codigo_indicador || productoSeleccionado.codigo}</p><h3 className="mt-1 text-lg font-bold leading-snug">{productoSeleccionado.nombre}</h3>{productoSeleccionado.meta_redactada && <p className="mt-2 line-clamp-3 text-xs leading-5 text-white/60">{productoSeleccionado.meta_redactada}</p>}</> : <p className="mt-2 text-sm text-white/60">Selecciona un producto para ver su ficha.</p>}
+              {productoSeleccionado ? <><p className="mt-2 font-mono text-xs font-bold text-ochre-soft">{productoSeleccionado.codigo_indicador || productoSeleccionado.codigo}</p><h3 className="mt-1 text-lg font-bold leading-snug">{productoSeleccionado.nombre}</h3>{productoSeleccionado.meta_redactada && <p className="mt-2 line-clamp-3 text-xs leading-5 text-white/60">{productoSeleccionado.meta_redactada}</p>}<div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white/10 p-3"><span className="block text-white/55">Meta cuatrienal</span><strong>{metaCuatrienio.toLocaleString('es-CO')}</strong></div><div className="rounded-xl bg-white/10 p-3"><span className="block text-white/55">Cumplimiento oficial</span><strong>{porcentajeOficial.toLocaleString('es-CO', { maximumFractionDigits: 2 })}%</strong></div><div className="rounded-xl bg-white/10 p-3"><span className="block text-white/55">Acumulado aprobado</span><strong>{acumuladoOficial.toLocaleString('es-CO')}</strong></div><div className="rounded-xl bg-white/10 p-3"><span className="block text-white/55">Alimentaciones</span><strong>{avancesProducto.length}</strong></div></div></> : <p className="mt-2 text-sm text-white/60">Selecciona un producto para ver su ficha.</p>}
             </div>
           </section>
 
@@ -512,7 +511,7 @@ export default function RegistroAvancePage() {
             <ul className="mt-4 space-y-3">
               {[
                 ['Producto y período definidos', Boolean(productoId && periodo)],
-                ['Porcentaje entre 0% y 100%', Boolean(porcentaje)],
+                 ['Valor dentro del saldo disponible', Boolean(avanceValor) && nuevoValor > 0 && nuevoValor <= saldoDisponible],
                 ['Evidencia de soporte adjunta', archivos.length > 0],
               ].map(([label, done]) => <li key={label as string} className="flex items-center gap-3 text-xs"><span className={clsx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full', done ? 'bg-forest-soft text-forest' : 'bg-paper text-ink-faint')}><Icon name={done ? 'check' : 'dots'} className="h-3.5 w-3.5" /></span><span className={done ? 'font-bold text-ink' : 'text-ink-faint'}>{label}</span></li>)}
             </ul>
@@ -674,12 +673,9 @@ export default function RegistroAvancePage() {
             <div className="space-y-4 px-6 py-5">
               {editError && <div role="alert" className="rounded-xl border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn">{editError}</div>}
               <div>
-                <label className="block text-sm font-bold text-ink">Porcentaje de avance (%)</label>
-                <input type="number" min={0} max={100} value={editForm.avance_porcentaje} onChange={(e) => setEditForm({ ...editForm, avance_porcentaje: parseFloat(e.target.value) || 0 })} className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-ink">Valor (opcional)</label>
-                <input type="number" min={0} value={editForm.avance_valor} onChange={(e) => setEditForm({ ...editForm, avance_valor: e.target.value })} className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20" placeholder="Ej: 125" />
+                <label className="block text-sm font-bold text-ink">Valor reportado</label>
+                <input type="number" min={0} step="0.0001" value={editForm.avance_valor} onChange={(e) => setEditForm({ ...editForm, avance_valor: e.target.value })} className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none focus:border-pine focus:ring-2 focus:ring-pine/20" placeholder="Ej: 125.5" />
+                <p className="mt-1 text-xs text-ink-faint">El porcentaje será recalculado automáticamente según la meta.</p>
               </div>
               <div>
                 <label className="block text-sm font-bold text-ink">Período</label>
@@ -692,7 +688,7 @@ export default function RegistroAvancePage() {
             </div>
             <div className="flex items-center justify-end gap-3 border-t border-line px-6 py-4">
               <button type="button" onClick={() => setEditAvance(null)} className="rounded-xl border border-line px-4 py-2.5 text-sm font-bold text-ink-soft transition hover:bg-line/40">Cancelar</button>
-              <button type="button" onClick={() => void saveEditAvance()} disabled={editSaving || editForm.avance_porcentaje < 0 || editForm.avance_porcentaje > 100} className="rounded-xl bg-pine px-5 py-2.5 text-sm font-bold text-white transition hover:bg-pine-deep disabled:opacity-50">{editSaving ? 'Guardando...' : 'Guardar cambios'}</button>
+                             <button type="button" onClick={() => void saveEditAvance()} disabled={editSaving || Number(editForm.avance_valor) <= 0} className="rounded-xl bg-pine px-5 py-2.5 text-sm font-bold text-white transition hover:bg-pine-deep disabled:opacity-50">{editSaving ? 'Guardando...' : 'Guardar cambios'}</button>
             </div>
           </div>
         </div>

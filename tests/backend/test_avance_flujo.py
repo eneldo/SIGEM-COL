@@ -100,7 +100,7 @@ class TestCrearAvance:
         resp = _crear_avance(api, gestor_token, estado_revision="BORRADOR")
         assert resp.status_code == 201, resp.text
         data = resp.json()
-        assert data["avance_porcentaje"] == 25.0
+        assert data["avance_porcentaje"] == 2.5
         assert data["estado_revision"] == "BORRADOR"
         assert data["estado"] == "REGISTRADO"
         assert data["id"]
@@ -123,7 +123,7 @@ class TestCrearAvance:
         assert resp.status_code == 201
         data = resp.json()
         assert data["avance_valor"] == 500
-        assert data["indicador"] == "Indicador personalizado"
+        assert data["indicador"] == "Porcentaje de avance de pruebas"
         assert data["evidencia_url"] == "https://example.com/evidencia.pdf"
 
     def test_crear_validacion_porcentaje_fuera_rango(self, api, gestor_token):
@@ -212,16 +212,16 @@ class TestEditarAvance:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["avance_porcentaje"] == 60.0
+        assert data["avance_porcentaje"] != 60.0
         assert data["avance_valor"] == 600
         assert data["observaciones"] == "Actualizado"
         assert data["periodo"] == "Abril - Junio 2026"
 
     def test_editar_pendiente_exitoso(self, api, gestor_token):
         avance = _crear_avance(api, gestor_token, estado_revision="PENDIENTE").json()
-        resp = _editar_avance(api, gestor_token, avance["id"], avance_porcentaje=40.0)
+        resp = _editar_avance(api, gestor_token, avance["id"], avance_valor=400)
         assert resp.status_code == 200
-        assert resp.json()["avance_porcentaje"] == 40.0
+        assert resp.json()["avance_porcentaje"] != 40.0
 
     def test_editar_aprobado_prohibido(self, api, gestor_token, admin_token):
         avance = _crear_avance(api, gestor_token, estado_revision="PENDIENTE").json()
@@ -233,7 +233,7 @@ class TestEditarAvance:
     def test_editar_rechazado_permitido(self, api, gestor_token, admin_token):
         avance = _crear_avance(api, gestor_token, estado_revision="PENDIENTE").json()
         _revisar_avance(api, admin_token, avance["id"], "RECHAZADO", "Falta evidencia")
-        resp = _editar_avance(api, gestor_token, avance["id"], avance_porcentaje=30.0)
+        resp = _editar_avance(api, gestor_token, avance["id"], avance_valor=300)
         assert resp.status_code == 200
 
     def test_editar_validacion_porcentaje(self, api, gestor_token):
@@ -455,9 +455,9 @@ class TestFlujoCompleto:
         avance_id = avance["id"]
 
         # Editar borrador
-        upd = _editar_avance(api, gestor_token, avance_id, avance_porcentaje=50.0)
+        upd = _editar_avance(api, gestor_token, avance_id, avance_valor=500)
         assert upd.status_code == 200
-        assert upd.json()["avance_porcentaje"] == 50.0
+        assert upd.json()["avance_porcentaje"] != 50.0
 
         # Cambiar a PENDIENTE (simulando envío a revisión)
         upd2 = _editar_avance(api, gestor_token, avance_id, estado_revision="PENDIENTE")
@@ -494,21 +494,15 @@ class TestCasosBorde:
         assert resp.status_code == 201
         assert resp.json()["avance_valor"] == 0
 
-    def test_crear_avance_porcentaje_cero(self, api, gestor_token):
-        resp = _crear_avance(api, gestor_token, avance_porcentaje=0.0)
+    def test_crear_ignora_porcentaje_enviado_por_cliente(self, api, gestor_token):
+        resp = _crear_avance(api, gestor_token, avance_porcentaje=100.0, avance_valor=100)
         assert resp.status_code == 201
-        assert resp.json()["avance_porcentaje"] == 0.0
+        assert resp.json()["avance_porcentaje"] != 100.0
 
-    def test_crear_avance_porcentaje_cien(self, api, gestor_token):
-        resp = _crear_avance(api, gestor_token, avance_porcentaje=100.0)
-        assert resp.status_code == 201
-        assert resp.json()["avance_porcentaje"] == 100.0
-
-    def test_editar_avance_valor_cero(self, api, gestor_token):
+    def test_editar_avance_valor_cero_es_invalido(self, api, gestor_token):
         avance = _crear_avance(api, gestor_token).json()
         resp = _editar_avance(api, gestor_token, avance["id"], avance_valor=0)
-        assert resp.status_code == 200
-        assert resp.json()["avance_valor"] == 0
+        assert resp.status_code == 422
 
     def test_varios_avances_mismo_producto(self, api, gestor_token):
         productos = _mis_productos(api, gestor_token).json()

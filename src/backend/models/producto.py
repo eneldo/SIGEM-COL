@@ -1,6 +1,6 @@
 """Producto model - Modelo para productos"""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -19,8 +19,8 @@ class Producto(BaseModel):
     codigo_indicador = Column(String(30), nullable=True)
     indicador = Column(String(300), nullable=True)
     meta_redactada = Column(Text, nullable=True)
-    linea_base = Column(Integer, default=0, nullable=True)
-    meta_cuatrienio = Column(Integer, default=0, nullable=True)
+    linea_base = Column(Numeric(18, 4), default=0, nullable=True)
+    meta_cuatrienio = Column(Numeric(18, 4), default=0, nullable=True)
     descripcion = Column(Text, nullable=True)
     unidad_medida = Column(String(100), nullable=True)
     dependencia_responsable_id = Column(

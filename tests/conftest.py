@@ -251,6 +251,8 @@ def gestor_credentials(api, admin_token):
             "codigo": f"PT-{uuid.uuid4().hex[:10].upper()}",
             "nombre": "Producto de pruebas automatizadas",
             "indicador": "Porcentaje de avance de pruebas",
+            "meta_cuatrienio": 10000,
+            "unidad_medida": "Unidades",
             "programa_id": programa_id,
             "gestor_lider_id": gestor_id,
         },

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -10,8 +11,8 @@ class ProductoCreate(BaseModel):
     codigo_indicador: str | None = Field(None, max_length=30)
     indicador: str | None = Field(None, max_length=300)
     meta_redactada: str | None = None
-    linea_base: int | None = 0
-    meta_cuatrienio: int | None = 0
+    linea_base: Decimal | None = Field(Decimal("0"), ge=0)
+    meta_cuatrienio: Decimal | None = Field(Decimal("0"), ge=0)
     descripcion: str | None = None
     unidad_medida: str | None = None
     programa_id: UUID
@@ -25,8 +26,8 @@ class ProductoUpdate(BaseModel):
     codigo_indicador: str | None = None
     indicador: str | None = None
     meta_redactada: str | None = None
-    linea_base: int | None = None
-    meta_cuatrienio: int | None = None
+    linea_base: Decimal | None = Field(None, ge=0)
+    meta_cuatrienio: Decimal | None = Field(None, ge=0)
     descripcion: str | None = None
     unidad_medida: str | None = None
     dependencia_responsable_id: UUID | None = None
@@ -40,8 +41,8 @@ class ProductoResponse(BaseModel):
     codigo_indicador: str | None = None
     indicador: str | None = None
     meta_redactada: str | None = None
-    linea_base: int | None = 0
-    meta_cuatrienio: int | None = 0
+    linea_base: Decimal | None = Field(Decimal("0"), ge=0)
+    meta_cuatrienio: Decimal | None = Field(Decimal("0"), ge=0)
     descripcion: str | None = None
     unidad_medida: str | None = None
     estado: str

@@ -104,7 +104,6 @@ async def test_helpers_access_and_basic_endpoints(monkeypatch):
     assert not api._valid_evidence_signature("text/plain", b"x")
 
     db = SimpleNamespace(scalar=AsyncMock(return_value=AID))
-    assert await api._get_gestor_lider_id(db, USER, MID) == AID
     assert (
         await api._require_revision_access(
             db, {**CURRENT, "roles": ["SUPERADMIN_PLATAFORMA"]}
@@ -117,10 +116,7 @@ async def test_helpers_access_and_basic_endpoints(monkeypatch):
         )
         is None
     )
-    assert await api._require_revision_access(db, CURRENT) == AID
-    await assert_http(api._require_revision_access(db, {**CURRENT, "user": None}), 401)
-    db.scalar.return_value = None
-    await assert_http(api._require_revision_access(db, CURRENT), 403, "asociado")
+    assert await api._require_revision_access(db, CURRENT) is None
     await assert_http(
         api._require_revision_access(db, {**CURRENT, "roles": []}),
         403,

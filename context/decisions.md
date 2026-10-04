@@ -1,5 +1,27 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-03: Avances incrementales calculados contra la meta cuatrienal
+
+**Contexto:** Un producto puede recibir múltiples reportes de avance con evidencias independientes. El porcentaje no debe ser suministrado por el gestor.
+
+**Decisión:** Cada reporte almacena un valor incremental decimal. El backend calcula el porcentaje acumulado desde cero mediante `(suma / meta_cuatrienio) * 100`; la línea base es informativa, no se permite reservar valores por encima de la meta y únicamente los reportes `APROBADO` integran el cumplimiento oficial.
+
+**Integridad:** Los estados `PENDIENTE`, `EN_REVISION` y `APROBADO` reservan saldo para impedir sobrepasar la meta mientras existen reportes en revisión. El registro bloquea la fila del producto durante el cálculo para evitar carreras concurrentes.
+
+**Persistencia:** `linea_base`, `meta_cuatrienio` y `avance_valor` usan `NUMERIC(18,4)`.
+
+---
+
+## 2026-10-03: Gestor Líder hereda revisión municipal de avances
+
+**Contexto:** El portal de Gestor Líder / Coordinador debe ofrecer el mismo alcance del módulo Revisión de Avances que el portal Administrador.
+
+**Decisión:** `GESTOR_LIDER` puede listar, consultar estadísticas, aprobar y devolver todos los avances de su municipio, sin limitarse a los asociados a su registro de gestor líder.
+
+**Seguridad:** El alcance continúa restringido por `municipio_id` y PostgreSQL RLS. El rol `GESTOR` permanece sin permiso de revisión.
+
+---
+
 ## 2026-10-01: Cobertura backend de líneas elevada al 100%
 
 **Contexto:** El pipeline exigía ≥80% y la suite backend registraba 61% de cobertura de líneas. Los déficits estaban concentrados en servicios, rutas FastAPI y ramas defensivas de core.

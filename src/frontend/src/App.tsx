@@ -28,6 +28,7 @@ const adminRoles = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
 const isAdmin = (roles: string[]) => roles.some((role) => adminRoles.includes(role))
 
 const adminRequired = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
+const revisionRequired = [...adminRequired, 'GESTOR_LIDER']
 
 function ProtectedRoute({
   children,
@@ -122,7 +123,14 @@ export default function App() {
           <Route path="asignar" element={<GestorAsignarPage />} />
           <Route path="productos" element={<MisProductosPage />} />
           <Route path="registro-avance" element={<RegistroAvancePage />} />
-          <Route path="revision-avances" element={<RevisionAvancesPage />} />
+          <Route
+            path="revision-avances"
+            element={
+              <ProtectedRoute requiredRole={revisionRequired}>
+                <RevisionAvancesPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="mis-avances" element={<GestorDashboardPage />} />
           <Route path="mis-pendientes" element={<GestorDashboardPage />} />
           <Route path="mis-alertas" element={<GestorDashboardPage />} />

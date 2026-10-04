@@ -10,18 +10,17 @@ Fecha: 2026-09-21
 """
 
 import logging
+from decimal import Decimal
 from pathlib import PurePath
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.v1.auth import get_current_user_from_token
 from ...core.database import get_db
-from ...models.gestor_lider import GestorLider
 from ...services.avance_service import (
     actualizar_avance,
     actualizar_descripcion_evidencia,
@@ -52,11 +51,13 @@ router = APIRouter(prefix="/gestor/dashboard", tags=["Gestor Dashboard"])
 
 
 class AvanceCreate(BaseModel):
-    avance_porcentaje: float = Field(..., ge=0, le=100, description="Porcentaje de avance (0-100)")
-    avance_valor: int | None = Field(None, ge=0, description="Valor numérico del avance")
+    avance_porcentaje: float | None = Field(None, ge=0, le=100, deprecated=True)
+    avance_valor: Decimal | None = Field(
+        Decimal("0"), ge=0, decimal_places=4, description="Valor incremental reportado"
+    )
     observaciones: str | None = Field(None, max_length=1000, description="Observaciones del avance")
     evidencia_url: str | None = Field(None, max_length=500, description="URL de evidencia")
-    indicador: str | None = Field(None, max_length=300, description="Indicador del producto")
+    indicador: str | None = Field(None, max_length=300, deprecated=True)
     periodo: str | None = Field(None, max_length=50, description="Periodo del avance")
     estado_revision: str | None = Field("PENDIENTE", description="Estado de revisión")
     evidencia_nombre: str | None = Field(
@@ -66,12 +67,12 @@ class AvanceCreate(BaseModel):
 
 
 class AvanceUpdate(BaseModel):
-    avance_porcentaje: float | None = Field(
-        None, ge=0, le=100, description="Porcentaje de avance (0-100)"
+    avance_porcentaje: float | None = Field(None, ge=0, le=100, deprecated=True)
+    avance_valor: Decimal | None = Field(
+        None, gt=0, decimal_places=4, description="Valor incremental reportado"
     )
-    avance_valor: int | None = Field(None, ge=0, description="Valor numérico del avance")
     observaciones: str | None = Field(None, max_length=1000, description="Observaciones del avance")
-    indicador: str | None = Field(None, max_length=300, description="Indicador del producto")
+    indicador: str | None = Field(None, max_length=300, deprecated=True)
     periodo: str | None = Field(None, max_length=50, description="Periodo del avance")
     estado_revision: str | None = Field(None, description="Estado de revisión")
 
@@ -188,44 +189,20 @@ def _valid_evidence_signature(content_type: str, content: bytes) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Helper: obtener gestor_lider_id del usuario actual
+# Helper: autorización para revisión de avances
 # ---------------------------------------------------------------------------
 
 
-async def _get_gestor_lider_id(db, user, municipio_id):
-    gestor_stmt = select(GestorLider.id).where(
-        and_(
-            GestorLider.usuario_id == UUID(str(user.id)),
-            GestorLider.municipio_id == municipio_id,
-            GestorLider.deleted_at.is_(None),
-        )
-    )
-    return await db.scalar(gestor_stmt)
-
-
 async def _require_revision_access(db, current_user) -> UUID | None:
-    """Only admins and gestor líderes may review avances.
-
-    Returns the gestor_lider_id scope (None for admins, who see everything).
-    """
+    """Allow admins and gestor líderes to review all municipal avances."""
     roles = current_user.get("roles", [])
-    if "SUPERADMIN_PLATAFORMA" in roles or "ADMINISTRADOR_MUNICIPAL" in roles:
+    allowed_roles = {
+        "SUPERADMIN_PLATAFORMA",
+        "ADMINISTRADOR_MUNICIPAL",
+        "GESTOR_LIDER",
+    }
+    if allowed_roles.intersection(roles):
         return None
-
-    if "GESTOR_LIDER" in roles:
-        user = current_user.get("user")
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Usuario no autenticado",
-            )
-        gestor_lider_id = await _get_gestor_lider_id(db, user, UUID(current_user["municipio_id"]))
-        if gestor_lider_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No existe un gestor líder asociado al usuario actual.",
-            )
-        return gestor_lider_id
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
