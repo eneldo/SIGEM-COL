@@ -403,6 +403,11 @@ def test_validate_production_mensaje_en_espanol():
         ({"METRICS_TOKEN": "CHANGE_ME_openssl_rand_base64_48"}, "METRICS_TOKEN"),
         ({"MFA_ENABLED": False}, "MFA_ENABLED"),
         ({"RATE_LIMIT_ENABLED": False}, "RATE_LIMIT_ENABLED"),
+        # Solo se admite firma simetrica: una clave asimetrica dejaria expuesta la
+        # libreria JWT a CVE-2026-85394 (confusion de algoritmos).
+        ({"JWT_ALGORITHM": "RS256"}, "JWT_ALGORITHM"),
+        ({"JWT_ALGORITHM": "none"}, "JWT_ALGORITHM"),
+        ({"JWT_ALGORITHM": ""}, "JWT_ALGORITHM"),
     ],
 )
 def test_validate_production_rechaza_configuracion_debil(overrides: dict, campo_esperado: str):
