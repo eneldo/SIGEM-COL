@@ -16,6 +16,7 @@ Fecha: 2026-09-20
 import re
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,7 +118,7 @@ async def _build_gestor_dict(
     db: AsyncSession,
     gestor: GestorLider,
     usuario: Usuario,
-) -> dict:
+) -> dict[str, Any]:
     """Construye el diccionario de respuesta completo de un gestor."""
     roles = await _get_roles(db, usuario.id)  # type: ignore[arg-type]
     deps = await _get_dependencias(db, usuario.id)  # type: ignore[arg-type]
@@ -153,11 +154,13 @@ async def _build_gestor_dict(
 async def _validar_rol(db: AsyncSession, rol_id: uuid.UUID | None) -> Rol:
     """Valida el rol seleccionado o usa el default GESTOR_LIDER."""
     if rol_id:
-        rol = await db.scalar(select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None))))
-        if rol is None:
+        encontrado: Rol | None = await db.scalar(
+            select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
+        )
+        if encontrado is None:
             raise ValueError("El rol seleccionado no existe.")
-        return rol
-    rol = await db.scalar(
+        return encontrado
+    rol: Rol | None = await db.scalar(
         select(Rol).where(and_(Rol.codigo == ROL_GESTOR_LIDER, Rol.deleted_at.is_(None)))
     )
     if rol is None:
@@ -269,9 +272,9 @@ async def generate_username(
 async def create_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    create_data: dict,
+    create_data: dict[str, Any],
     allowed_role_codes: set[str] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Crea un nuevo gestor líder o miembro del equipo.
 
@@ -432,8 +435,8 @@ async def create_gestor(
 async def list_gestores(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Lista gestores líderes con filtros y paginación.
 
@@ -518,7 +521,7 @@ async def get_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Obtiene un gestor líder por su ID dentro de un municipio."""
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
     if gestor is None or usuario is None:
@@ -535,8 +538,8 @@ async def update_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-    update_data: dict,
-) -> dict | None:
+    update_data: dict[str, Any],
+) -> dict[str, Any] | None:
     """
     Actualiza la información de un gestor líder.
 
@@ -623,8 +626,8 @@ async def update_gestor_permissions(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-    permisos: dict,
-) -> dict | None:
+    permisos: dict[str, Any],
+) -> dict[str, Any] | None:
     """
     Actualiza los permisos del gestor: rol asignado y dependencias asociadas.
 
@@ -726,7 +729,7 @@ async def _change_gestor_status(
     new_status: str,
     evento: str,
     motivo: str | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Cambia el estado de un gestor líder y su usuario."""
     gestor, usuario = await _get_gestor_usuario(db, municipio_id, gestor_id)
     if gestor is None or usuario is None:
@@ -770,17 +773,23 @@ async def _change_gestor_status(
     return await _build_gestor_dict(db, gestor, usuario)
 
 
-async def activate_gestor(db, municipio_id, gestor_id):
+async def activate_gestor(
+    db: AsyncSession, municipio_id: uuid.UUID, gestor_id: uuid.UUID
+) -> dict[str, Any] | None:
     return await _change_gestor_status(db, municipio_id, gestor_id, ESTADO_ACTIVO, "USER_ACTIVATED")
 
 
-async def deactivate_gestor(db, municipio_id, gestor_id):
+async def deactivate_gestor(
+    db: AsyncSession, municipio_id: uuid.UUID, gestor_id: uuid.UUID
+) -> dict[str, Any] | None:
     return await _change_gestor_status(
         db, municipio_id, gestor_id, ESTADO_INACTIVO, "USER_DEACTIVATED"
     )
 
 
-async def block_gestor(db, municipio_id, gestor_id, motivo):
+async def block_gestor(
+    db: AsyncSession, municipio_id: uuid.UUID, gestor_id: uuid.UUID, motivo: str
+) -> dict[str, Any] | None:
     if not motivo or not motivo.strip():
         raise ValueError("El motivo del bloqueo es obligatorio.")
     return await _change_gestor_status(
@@ -788,7 +797,9 @@ async def block_gestor(db, municipio_id, gestor_id, motivo):
     )
 
 
-async def unblock_gestor(db, municipio_id, gestor_id):
+async def unblock_gestor(
+    db: AsyncSession, municipio_id: uuid.UUID, gestor_id: uuid.UUID
+) -> dict[str, Any] | None:
     return await _change_gestor_status(db, municipio_id, gestor_id, ESTADO_ACTIVO, "USER_UNBLOCKED")
 
 
@@ -802,7 +813,7 @@ async def reset_password(
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
     nueva_password: str | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Cambia la contraseña del gestor líder.
 
@@ -866,7 +877,7 @@ async def soft_delete_gestor(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Realiza la eliminación lógica de un gestor líder y su usuario.
     No se eliminan registros físicos de la base de datos.
@@ -919,7 +930,7 @@ async def list_gestor_accesos(
     gestor_id: uuid.UUID,
     limit: int = 50,
     offset: int = 0,
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """
     Lista los intentos de acceso (exitosos y fallidos) de un gestor líder.
     """

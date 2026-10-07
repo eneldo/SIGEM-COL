@@ -14,6 +14,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path, PureWindowsPath
+from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,7 +65,7 @@ async def get_mis_productos(
     db: AsyncSession,
     usuario_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene los productos asignados al gestor actual.
     """
@@ -114,7 +115,7 @@ async def get_avances_producto(
     db: AsyncSession,
     producto_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene los avances registrados para un producto específico.
     """
@@ -159,8 +160,8 @@ async def registrar_avance(
     usuario_id: uuid.UUID,
     municipio_id: uuid.UUID,
     producto_id: uuid.UUID,
-    avance_data: dict,
-) -> dict:
+    avance_data: dict[str, Any],
+) -> dict[str, Any]:
     """
     Registra un nuevo avance para un producto.
     """
@@ -265,8 +266,8 @@ async def actualizar_avance(
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-    avance_data: dict,
-) -> dict:
+    avance_data: dict[str, Any],
+) -> dict[str, Any]:
     """
     Actualiza los campos editables de un avance existente.
     No permite editar avances ya aprobados.
@@ -353,7 +354,7 @@ async def eliminar_avance(
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """
     Elimina lógicamente un avance y sus evidencias.
     No permite eliminar avances ya aprobados.
@@ -401,7 +402,7 @@ async def get_resumen_avances(
     db: AsyncSession,
     usuario_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """
     Resumen de avances del gestor actual.
     """
@@ -477,7 +478,7 @@ async def get_avances_para_revision(
     gestor_lider_id: uuid.UUID | None = None,
     estado_revision: str | None = None,
     search: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene avances para revisión con datos del gestor y producto.
     Si se proporciona gestor_lider_id, filtra solo los avances de ese gestor (para gestor líder).
@@ -545,7 +546,7 @@ async def get_estadisticas_revision(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_lider_id: uuid.UUID | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Estadísticas para el dashboard de revisión.
     """
@@ -598,7 +599,7 @@ async def revisar_avance(
     nuevo_estado: str,
     observacion: str | None = None,
     gestor_lider_id: uuid.UUID | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Aprueba o rechaza un avance.
 
@@ -663,7 +664,7 @@ async def guardar_evidencia(
     content: bytes,
     filename: str,
     content_type: str,
-) -> dict:
+) -> dict[str, Any]:
     """
     Guarda el archivo de evidencia en disco y actualiza el avance.
     """
@@ -866,8 +867,8 @@ async def agregar_evidencias(
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-    archivos: list[dict],
-) -> list[dict]:
+    archivos: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Agrega una o más evidencias a un avance sin borrar las existentes.
     archivos: [{content: bytes, filename: str, content_type: str, descripcion: str|None}]
@@ -997,7 +998,7 @@ async def listar_evidencias(
     db: AsyncSession,
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Lista todas las evidencias (no eliminadas) de un avance."""
     avance = await _get_avance_or_404(db, avance_id, municipio_id)
 
@@ -1081,7 +1082,7 @@ async def actualizar_descripcion_evidencia(
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
     descripcion: str | None,
-) -> dict:
+) -> dict[str, Any]:
     """Actualiza la descripción de una evidencia."""
     avance = await _get_avance_or_404(db, avance_id, municipio_id)
     await _check_evidence_permission(db, avance, usuario_id, municipio_id)
@@ -1114,7 +1115,7 @@ async def eliminar_evidencia(
     evidencia_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """Elimina lógicamente una evidencia y borra el archivo del disco."""
     avance = await _get_avance_or_404(db, avance_id, municipio_id)
     await _check_evidence_permission(db, avance, usuario_id, municipio_id)

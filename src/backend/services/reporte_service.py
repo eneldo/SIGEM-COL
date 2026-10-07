@@ -5,6 +5,7 @@ Genera estadísticas, resúmenes y métricas para rendición de cuentas.
 """
 
 import uuid
+from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,7 @@ from ..models.programa import Programa
 async def get_resumen_general(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     lineas_stmt = (
         select(func.count())
         .select_from(LineaEstrategica)
@@ -98,7 +99,7 @@ async def get_resumen_general(
 async def get_resumen_por_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list:
+) -> list[Any]:
     lineas_stmt = select(LineaEstrategica).where(
         and_(
             LineaEstrategica.municipio_id == municipio_id,
@@ -153,7 +154,7 @@ async def get_resumen_por_linea(
 async def get_resumen_por_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list:
+) -> list[Any]:
     prog_stmt = (
         select(Programa, LineaEstrategica.nombre.label("linea_nombre"))
         .join(LineaEstrategica, Programa.linea_estrategica_id == LineaEstrategica.id)
@@ -214,7 +215,7 @@ async def get_resumen_por_programa(
 async def get_resumen_por_dependencia(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list:
+) -> list[Any]:
     deps_stmt = select(Dependencia).where(
         and_(
             Dependencia.municipio_id == municipio_id,
@@ -267,7 +268,7 @@ async def get_resumen_por_dependencia(
 async def get_metricas_productos(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     base = (
         select(Producto)
         .join(Programa, Producto.programa_id == Programa.id)

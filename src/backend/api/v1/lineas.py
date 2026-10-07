@@ -12,6 +12,7 @@ Fecha: 2026-09-20
 """
 
 import logging
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -57,9 +58,9 @@ logger = logging.getLogger(__name__)
 async def crear_linea_estrategica(
     linea_data: LineaCreate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> LineaResponse:
     await require_permission(db, current_user["user"].id, "linea_estrategica.crear")
 
     municipio_id = current_user["municipio_id"]
@@ -106,9 +107,9 @@ async def listar_lineas_estrategicas(
     estado: str | None = Query(None, description="Filtrar por estado (ACTIVA, INACTIVA)"),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> LineaListResponse:
     await require_permission(db, current_user["user"].id, "linea_estrategica.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -149,9 +150,9 @@ async def listar_lineas_estrategicas(
 )
 async def obtener_linea_estrategica(
     linea_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> LineaResponse:
     await require_permission(db, current_user["user"].id, "linea_estrategica.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -190,9 +191,9 @@ async def actualizar_linea_estrategica(
     linea_id: UUID,
     linea_data: LineaUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> LineaResponse:
     await require_permission(db, current_user["user"].id, "linea_estrategica.editar")
 
     municipio_id = current_user["municipio_id"]
@@ -237,9 +238,9 @@ async def actualizar_linea_estrategica(
 async def eliminar_linea_estrategica(
     linea_id: UUID,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     await require_permission(db, current_user["user"].id, "linea_estrategica.eliminar")
 
     municipio_id = current_user["municipio_id"]

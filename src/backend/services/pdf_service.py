@@ -5,9 +5,12 @@ Genera el Informe de Gestión en formato PDF.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 
 from fpdf import FPDF
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.cumplimiento_service import (
     get_cumplimiento_general,
@@ -26,11 +29,11 @@ from ..services.reporte_service import (
 class InformePDF(FPDF):
     """PDF personalizado para el Informe de Gestión de SIGEM Colombia."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.set_auto_page_break(auto=True, margin=25)
 
-    def header(self):
+    def header(self) -> None:
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(100, 100, 100)
         self.cell(0, 8, "SIGEM Colombia - Informe de Gestion", align="L")
@@ -42,13 +45,13 @@ class InformePDF(FPDF):
         self.line(10, self.get_y(), 200, self.get_y())
         self.ln(5)
 
-    def footer(self):
+    def footer(self) -> None:
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, f"Pagina {self.page_no()}/{{nb}}", align="C")
 
-    def section_title(self, title):
+    def section_title(self, title: str) -> None:
         self.set_font("Helvetica", "B", 13)
         self.set_text_color(0, 80, 60)
         self.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
@@ -57,13 +60,13 @@ class InformePDF(FPDF):
         self.line(10, self.get_y(), 80, self.get_y())
         self.ln(3)
 
-    def subsection_title(self, title):
+    def subsection_title(self, title: str) -> None:
         self.set_font("Helvetica", "B", 11)
         self.set_text_color(50, 50, 50)
         self.cell(0, 8, title, new_x="LMARGIN", new_y="NEXT")
         self.ln(1)
 
-    def kpi_row(self, label, value):
+    def kpi_row(self, label: str, value: Any) -> None:
         self.set_font("Helvetica", "", 10)
         self.set_text_color(80, 80, 80)
         self.cell(100, 7, label)
@@ -71,7 +74,7 @@ class InformePDF(FPDF):
         self.set_text_color(0, 0, 0)
         self.cell(0, 7, str(value), new_x="LMARGIN", new_y="NEXT")
 
-    def table_header(self, columns, widths):
+    def table_header(self, columns: Sequence[str], widths: Sequence[float]) -> None:
         self.set_font("Helvetica", "B", 9)
         self.set_fill_color(0, 100, 80)
         self.set_text_color(255, 255, 255)
@@ -79,7 +82,7 @@ class InformePDF(FPDF):
             self.cell(w, 8, col, border=1, fill=True, align="C")
         self.ln()
 
-    def table_row(self, values, widths, fill=False):
+    def table_row(self, values: Sequence[Any], widths: Sequence[float], fill: bool = False) -> None:
         self.set_font("Helvetica", "", 9)
         self.set_text_color(50, 50, 50)
         if fill:
@@ -90,7 +93,7 @@ class InformePDF(FPDF):
 
 
 async def generar_informe_gestion_pdf(
-    db,
+    db: AsyncSession,
     municipio_id: uuid.UUID,
 ) -> bytes:
     """Genera el PDF del Informe de Gestion completo."""

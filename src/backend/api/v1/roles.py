@@ -25,9 +25,9 @@ router = APIRouter(prefix="/roles", tags=["Roles"])
 @router.post("", response_model=RolResponse, status_code=201)
 async def crear_rol(
     body: RolCreate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> RolResponse:
     await require_permission(db, current_user["user"].id, "security.roles.crear")
     try:
         result = await rol_service.create_rol(db, body.model_dump())
@@ -41,9 +41,9 @@ async def listar_roles(
     search: str = "",
     page: int = 1,
     page_size: int = 20,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> RolListResponse:
     await require_permission(db, current_user["user"].id, "security.roles.ver")
     filtros: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
@@ -55,9 +55,9 @@ async def listar_roles(
 @router.get("/permisos", response_model=PermisoListResponse)
 async def listar_permisos(
     modulo: str = "",
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> PermisoListResponse:
     await require_permission(db, current_user["user"].id, "security.roles.ver")
     filtros = {}
     if modulo:
@@ -69,9 +69,9 @@ async def listar_permisos(
 @router.get("/{rol_id}", response_model=RolResponse)
 async def obtener_rol(
     rol_id: str,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> RolResponse:
     await require_permission(db, current_user["user"].id, "security.roles.ver")
     import uuid as _uuid
 
@@ -85,9 +85,9 @@ async def obtener_rol(
 async def actualizar_rol(
     rol_id: str,
     body: RolUpdate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> RolResponse:
     await require_permission(db, current_user["user"].id, "security.roles.editar")
     import uuid as _uuid
 
@@ -101,9 +101,9 @@ async def actualizar_rol(
 @router.delete("/{rol_id}", status_code=204)
 async def eliminar_rol(
     rol_id: str,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     await require_permission(db, current_user["user"].id, "security.roles.eliminar")
     import uuid as _uuid
 

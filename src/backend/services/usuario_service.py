@@ -6,6 +6,7 @@ CRUD completo para administración de usuarios del sistema.
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -22,8 +23,8 @@ from ..services.auth_service import AuthService
 async def create_usuario(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    create_data: dict,
-) -> dict:
+    create_data: dict[str, Any],
+) -> dict[str, Any]:
     codigo = create_data.get("codigo")
     username = create_data.get("username")
     email = create_data.get("email")
@@ -133,8 +134,8 @@ async def create_usuario(
 async def list_usuarios(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     filtros = filtros or {}
     page = max(1, filtros.get("page", 1))
     page_size = min(100, max(1, filtros.get("page_size", 20)))
@@ -217,7 +218,7 @@ async def get_usuario(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     stmt = select(Usuario).where(
         and_(
             Usuario.id == usuario_id,
@@ -262,8 +263,8 @@ async def update_usuario(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-    update_data: dict,
-) -> dict | None:
+    update_data: dict[str, Any],
+) -> dict[str, Any] | None:
     stmt = select(Usuario).where(
         and_(
             Usuario.id == usuario_id,
@@ -319,7 +320,7 @@ async def delete_usuario(
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
     user_id: uuid.UUID | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     stmt = select(Usuario).where(
         and_(
             Usuario.id == usuario_id,

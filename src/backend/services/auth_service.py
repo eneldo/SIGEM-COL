@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import pyotp
 from sqlalchemy import and_, select, update
@@ -37,7 +38,7 @@ class AuthService:
         municipio_codigo: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         # Municipality is mandatory: it scopes the login lookup under RLS.
         if not municipio_codigo:
             return None
@@ -55,7 +56,8 @@ class AuthService:
 
         # Scope this session to the municipality before touching any
         # RLS-protected table (usuarios, intentos_login, sesiones, ...).
-        await set_tenant_context(self.db, municipio.id)
+        # Los modelos usan Column legado, asi que `municipio.id` no se tipa como UUID.
+        await set_tenant_context(self.db, cast(uuid.UUID, municipio.id))
 
         # Get user by username + municipio
         user_result = await self.db.execute(
@@ -173,10 +175,10 @@ class AuthService:
         user: Usuario,
         municipio_id: uuid.UUID,
         roles: list[str],
-        token_data: dict,
+        token_data: dict[str, Any],
         ip_address: str | None,
         user_agent: str | None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create access/refresh tokens, persist the session and return the login payload.
 
         The access token carries a `sid` claim pointing to the persisted
@@ -212,7 +214,7 @@ class AuthService:
         roles: list[str],
         access_token: str,
         refresh_token: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -251,7 +253,7 @@ class AuthService:
         refresh_token: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Validate and rotate a refresh token, keeping the same session (`sid`).
 
         A refresh token that was already rotated (or whose session was revoked)
@@ -317,7 +319,7 @@ class AuthService:
         code: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Second login step: validate the TOTP code and issue real tokens."""
         payload = decode_token(mfa_token)
         if not payload or payload.get("type") != "mfa":
@@ -346,7 +348,7 @@ class AuthService:
     # MFA management (TOTP)
     # ------------------------------------------------------------------
 
-    async def mfa_status(self, user: Usuario) -> dict:
+    async def mfa_status(self, user: Usuario) -> dict[str, Any]:
         if user.mfa_activo:
             return {"mfa_activo": True, "pending": False}
         if user.mfa_secret:
@@ -361,7 +363,7 @@ class AuthService:
             }
         return {"mfa_activo": False, "pending": False}
 
-    async def mfa_setup(self, user: Usuario) -> dict:
+    async def mfa_setup(self, user: Usuario) -> dict[str, Any]:
         if user.mfa_activo:
             raise ValueError("MFA ya está activo; desactívelo antes de volver a configurarlo.")
         secret = pyotp.random_base32()

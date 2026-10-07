@@ -9,6 +9,7 @@ Versión: 1.1
 Fecha: 2026-09-23
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -35,9 +36,9 @@ ADMIN_ROLE_CODES = {"SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL"}
     description="Retorna los roles activos del sistema ordenados por nivel.",
 )
 async def list_roles(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[RolOut]:
     stmt = select(Rol).where(Rol.deleted_at.is_(None)).order_by(Rol.nivel.asc())
     result = await db.execute(stmt)
     rows = list(result.scalars().all())
@@ -57,9 +58,9 @@ async def list_roles(
 async def list_dependencias(
     search: str | None = Query(None, description="Filtro por nombre o código"),
     include_eliminadas: bool = Query(False, description="Incluir dependencias eliminadas"),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[DependenciaOut]:
     municipio_id = UUID(current_user["municipio_id"])
     role_codes = set(current_user.get("roles") or [])
     is_admin = bool(role_codes & ADMIN_ROLE_CODES)

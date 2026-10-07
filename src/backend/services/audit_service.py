@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -25,7 +26,7 @@ class AuditService:
         recurso_id: UUID | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AuditoriaEvento:
         event = AuditoriaEvento(
             municipio_id=municipio_id,

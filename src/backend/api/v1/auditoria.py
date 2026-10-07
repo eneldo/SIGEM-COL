@@ -29,9 +29,9 @@ async def listar_auditoria(
     fecha_hasta: str = "",
     page: int = 1,
     page_size: int = 20,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> AuditoriaListResponse:
     await require_permission(db, current_user["user"].id, "auditoria.ver")
     municipio_id = current_user["municipio_id"]
     filtros: dict[str, Any] = {"page": page, "page_size": page_size}
@@ -53,9 +53,9 @@ async def listar_auditoria(
 
 @router.get("/stats", response_model=AuditoriaStats)
 async def estadisticas_auditoria(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> AuditoriaStats:
     await require_permission(db, current_user["user"].id, "auditoria.ver")
     municipio_id = current_user["municipio_id"]
     result = await audit_admin_service.get_auditoria_stats(db, municipio_id)

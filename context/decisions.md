@@ -14,6 +14,10 @@
 
 **Deuda tecnica:** python-jose esta sin mantenimiento. Migrar la firma de tokens a PyJWT sigue recomendado y queda como tarea separada.
 
+**Tipado estricto:** `mypy --strict` nunca se habia ejecutado porque `ruff` fallaba antes en el pipeline; al habilitarlo aparecieron 392 errores. Se annotaron en su totalidad en lugar de relajar la configuracion: los `dict`/`list` sin parametrizar pasan a `dict[str, Any]`/`list[Any]` y todas las firmas quedan tipadas.
+
+**Rutas FastAPI:** donde ya exista `response_model` explicito se reutilizo esa expresion como anotacion de retorno (FastAPI ignora la anotacion cuando `response_model` esta declarado). En las 16 rutas sin `response_model` se anot `dict[str, Any]`, `FileResponse`, `StreamingResponse` o `None` segun lo que devuelven. El esquema OpenAPI pasa a documentar esos cuerpos, que antes aparecian como `{}`. Se verifico que las 16 devuelven siempre `dict` o `list`, de modo que la validacion anadida no rechaza respuestas que antes pasaban.
+
 ---
 
 ## 2026-10-06: Contención de evidencias y revocación de cuentas deshabilitadas

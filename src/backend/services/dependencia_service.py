@@ -4,6 +4,7 @@ Servicio CRUD de Dependencias - SIGEM Colombia
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +15,8 @@ from ..models.dependencia import Dependencia
 async def list_dependencias(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict,
-) -> dict:
+    filtros: dict[str, Any],
+) -> dict[str, Any]:
     """Listar dependencias con paginación, búsqueda y filtros."""
     page = filtros.get("page", 1)
     page_size = min(filtros.get("page_size", 20), 100)
@@ -81,7 +82,7 @@ async def get_dependencia(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     dependencia_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Obtener una dependencia por ID."""
     stmt = select(Dependencia).where(
         Dependencia.id == dependencia_id,
@@ -109,8 +110,8 @@ async def get_dependencia(
 async def create_dependencia(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    data: dict,
-) -> dict:
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Crear una nueva dependencia."""
     # Verificar que el código sea único dentro del municipio
     existing = await db.execute(
@@ -168,8 +169,8 @@ async def update_dependencia(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     dependencia_id: uuid.UUID,
-    data: dict,
-) -> dict | None:
+    data: dict[str, Any],
+) -> dict[str, Any] | None:
     """Actualizar una dependencia existente."""
     stmt = select(Dependencia).where(
         Dependencia.id == dependencia_id,
@@ -232,9 +233,9 @@ async def update_dependencia(
 
 async def delete_dependencia(
     db: AsyncSession,
-    municipio_id,
-    dependencia_id,
-    user_id,
+    municipio_id: uuid.UUID,
+    dependencia_id: uuid.UUID,
+    user_id: uuid.UUID,
 ) -> bool:
     """Eliminar lógicamente una dependencia."""
     if not isinstance(municipio_id, uuid.UUID):

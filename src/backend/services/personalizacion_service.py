@@ -3,6 +3,7 @@ Servicio de Personalizacion (branding) por municipio - SIGEM Colombia
 """
 
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,7 @@ DEFAULT_COLOR_SECUNDARIO = "#b9852f"
 DEFAULT_NOMBRE_SISTEMA = "SIGEM Colombia"
 
 
-def default_configuracion() -> dict:
+def default_configuracion() -> dict[str, Any]:
     """Configuracion visual por defecto cuando el municipio no tiene fila."""
     return {
         "color_primario": DEFAULT_COLOR_PRIMARIO,
@@ -24,7 +25,7 @@ def default_configuracion() -> dict:
     }
 
 
-def _to_dict(row: Personalizacion) -> dict:
+def _to_dict(row: Personalizacion) -> dict[str, Any]:
     return {
         "color_primario": row.color_primario,
         "color_secundario": row.color_secundario,
@@ -36,7 +37,7 @@ def _to_dict(row: Personalizacion) -> dict:
 async def get_personalizacion(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """Obtener la configuracion visual del municipio (o los valores por defecto)."""
     stmt = select(Personalizacion).where(
         Personalizacion.municipio_id == municipio_id,
@@ -51,8 +52,8 @@ async def get_personalizacion(
 async def save_personalizacion(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    data: dict,
-) -> dict:
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Crear o actualizar la configuracion visual del municipio."""
     stmt = select(Personalizacion).where(
         Personalizacion.municipio_id == municipio_id,

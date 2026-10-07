@@ -19,6 +19,7 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Documentación de CI/CD en `docs/operations/ci-cd.md`
 
 ### Changed
+- Anotaciones de tipo completas en el backend para `mypy --strict`: los `dict` y `list` sin parametrizar pasan a `dict[str, Any]` / `list[Any]`, y todas las firmas de funciones y rutas quedan anotadas
 - Rate limiting configurable: `RATE_LIMIT_DEFAULT_REQUESTS`, `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_WINDOW` y `TRUST_PROXY_HEADERS`
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
 

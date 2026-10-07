@@ -12,6 +12,7 @@ Fecha: 2026-09-20
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,8 +28,8 @@ from ..models.programa import Programa
 async def create_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    create_data: dict,
-) -> dict:
+    create_data: dict[str, Any],
+) -> dict[str, Any]:
     """
     Crea un nuevo programa asociado a una línea estratégica.
 
@@ -126,8 +127,8 @@ async def create_programa(
 async def list_programas(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Lista programas con filtros y paginación.
 
@@ -237,7 +238,7 @@ async def get_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     programa_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Obtiene un programa por su ID dentro de un municipio.
 
@@ -297,8 +298,8 @@ async def update_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     programa_id: uuid.UUID,
-    update_data: dict,
-) -> dict | None:
+    update_data: dict[str, Any],
+) -> dict[str, Any] | None:
     """
     Actualiza la información de un programa.
 
@@ -409,7 +410,7 @@ async def delete_programa(
     municipio_id: uuid.UUID,
     programa_id: uuid.UUID,
     user_id: uuid.UUID | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Realiza la eliminación lógica de un programa.
 

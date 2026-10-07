@@ -1,5 +1,6 @@
 """Schemas Configuración - Pydantic models para el módulo de Configuración"""
 
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -164,4 +165,4 @@ class AuditoriaStats(BaseModel):
     exitosos: int
     fallidos: int
     hoy: int
-    por_tipo: dict = {}
+    por_tipo: dict[str, Any] = {}

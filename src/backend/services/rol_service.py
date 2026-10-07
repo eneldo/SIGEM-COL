@@ -6,6 +6,7 @@ CRUD completo para administración de roles y permisos del sistema.
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +17,8 @@ from ..models.usuario_rol import RolPermiso
 
 async def create_rol(
     db: AsyncSession,
-    create_data: dict,
-) -> dict:
+    create_data: dict[str, Any],
+) -> dict[str, Any]:
     codigo = create_data.get("codigo")
     nombre = create_data.get("nombre")
     descripcion = create_data.get("descripcion", None)
@@ -75,8 +76,8 @@ async def create_rol(
 
 async def list_roles(
     db: AsyncSession,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     filtros = filtros or {}
     page = max(1, filtros.get("page", 1))
     page_size = min(100, max(1, filtros.get("page_size", 20)))
@@ -126,7 +127,7 @@ async def list_roles(
 async def get_rol(
     db: AsyncSession,
     rol_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
     result = await db.execute(stmt)
     rol = result.scalar_one_or_none()
@@ -151,8 +152,8 @@ async def get_rol(
 async def update_rol(
     db: AsyncSession,
     rol_id: uuid.UUID,
-    update_data: dict,
-) -> dict | None:
+    update_data: dict[str, Any],
+) -> dict[str, Any] | None:
     stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
     result = await db.execute(stmt)
     rol = result.scalar_one_or_none()
@@ -195,7 +196,7 @@ async def update_rol(
 async def delete_rol(
     db: AsyncSession,
     rol_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     stmt = select(Rol).where(and_(Rol.id == rol_id, Rol.deleted_at.is_(None)))
     result = await db.execute(stmt)
     rol = result.scalar_one_or_none()
@@ -218,8 +219,8 @@ async def delete_rol(
 
 async def list_permisos(
     db: AsyncSession,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     filtros = filtros or {}
 
     base_query = select(Permiso).where(Permiso.deleted_at.is_(None))
@@ -248,7 +249,7 @@ async def list_permisos(
     return {"items": items, "total": len(items)}
 
 
-async def _get_rol_permisos(db: AsyncSession, rol_id: uuid.UUID) -> list:
+async def _get_rol_permisos(db: AsyncSession, rol_id: uuid.UUID) -> list[Any]:
     stmt = (
         select(Permiso.id, Permiso.codigo, Permiso.nombre, Permiso.modulo, Permiso.accion)
         .join(RolPermiso, RolPermiso.permiso_id == Permiso.id)

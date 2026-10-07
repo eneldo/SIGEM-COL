@@ -6,6 +6,7 @@ Consultas de auditoría y evidencias del sistema.
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,8 +18,8 @@ from ..models.usuario import Usuario
 async def list_auditoria(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     filtros = filtros or {}
     page = max(1, filtros.get("page", 1))
     page_size = min(100, max(1, filtros.get("page_size", 20)))
@@ -97,7 +98,7 @@ async def list_auditoria(
 async def get_auditoria_stats(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     base = select(func.count()).where(AuditoriaEvento.municipio_id == municipio_id)
 
     total_result = await db.execute(base)

@@ -12,6 +12,7 @@ Fecha: 2026-09-21
 import logging
 from decimal import Decimal
 from pathlib import PurePath
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -195,7 +196,7 @@ def _valid_evidence_signature(content_type: str, content: bytes) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def _require_revision_access(db, current_user) -> UUID | None:
+async def _require_revision_access(db: AsyncSession, current_user: dict[str, Any]) -> UUID | None:
     """Allow admins and gestor líderes to review all municipal avances."""
     roles = current_user.get("roles", [])
     allowed_roles = {
@@ -223,9 +224,9 @@ async def _require_revision_access(db, current_user) -> UUID | None:
     summary="Obtener productos asignados al gestor",
 )
 async def obtener_mis_productos(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[ProductoAsignado]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -246,9 +247,9 @@ async def obtener_mis_productos(
     summary="Resumen de avances del gestor",
 )
 async def obtener_resumen_avances(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> ResumenAvances:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -277,9 +278,9 @@ async def obtener_avances_revision(
     estado: str | None = None,
     search: str | None = None,
     periodo: str | None = None,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[AvanceRevisionResponse]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -309,9 +310,9 @@ async def obtener_avances_revision(
     summary="Estadísticas de revisión de avances",
 )
 async def obtener_estadisticas_revision(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> EstadisticasRevision:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -337,9 +338,9 @@ async def obtener_estadisticas_revision(
 async def revisar_avance_endpoint(
     avance_id: UUID,
     data: RevisionAvanceRequest,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -386,9 +387,9 @@ async def revisar_avance_endpoint(
 async def crear_avance(
     avance_data: AvanceCreate,
     producto_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> AvanceResponse:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -428,9 +429,9 @@ async def crear_avance(
 async def editar_avance(
     avance_id: UUID,
     avance_data: AvanceUpdate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> AvanceResponse:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -473,9 +474,9 @@ async def editar_avance(
 )
 async def borrar_avance(
     avance_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -510,9 +511,9 @@ async def borrar_avance(
 )
 async def obtener_avances_producto(
     producto_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[AvanceResponse]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -541,9 +542,9 @@ async def obtener_avances_producto(
 async def subir_evidencia(
     avance_id: UUID,
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -612,9 +613,9 @@ async def subir_evidencia(
 )
 async def descargar_evidencia(
     avance_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> FileResponse:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -689,9 +690,9 @@ async def subir_evidencias(
     avance_id: UUID,
     files: list[UploadFile] = File(...),
     descripcion: str | None = Form(None),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[EvidenciaResponse]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -745,9 +746,9 @@ async def subir_evidencias(
 )
 async def obtener_evidencias(
     avance_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[EvidenciaResponse]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -773,9 +774,9 @@ async def obtener_evidencias(
 async def descargar_evidencia_por_id(
     avance_id: UUID,
     evidencia_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> FileResponse:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -813,9 +814,9 @@ async def actualizar_evidencia(
     avance_id: UUID,
     evidencia_id: UUID,
     data: EvidenciaDescripcionUpdate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(
@@ -847,9 +848,9 @@ async def actualizar_evidencia(
 async def borrar_evidencia(
     avance_id: UUID,
     evidencia_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user.get("user")
     if not user:
         raise HTTPException(

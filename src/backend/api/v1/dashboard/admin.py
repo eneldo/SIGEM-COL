@@ -11,6 +11,8 @@ Versión: 1.0
 Fecha: 2026-09-20
 """
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +35,9 @@ router = APIRouter(prefix="/admin", tags=["Dashboard Admin"])
 # ---------------------------------------------------------------------------
 
 
-async def _require_permission(db: AsyncSession, current_user: dict, permission: str) -> None:
+async def _require_permission(
+    db: AsyncSession, current_user: dict[str, Any], permission: str
+) -> None:
     """
     Verifica que el usuario autenticado tenga el permiso especificado.
     Lanza HTTPException 403 si no tiene el permiso.
@@ -63,9 +67,9 @@ async def _require_permission(db: AsyncSession, current_user: dict, permission: 
     ),
 )
 async def kpis_generales(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
@@ -99,9 +103,9 @@ async def kpis_generales(
     ),
 )
 async def resumen_plan(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
@@ -141,9 +145,9 @@ async def resumen_plan(
     ),
 )
 async def gestores_summary(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
@@ -176,9 +180,9 @@ async def gestores_summary(
     ),
 )
 async def alertas_seguridad(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID
@@ -211,9 +215,9 @@ async def alertas_seguridad(
     ),
 )
 async def estadisticas_dependencia(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.admin.ver")
 
     from uuid import UUID

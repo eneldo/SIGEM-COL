@@ -3,6 +3,7 @@ API Routes - Reportes y Rendición de Cuentas
 """
 
 import io
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -32,48 +33,48 @@ router = APIRouter(prefix="/reportes", tags=["Reportes"])
 @router.get("/resumen-general", response_model=ResumenGeneral)
 async def resumen_general(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> dict[str, Any]:
     return await get_resumen_general(db, current_user["municipio_id"])
 
 
 @router.get("/por-linea", response_model=list[ResumenPorLinea])
 async def resumen_por_linea(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> list[ResumenPorLinea]:
     return await get_resumen_por_linea(db, current_user["municipio_id"])
 
 
 @router.get("/por-programa", response_model=list[ResumenPorPrograma])
 async def resumen_por_programa(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> list[ResumenPorPrograma]:
     return await get_resumen_por_programa(db, current_user["municipio_id"])
 
 
 @router.get("/por-dependencia", response_model=list[ResumenPorDependencia])
 async def resumen_por_dependencia(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> list[ResumenPorDependencia]:
     return await get_resumen_por_dependencia(db, current_user["municipio_id"])
 
 
 @router.get("/metricas-productos", response_model=MetricasProductos)
 async def metricas_productos(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> dict[str, Any]:
     return await get_metricas_productos(db, current_user["municipio_id"])
 
 
 @router.get("/informe-pdf")
 async def informe_pdf(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> StreamingResponse:
     pdf_bytes = await generar_informe_gestion_pdf(db, current_user["municipio_id"])
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
