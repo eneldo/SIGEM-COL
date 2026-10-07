@@ -1,6 +1,7 @@
 """Tests de integración CRUD para Gestores Líderes."""
 
 import uuid
+
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -18,9 +19,7 @@ def _get_gestor(api, token, gestor_id):
 
 def _create_gestor(api, token, **overrides):
     roles_resp = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(token))
-    deps_resp = api.get(
-        f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(token)
-    )
+    deps_resp = api.get(f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(token))
     rol_id = next((r["id"] for r in roles_resp.json() if r["codigo"] == "GESTOR"), None)
     dep_id = deps_resp.json()[0]["id"] if deps_resp.json() else None
 
@@ -41,9 +40,7 @@ def _create_gestor(api, token, **overrides):
 
 
 def _update_gestor(api, token, gestor_id, **fields):
-    return api.put(
-        f"{API_PREFIX}/gestores/{gestor_id}", json=fields, headers=auth_header(token)
-    )
+    return api.put(f"{API_PREFIX}/gestores/{gestor_id}", json=fields, headers=auth_header(token))
 
 
 def _update_permissions(api, token, gestor_id, **fields):
@@ -63,15 +60,11 @@ def _update_permissions(api, token, gestor_id, **fields):
 
 
 def _activate(api, token, gestor_id):
-    return api.post(
-        f"{API_PREFIX}/gestores/{gestor_id}/activate", headers=auth_header(token)
-    )
+    return api.post(f"{API_PREFIX}/gestores/{gestor_id}/activate", headers=auth_header(token))
 
 
 def _deactivate(api, token, gestor_id):
-    return api.post(
-        f"{API_PREFIX}/gestores/{gestor_id}/deactivate", headers=auth_header(token)
-    )
+    return api.post(f"{API_PREFIX}/gestores/{gestor_id}/deactivate", headers=auth_header(token))
 
 
 def _block(api, token, gestor_id, motivo):
@@ -83,9 +76,7 @@ def _block(api, token, gestor_id, motivo):
 
 
 def _unblock(api, token, gestor_id):
-    return api.post(
-        f"{API_PREFIX}/gestores/{gestor_id}/unblock", headers=auth_header(token)
-    )
+    return api.post(f"{API_PREFIX}/gestores/{gestor_id}/unblock", headers=auth_header(token))
 
 
 def _reset_password(api, token, gestor_id, nueva_password=None):
@@ -154,9 +145,7 @@ class TestListGestores:
         assert resp.status_code == 200
 
     def test_list_filter_rol(self, api, admin_token):
-        roles = api.get(
-            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
-        ).json()
+        roles = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)).json()
         rol_id = next((r["id"] for r in roles if r["codigo"] == "GESTOR"), None)
         if rol_id:
             resp = _list_gestores(api, admin_token, rol_id=rol_id)
@@ -247,9 +236,7 @@ class TestCreateGestor:
         _delete_gestor(api, admin_token, gestor_id)
 
     def test_create_with_all_fields(self, api, admin_token):
-        roles = api.get(
-            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
-        ).json()
+        roles = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)).json()
         rol_id = next((r["id"] for r in roles if r["codigo"] == "GESTOR"), None)
         deps = api.get(
             f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token)
@@ -267,9 +254,7 @@ class TestCreateGestor:
             "username": f"gestor_completo_{uuid.uuid4().hex[:6]}",
             "password": "CustomPassword2026!!",
         }
-        resp = api.post(
-            f"{API_PREFIX}/gestores", json=payload, headers=auth_header(admin_token)
-        )
+        resp = api.post(f"{API_PREFIX}/gestores", json=payload, headers=auth_header(admin_token))
         assert resp.status_code == 201, resp.text
         data = resp.json()
         assert data["username"] == payload["username"]
@@ -301,9 +286,7 @@ class TestUpdateGestor:
     """PUT /gestores/{id} - Actualizar gestor."""
 
     def test_update_requires_auth(self, api):
-        resp = api.put(
-            f"{API_PREFIX}/gestores/{uuid.uuid4()}", json={"nombre_completo": "Nuevo"}
-        )
+        resp = api.put(f"{API_PREFIX}/gestores/{uuid.uuid4()}", json={"nombre_completo": "Nuevo"})
         assert resp.status_code == 401
 
     def test_update_gestor_token_denied(self, api, admin_token, gestor_token):
@@ -323,9 +306,7 @@ class TestUpdateGestor:
         created = _create_gestor(api, admin_token)
         gestor_id = created.json()["id"]
         try:
-            resp = _update_gestor(
-                api, admin_token, gestor_id, nombre_completo="Nombre Actualizado"
-            )
+            resp = _update_gestor(api, admin_token, gestor_id, nombre_completo="Nombre Actualizado")
             assert resp.status_code == 200
             assert resp.json()["nombre_completo"] == "Nombre Actualizado"
         finally:
@@ -360,9 +341,7 @@ class TestUpdateGestor:
         ).json()
         dep_id = deps[0]["id"] if deps else None
         try:
-            resp = _update_gestor(
-                api, admin_token, gestor_id, dependencia_principal_id=dep_id
-            )
+            resp = _update_gestor(api, admin_token, gestor_id, dependencia_principal_id=dep_id)
             assert resp.status_code == 200
             assert resp.json()["dependencia_principal_id"] == dep_id
         finally:
@@ -389,9 +368,7 @@ class TestUpdatePermissions:
         created = _create_gestor(api, admin_token)
         gestor_id = created.json()["id"]
         try:
-            resp = _update_permissions(
-                api, gestor_token, gestor_id, rol_id=uuid.uuid4()
-            )
+            resp = _update_permissions(api, gestor_token, gestor_id, rol_id=uuid.uuid4())
             assert resp.status_code == 403
         finally:
             _delete_gestor(api, admin_token, gestor_id)
@@ -403,9 +380,7 @@ class TestUpdatePermissions:
     def test_update_rol(self, api, admin_token):
         created = _create_gestor(api, admin_token)
         gestor_id = created.json()["id"]
-        roles = api.get(
-            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
-        ).json()
+        roles = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)).json()
         rol_id = next((r["id"] for r in roles if r["codigo"] == "GESTOR"), None)
         try:
             resp = _update_permissions(api, admin_token, gestor_id, rol_id=rol_id)
@@ -422,9 +397,7 @@ class TestUpdatePermissions:
         ).json()
         dep_id = deps[0]["id"] if deps else None
         try:
-            resp = _update_permissions(
-                api, admin_token, gestor_id, dependencia_principal_id=dep_id
-            )
+            resp = _update_permissions(api, admin_token, gestor_id, dependencia_principal_id=dep_id)
             assert resp.status_code == 200
             assert resp.json()["dependencia_principal_id"] == dep_id
         finally:
@@ -436,9 +409,7 @@ class TestUpdatePermissions:
         deps = api.get(
             f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token)
         ).json()
-        dep_ids = (
-            [d["id"] for d in deps[:2]] if len(deps) >= 2 else [d["id"] for d in deps]
-        )
+        dep_ids = [d["id"] for d in deps[:2]] if len(deps) >= 2 else [d["id"] for d in deps]
         try:
             resp = _update_permissions(
                 api, admin_token, gestor_id, dependencias_adicionales=dep_ids
@@ -504,9 +475,7 @@ class TestBlockUnblock:
     """POST /gestores/{id}/block|unblock - Bloquear/Desbloquear."""
 
     def test_block_requires_auth(self, api):
-        resp = api.post(
-            f"{API_PREFIX}/gestores/{uuid.uuid4()}/block", json={"motivo": "test"}
-        )
+        resp = api.post(f"{API_PREFIX}/gestores/{uuid.uuid4()}/block", json={"motivo": "test"})
         assert resp.status_code == 401
 
     def test_block_missing_motivo(self, api, admin_token):

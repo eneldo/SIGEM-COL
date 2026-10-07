@@ -13,11 +13,7 @@ import httpx
 def make_png(color, w=80, h=80):
     def chunk(t, d):
         c = t + d
-        return (
-            struct.pack(">I", len(d))
-            + c
-            + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
-        )
+        return struct.pack(">I", len(d)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
 
     raw = b"".join(b"\x00" + bytes(color) * w for _ in range(h))
     return (
@@ -113,9 +109,7 @@ def main() -> None:
 
     # 6. Descargar cada una
     for e in listed:
-        r = c.get(
-            f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{e['id']}", headers=h
-        )
+        r = c.get(f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{e['id']}", headers=h)
         assert r.status_code == 200, f"download {e['nombre']} fail {r.status_code}"
         ct = r.headers.get("content-type", "")
         size = len(r.content)
@@ -147,9 +141,7 @@ def main() -> None:
 
     # 9. Eliminar UNA evidencia
     ev_del = listed[1]["id"]
-    r = c.delete(
-        f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{ev_del}", headers=h
-    )
+    r = c.delete(f"/api/v1/gestor/dashboard/avances/{av_id}/evidencias/{ev_del}", headers=h)
     assert r.status_code == 200 and r.json()["eliminada"] is True
     print("[9] Eliminar 1 evidencia OK")
 
@@ -194,9 +186,7 @@ def main() -> None:
     print("[12] Historial de avances del producto OK")
 
     print()
-    print(
-        "=== TODAS LAS PRUEBAS DEL MODULO REGISTRO DE AVANCES CON 3 EVIDENCIAS: PASARON ==="
-    )
+    print("=== TODAS LAS PRUEBAS DEL MODULO REGISTRO DE AVANCES CON 3 EVIDENCIAS: PASARON ===")
     print(f"Avance de prueba: {av_id}")
 
 

@@ -80,17 +80,13 @@ def obj(**values):
 @pytest.fixture
 def audit(monkeypatch):
     log = AsyncMock()
-    monkeypatch.setattr(
-        service, "AuditService", Mock(return_value=SimpleNamespace(log_event=log))
-    )
+    monkeypatch.setattr(service, "AuditService", Mock(return_value=SimpleNamespace(log_event=log)))
     return log
 
 
 async def test_query_helpers_and_build_dict():
     gestor, usuario = obj(), obj()
-    assert await service._get_gestor_usuario(
-        DB(executes=[Result(rows=[])]), uuid4(), uuid4()
-    ) == (
+    assert await service._get_gestor_usuario(DB(executes=[Result(rows=[])]), uuid4(), uuid4()) == (
         None,
         None,
     )
@@ -110,9 +106,7 @@ async def test_query_helpers_and_build_dict():
     assert data["rol"] == "Gestor líder"
     assert data["roles"] == [service.ROL_GESTOR_LIDER]
     assert data["dependencia_principal"] == "Planeación"
-    assert data["dependencias"] == [
-        {"id": dep_id, "nombre": "Planeación", "es_principal": True}
-    ]
+    assert data["dependencias"] == [{"id": dep_id, "nombre": "Planeación", "es_principal": True}]
 
     empty = await service._build_gestor_dict(
         DB(executes=[Result(rows=[]), Result(rows=[])]), gestor, usuario
@@ -142,8 +136,7 @@ async def test_role_and_dependency_validation():
 )
 async def test_generate_gestor_code(last, expected):
     assert (
-        await service.generate_gestor_code(DB(executes=[Result(value=last)]), uuid4())
-        == expected
+        await service.generate_gestor_code(DB(executes=[Result(value=last)]), uuid4()) == expected
     )
 
 
@@ -152,10 +145,7 @@ async def test_username_generation_variants(monkeypatch):
     assert await service._username_existe(DB(scalars=[None]), "free") is False
     exists = AsyncMock(side_effect=[True, False])
     monkeypatch.setattr(service, "_username_existe", exists)
-    assert (
-        await service.generate_username(DB(), uuid4(), "Juan Carlos Pérez")
-        == "jcarlospérez2"
-    )
+    assert await service.generate_username(DB(), uuid4(), "Juan Carlos Pérez") == "jcarlospérez2"
     monkeypatch.setattr(service, "_username_existe", AsyncMock(return_value=False))
     assert await service.generate_username(DB(), uuid4(), " Solo ") == "solo"
     assert await service.generate_username(DB(), uuid4(), "") == "usuario"
@@ -198,21 +188,15 @@ async def test_create_rejects_role_dependency_and_duplicate(monkeypatch):
         await service.create_gestor(DB(), uuid4(), data)
 
 
-async def test_create_generated_credentials_and_coordinator_dependencies(
-    monkeypatch, audit
-):
+async def test_create_generated_credentials_and_coordinator_dependencies(monkeypatch, audit):
     mid, principal, extra = uuid4(), uuid4(), uuid4()
     role = obj(codigo=service.ROL_GESTOR_LIDER)
     monkeypatch.setattr(service, "_validar_rol", AsyncMock(return_value=role))
     validate = AsyncMock()
     monkeypatch.setattr(service, "_validar_dependencias", validate)
-    monkeypatch.setattr(
-        service, "generate_gestor_code", AsyncMock(return_value="GES-000007")
-    )
+    monkeypatch.setattr(service, "generate_gestor_code", AsyncMock(return_value="GES-000007"))
     monkeypatch.setattr(service, "generate_username", AsyncMock(return_value="jperez"))
-    monkeypatch.setattr(
-        service, "generate_temporary_password", Mock(return_value="T" * 24)
-    )
+    monkeypatch.setattr(service, "generate_temporary_password", Mock(return_value="T" * 24))
     monkeypatch.setattr(service, "get_password_hash", Mock(return_value="hash"))
     db = DB()
     result = await service.create_gestor(
@@ -235,16 +219,12 @@ async def test_create_generated_credentials_and_coordinator_dependencies(
     audit.assert_awaited_once()
 
 
-async def test_create_custom_credentials_and_additional_dependencies(
-    monkeypatch, audit
-):
+async def test_create_custom_credentials_and_additional_dependencies(monkeypatch, audit):
     mid, principal, extra = uuid4(), uuid4(), uuid4()
     role = obj(codigo="ANALISTA")
     monkeypatch.setattr(service, "_validar_rol", AsyncMock(return_value=role))
     monkeypatch.setattr(service, "_validar_dependencias", AsyncMock())
-    monkeypatch.setattr(
-        service, "generate_gestor_code", AsyncMock(return_value="GES-000008")
-    )
+    monkeypatch.setattr(service, "generate_gestor_code", AsyncMock(return_value="GES-000008"))
     monkeypatch.setattr(service, "_username_existe", AsyncMock(return_value=False))
     monkeypatch.setattr(service, "get_password_hash", Mock(return_value="hash"))
     db = DB()
@@ -290,24 +270,16 @@ async def test_list_gestores_all_filters_and_bounds(monkeypatch):
         "page_size": 100,
         "total_pages": 1,
     }
-    empty = await service.list_gestores(
-        DB(scalars=[None], executes=[Result(rows=[])]), uuid4()
-    )
+    empty = await service.list_gestores(DB(scalars=[None], executes=[Result(rows=[])]), uuid4())
     assert empty["total"] == 0 and empty["total_pages"] == 0
 
 
 async def test_get_gestor_found_and_missing(monkeypatch):
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service.get_gestor(DB(), uuid4(), uuid4()) is None
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
-    monkeypatch.setattr(
-        service, "_build_gestor_dict", AsyncMock(return_value={"id": gestor.id})
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
+    monkeypatch.setattr(service, "_build_gestor_dict", AsyncMock(return_value={"id": gestor.id}))
     assert (await service.get_gestor(DB(), uuid4(), gestor.id))["id"] == gestor.id
 
 
@@ -328,20 +300,14 @@ async def test_mark_principal_updates_existing_and_adds_missing():
 
 
 async def test_update_gestor_missing_and_all_fields(monkeypatch, audit):
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service.update_gestor(DB(), uuid4(), uuid4(), {}) is None
 
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
     mark = AsyncMock()
     monkeypatch.setattr(service, "_marcar_principal", mark)
-    monkeypatch.setattr(
-        service, "_build_gestor_dict", AsyncMock(return_value={"ok": True})
-    )
+    monkeypatch.setattr(service, "_build_gestor_dict", AsyncMock(return_value={"ok": True}))
     dep = uuid4()
     db = DB()
     result = await service.update_gestor(
@@ -358,46 +324,30 @@ async def test_update_gestor_missing_and_all_fields(monkeypatch, audit):
     )
     assert result == {"ok": True}
     assert usuario.nombre_completo == gestor.nombre_completo == "Nuevo"
-    assert (
-        usuario.cargo is None
-        and usuario.email == "n@x.co"
-        and usuario.telefono == "321"
-    )
+    assert usuario.cargo is None and usuario.email == "n@x.co" and usuario.telefono == "321"
     mark.assert_awaited_once()
     assert db.refresh.await_count == 2
 
 
 async def test_permissions_missing_role_only_and_no_changes(monkeypatch, audit):
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service.update_gestor_permissions(DB(), uuid4(), uuid4(), {}) is None
 
     gestor, usuario, role = obj(), obj(), obj(codigo="ANALISTA")
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
     monkeypatch.setattr(service, "_validar_rol", AsyncMock(return_value=role))
-    monkeypatch.setattr(
-        service, "_build_gestor_dict", AsyncMock(return_value={"ok": True})
-    )
+    monkeypatch.setattr(service, "_build_gestor_dict", AsyncMock(return_value={"ok": True}))
     db = DB(executes=[Result()])
-    result = await service.update_gestor_permissions(
-        db, uuid4(), gestor.id, {"rol_id": role.id}
-    )
+    result = await service.update_gestor_permissions(db, uuid4(), gestor.id, {"rol_id": role.id})
     assert result == {"ok": True} and len(db.added) == 1
 
     db = DB()
-    assert await service.update_gestor_permissions(db, uuid4(), gestor.id, {}) == {
-        "ok": True
-    }
+    assert await service.update_gestor_permissions(db, uuid4(), gestor.id, {}) == {"ok": True}
 
 
 async def test_permissions_dependencies_role_restriction_and_clear(monkeypatch, audit):
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
     monkeypatch.setattr(
         service,
         "_get_roles",
@@ -405,9 +355,7 @@ async def test_permissions_dependencies_role_restriction_and_clear(monkeypatch, 
     )
     validate = AsyncMock()
     monkeypatch.setattr(service, "_validar_dependencias", validate)
-    monkeypatch.setattr(
-        service, "_build_gestor_dict", AsyncMock(return_value={"ok": True})
-    )
+    monkeypatch.setattr(service, "_build_gestor_dict", AsyncMock(return_value={"ok": True}))
     principal, extra = uuid4(), uuid4()
     db = DB(executes=[Result()])
     await service.update_gestor_permissions(
@@ -440,9 +388,7 @@ async def test_permissions_dependencies_role_restriction_and_clear(monkeypatch, 
     assert gestor.dependencia_principal_id is None
     assert len(db.added) == 1
 
-    monkeypatch.setattr(
-        service, "_validar_rol", AsyncMock(return_value=obj(codigo="ANALISTA"))
-    )
+    monkeypatch.setattr(service, "_validar_rol", AsyncMock(return_value=obj(codigo="ANALISTA")))
     db = DB(executes=[Result(), Result()])
     await service.update_gestor_permissions(
         db,
@@ -467,12 +413,8 @@ async def test_permissions_dependencies_role_restriction_and_clear(monkeypatch, 
 )
 async def test_change_status_branches(monkeypatch, audit, status, activo, blocked):
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
-    monkeypatch.setattr(
-        service, "_build_gestor_dict", AsyncMock(return_value={"estado": status})
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
+    monkeypatch.setattr(service, "_build_gestor_dict", AsyncMock(return_value={"estado": status}))
     db = DB(executes=[SimpleNamespace(rowcount=2)] if not activo else [])
     result = await service._change_gestor_status(
         db, uuid4(), gestor.id, status, "EVENT", " razón " if blocked else None
@@ -485,9 +427,7 @@ async def test_change_status_branches(monkeypatch, audit, status, activo, blocke
 
 
 async def test_status_missing_wrappers_and_block_validation(monkeypatch):
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service._change_gestor_status(DB(), uuid4(), uuid4(), "X", "E") is None
     change = AsyncMock(return_value={"ok": True})
     monkeypatch.setattr(service, "_change_gestor_status", change)
@@ -503,68 +443,45 @@ async def test_status_missing_wrappers_and_block_validation(monkeypatch):
 
 
 async def test_reset_password_missing_short_custom_and_generated(monkeypatch, audit):
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service.reset_password(DB(), uuid4(), uuid4()) is None
 
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
     with pytest.raises(ValueError, match="al menos"):
         await service.reset_password(DB(), uuid4(), gestor.id, "short")
 
     monkeypatch.setattr(service, "get_password_hash", Mock(return_value="hash"))
     result = await service.reset_password(DB(), uuid4(), gestor.id, "C" * 15)
-    assert (
-        result["must_change_password"] is False and result["temp_password"] == "C" * 15
-    )
+    assert result["must_change_password"] is False and result["temp_password"] == "C" * 15
     assert usuario.password_hash == "hash" and usuario.activo == 1
 
-    monkeypatch.setattr(
-        service, "generate_temporary_password", Mock(return_value="T" * 24)
-    )
+    monkeypatch.setattr(service, "generate_temporary_password", Mock(return_value="T" * 24))
     result = await service.reset_password(DB(), uuid4(), gestor.id)
-    assert (
-        result["must_change_password"] is True and result["temp_password"] == "T" * 24
-    )
+    assert result["must_change_password"] is True and result["temp_password"] == "T" * 24
 
 
 async def test_soft_delete_missing_and_success(monkeypatch, audit):
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service.soft_delete_gestor(DB(), uuid4(), uuid4()) is None
 
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
     db = DB(executes=[Result(), Result()])
     result = await service.soft_delete_gestor(db, uuid4(), gestor.id)
-    assert (
-        gestor.eliminado is True and usuario.eliminado is True and usuario.activo == 0
-    )
+    assert gestor.eliminado is True and usuario.eliminado is True and usuario.activo == 0
     assert result["eliminado"] is True and result["deleted_at"]
     assert db.execute.await_count == 2
 
 
 async def test_list_accesses_missing_empty_and_rows(monkeypatch):
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(None, None))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(None, None)))
     assert await service.list_gestor_accesos(DB(), uuid4(), uuid4()) is None
 
     gestor, usuario = obj(), obj()
-    monkeypatch.setattr(
-        service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario))
-    )
+    monkeypatch.setattr(service, "_get_gestor_usuario", AsyncMock(return_value=(gestor, usuario)))
     assert (
-        await service.list_gestor_accesos(
-            DB(executes=[Result(rows=[])]), uuid4(), gestor.id
-        )
-        == []
+        await service.list_gestor_accesos(DB(executes=[Result(rows=[])]), uuid4(), gestor.id) == []
     )
     access = obj(
         exitoso=False,

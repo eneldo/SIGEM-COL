@@ -24,8 +24,7 @@ def make_request(path="/test", headers=None, client=("127.0.0.1", 1234), route=N
         "raw_path": path.encode(),
         "query_string": b"",
         "headers": [
-            (key.lower().encode(), value.encode())
-            for key, value in (headers or {}).items()
+            (key.lower().encode(), value.encode()) for key, value in (headers or {}).items()
         ],
         "client": client,
         "server": ("testserver", 80),
@@ -51,13 +50,9 @@ async def test_rls_middleware_extracts_only_valid_access_tenant(
 ):
     request = make_request(headers={"Authorization": header} if header else None)
     if isinstance(payload, Exception):
-        monkeypatch.setattr(
-            "src.backend.core.security.decode_token", Mock(side_effect=payload)
-        )
+        monkeypatch.setattr("src.backend.core.security.decode_token", Mock(side_effect=payload))
     elif payload is not None:
-        monkeypatch.setattr(
-            "src.backend.core.security.decode_token", Mock(return_value=payload)
-        )
+        monkeypatch.setattr("src.backend.core.security.decode_token", Mock(return_value=payload))
     call_next = AsyncMock(return_value=Response())
 
     response = await database.RLSMiddleware(Mock()).dispatch(request, call_next)
@@ -247,9 +242,7 @@ async def test_rbac_admin_permission_shortcut(monkeypatch):
 @pytest.mark.asyncio
 async def test_rbac_normalizes_permissions_and_rejects_missing(monkeypatch):
     monkeypatch.setattr(rbac, "get_user_role_codes", AsyncMock(return_value=[]))
-    monkeypatch.setattr(
-        rbac, "get_user_permissions", AsyncMock(return_value=["users.read"])
-    )
+    monkeypatch.setattr(rbac, "get_user_permissions", AsyncMock(return_value=["users.read"]))
     user_id = uuid4()
 
     assert await rbac.check_permission(AsyncMock(), user_id, "USERS_READ")

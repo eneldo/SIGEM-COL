@@ -153,9 +153,7 @@ async def test_dependencias_success_filters_and_crud():
             "page": 2,
             "page_size": 5,
         }
-        response = await dependencias.listar_dependencias(
-            "plan", "ACTIVA", 2, 5, CURRENT_USER, DB
-        )
+        response = await dependencias.listar_dependencias("plan", "ACTIVA", 2, 5, CURRENT_USER, DB)
         assert response.total == 1
         assert list_service.await_args.args[2] == {
             "page": 2,
@@ -177,20 +175,13 @@ async def test_dependencias_success_filters_and_crud():
             await dependencias.obtener_dependencia(str(RESOURCE_ID), CURRENT_USER, DB)
         ).id == RESOURCE_ID
         create_service.return_value = dependencia_result()
-        assert (
-            await dependencias.crear_dependencia(create, CURRENT_USER, DB)
-        ).codigo == "DEP-1"
+        assert (await dependencias.crear_dependencia(create, CURRENT_USER, DB)).codigo == "DEP-1"
         update_service.return_value = dependencia_result()
         assert (
-            await dependencias.actualizar_dependencia(
-                str(RESOURCE_ID), update, CURRENT_USER, DB
-            )
+            await dependencias.actualizar_dependencia(str(RESOURCE_ID), update, CURRENT_USER, DB)
         ).nombre == "Planeación"
         delete_service.return_value = True
-        assert (
-            await dependencias.eliminar_dependencia(str(RESOURCE_ID), CURRENT_USER, DB)
-            is None
-        )
+        assert await dependencias.eliminar_dependencia(str(RESOURCE_ID), CURRENT_USER, DB) is None
         assert delete_service.await_args.args[-1] == ACTOR_ID
         assert permission.await_count == 3
 
@@ -213,9 +204,7 @@ async def test_dependencias_errors_permissions_404_and_422():
             "Dependencia no encontrada",
         )
         await assert_http_error(
-            dependencias.actualizar_dependencia(
-                str(RESOURCE_ID), empty, CURRENT_USER, DB
-            ),
+            dependencias.actualizar_dependencia(str(RESOURCE_ID), empty, CURRENT_USER, DB),
             422,
             "No se enviaron campos para actualizar",
         )
@@ -246,9 +235,7 @@ async def test_dependencias_errors_permissions_404_and_422():
         ),
     ):
         await assert_http_error(
-            dependencias.actualizar_dependencia(
-                str(RESOURCE_ID), update, CURRENT_USER, DB
-            ),
+            dependencias.actualizar_dependencia(str(RESOURCE_ID), update, CURRENT_USER, DB),
             404,
             "Dependencia no encontrada",
         )
@@ -266,9 +253,7 @@ async def test_dependencias_errors_permissions_404_and_422():
             "Dependencia no encontrada",
         )
     denied = HTTPException(status_code=403, detail="Sin permiso")
-    with patch.object(
-        dependencias, "require_permission", AsyncMock(side_effect=denied)
-    ):
+    with patch.object(dependencias, "require_permission", AsyncMock(side_effect=denied)):
         await assert_http_error(
             dependencias.crear_dependencia(create, CURRENT_USER, DB), 403, "Sin permiso"
         )
@@ -364,27 +349,17 @@ async def test_plan_routes_success_filters_crud(
     result = result_factory()
     with (
         patch.object(module, "require_permission", AsyncMock()) as permission,
-        patch.object(
-            module, f"create_{prefix}", AsyncMock(return_value=result)
-        ) as create_mock,
+        patch.object(module, f"create_{prefix}", AsyncMock(return_value=result)) as create_mock,
         patch.object(
             module,
             f"list_{list_key}",
-            AsyncMock(
-                return_value={list_key: [result], "total": 1, "page": 2, "page_size": 5}
-            ),
+            AsyncMock(return_value={list_key: [result], "total": 1, "page": 2, "page_size": 5}),
         ) as list_mock,
         patch.object(module, f"get_{prefix}", AsyncMock(return_value=result)),
-        patch.object(
-            module, f"update_{prefix}", AsyncMock(return_value=result)
-        ) as update_mock,
-        patch.object(
-            module, f"delete_{prefix}", AsyncMock(return_value=True)
-        ) as delete_mock,
+        patch.object(module, f"update_{prefix}", AsyncMock(return_value=result)) as update_mock,
+        patch.object(module, f"delete_{prefix}", AsyncMock(return_value=True)) as delete_mock,
     ):
-        assert (
-            await create_function(create, REQUEST, CURRENT_USER, DB)
-        ).id == RESOURCE_ID
+        assert (await create_function(create, REQUEST, CURRENT_USER, DB)).id == RESOURCE_ID
         if module is productos:
             listed = await list_function(
                 "uno",
@@ -398,9 +373,7 @@ async def test_plan_routes_success_filters_crud(
                 DB,
             )
         else:
-            listed = await list_function(
-                "uno", RELATED_ID, "ACTIVO", 2, 5, CURRENT_USER, DB
-            )
+            listed = await list_function("uno", RELATED_ID, "ACTIVO", 2, 5, CURRENT_USER, DB)
         assert listed.total == 1
         filters = list_mock.await_args.kwargs["filtros"]
         assert filters[filter_name] == str(RELATED_ID)
@@ -416,11 +389,7 @@ async def test_plan_routes_success_filters_crud(
         assert delete_mock.await_args.kwargs["user_id"] == ACTOR_ID
         assert permission.await_count == 5
     assert service_create is not None and service_list is not None
-    assert (
-        service_get is not None
-        and service_update is not None
-        and service_delete is not None
-    )
+    assert service_get is not None and service_update is not None and service_delete is not None
 
 
 @pytest.mark.parametrize(
@@ -486,16 +455,12 @@ async def test_plan_routes_errors_permissions_404_422_500(
             await assert_http_error(
                 create_function(create, REQUEST, CURRENT_USER, DB), 422, "duplicado"
             )
-        with patch.object(
-            module, f"create_{prefix}", AsyncMock(side_effect=RuntimeError("db"))
-        ):
+        with patch.object(module, f"create_{prefix}", AsyncMock(side_effect=RuntimeError("db"))):
             await assert_http_error(
                 create_function(create, REQUEST, CURRENT_USER, DB), 500, internal_error
             )
         with patch.object(module, f"get_{prefix}", AsyncMock(return_value=None)):
-            await assert_http_error(
-                get_function(RESOURCE_ID, CURRENT_USER, DB), 404, not_found
-            )
+            await assert_http_error(get_function(RESOURCE_ID, CURRENT_USER, DB), 404, not_found)
         with patch.object(
             module, f"update_{prefix}", AsyncMock(side_effect=ValueError("inválido"))
         ):
@@ -534,23 +499,17 @@ async def test_plan_route_empty_filters():
         patch.object(
             lineas,
             "list_lineas",
-            AsyncMock(
-                return_value={"lineas": [], "total": 0, "page": 1, "page_size": 20}
-            ),
+            AsyncMock(return_value={"lineas": [], "total": 0, "page": 1, "page_size": 20}),
         ) as service,
     ):
-        await lineas.listar_lineas_estrategicas(
-            None, None, None, 1, 20, CURRENT_USER, DB
-        )
+        await lineas.listar_lineas_estrategicas(None, None, None, 1, 20, CURRENT_USER, DB)
         assert service.await_args.kwargs["filtros"]["plan_desarrollo_id"] is None
     with (
         patch.object(programas, "require_permission", AsyncMock()),
         patch.object(
             programas,
             "list_programas",
-            AsyncMock(
-                return_value={"programas": [], "total": 0, "page": 1, "page_size": 20}
-            ),
+            AsyncMock(return_value={"programas": [], "total": 0, "page": 1, "page_size": 20}),
         ) as service,
     ):
         await programas.listar_programas(None, None, None, 1, 20, CURRENT_USER, DB)
@@ -560,14 +519,10 @@ async def test_plan_route_empty_filters():
         patch.object(
             productos,
             "list_productos",
-            AsyncMock(
-                return_value={"productos": [], "total": 0, "page": 1, "page_size": 20}
-            ),
+            AsyncMock(return_value={"productos": [], "total": 0, "page": 1, "page_size": 20}),
         ) as service,
     ):
-        await productos.listar_productos(
-            None, None, None, None, None, 1, 20, CURRENT_USER, DB
-        )
+        await productos.listar_productos(None, None, None, None, None, 1, 20, CURRENT_USER, DB)
         filters = service.await_args.kwargs["filtros"]
         assert filters["programa_id"] is None
         assert filters["dependencia_id"] is None
@@ -579,9 +534,7 @@ async def test_roles_success_filters_and_crud():
     update = RolUpdate(nombre="Rol actualizado")
     with (
         patch.object(roles, "require_permission", AsyncMock()) as permission,
-        patch.object(
-            roles.rol_service, "create_rol", AsyncMock(return_value=rol_result())
-        ),
+        patch.object(roles.rol_service, "create_rol", AsyncMock(return_value=rol_result())),
         patch.object(
             roles.rol_service,
             "list_roles",
@@ -599,9 +552,7 @@ async def test_roles_success_filters_and_crud():
             "list_permisos",
             AsyncMock(return_value={"items": [], "total": 0}),
         ) as permisos_service,
-        patch.object(
-            roles.rol_service, "get_rol", AsyncMock(return_value=rol_result())
-        ),
+        patch.object(roles.rol_service, "get_rol", AsyncMock(return_value=rol_result())),
         patch.object(
             roles.rol_service, "update_rol", AsyncMock(return_value=rol_result())
         ) as update_service,
@@ -616,9 +567,7 @@ async def test_roles_success_filters_and_crud():
         assert permisos_service.await_args.args[1] == {"modulo": "seguridad"}
         await roles.listar_permisos("", CURRENT_USER, DB)
         assert permisos_service.await_args.args[1] == {}
-        assert (await roles.obtener_rol(str(RESOURCE_ID), CURRENT_USER, DB)).id == str(
-            RESOURCE_ID
-        )
+        assert (await roles.obtener_rol(str(RESOURCE_ID), CURRENT_USER, DB)).id == str(RESOURCE_ID)
         assert (
             await roles.actualizar_rol(str(RESOURCE_ID), update, CURRENT_USER, DB)
         ).nombre == "Rol uno"
@@ -637,9 +586,7 @@ async def test_roles_errors_permissions_404_and_422():
             AsyncMock(side_effect=ValueError("duplicado")),
         ),
     ):
-        await assert_http_error(
-            roles.crear_rol(create, CURRENT_USER, DB), 422, "duplicado"
-        )
+        await assert_http_error(roles.crear_rol(create, CURRENT_USER, DB), 422, "duplicado")
     cases = (
         (roles.obtener_rol(str(RESOURCE_ID), CURRENT_USER, DB), "get_rol"),
         (
@@ -659,9 +606,7 @@ async def test_roles_errors_permissions_404_and_422():
         "require_permission",
         AsyncMock(side_effect=HTTPException(status_code=403, detail="Sin permiso")),
     ):
-        await assert_http_error(
-            roles.crear_rol(create, CURRENT_USER, DB), 403, "Sin permiso"
-        )
+        await assert_http_error(roles.crear_rol(create, CURRENT_USER, DB), 403, "Sin permiso")
     with pytest.raises(ValidationError):
         RolCreate()
     with (
@@ -713,30 +658,20 @@ async def test_usuarios_success_filters_and_crud():
             usuarios.usuario_service, "delete_usuario", AsyncMock(return_value=True)
         ) as delete_service,
     ):
-        assert (
-            await usuarios.crear_usuario(create, CURRENT_USER, DB)
-        ).username == "usuario"
-        assert (
-            await usuarios.listar_usuarios("usu", "ACTIVO", 2, 5, CURRENT_USER, DB)
-        ).total == 1
+        assert (await usuarios.crear_usuario(create, CURRENT_USER, DB)).username == "usuario"
+        assert (await usuarios.listar_usuarios("usu", "ACTIVO", 2, 5, CURRENT_USER, DB)).total == 1
         assert list_service.await_args.args[2]["search"] == "usu"
         assert list_service.await_args.args[2]["estado"] == "ACTIVO"
         await usuarios.listar_usuarios("", "", 1, 20, CURRENT_USER, DB)
         assert list_service.await_args.args[2] == {"page": 1, "page_size": 20}
-        assert (
-            await usuarios.obtener_usuario(str(RESOURCE_ID), CURRENT_USER, DB)
-        ).id == str(RESOURCE_ID)
-        assert (
-            await usuarios.actualizar_usuario(
-                str(RESOURCE_ID), update, CURRENT_USER, DB
-            )
-        ).username == "usuario"
-        assert update_service.await_args.args[3] == {
-            "nombre_completo": "Usuario Actualizado"
-        }
-        assert (
-            await usuarios.eliminar_usuario(str(RESOURCE_ID), CURRENT_USER, DB) is None
+        assert (await usuarios.obtener_usuario(str(RESOURCE_ID), CURRENT_USER, DB)).id == str(
+            RESOURCE_ID
         )
+        assert (
+            await usuarios.actualizar_usuario(str(RESOURCE_ID), update, CURRENT_USER, DB)
+        ).username == "usuario"
+        assert update_service.await_args.args[3] == {"nombre_completo": "Usuario Actualizado"}
+        assert await usuarios.eliminar_usuario(str(RESOURCE_ID), CURRENT_USER, DB) is None
         assert delete_service.await_args.args[-1] == ACTOR_ID
         assert permission.await_count == 6
 
@@ -763,9 +698,7 @@ async def test_usuarios_errors_permissions_404_and_422():
     cases = (
         (usuarios.obtener_usuario(str(RESOURCE_ID), CURRENT_USER, DB), "get_usuario"),
         (
-            usuarios.actualizar_usuario(
-                str(RESOURCE_ID), UsuarioUpdate(), CURRENT_USER, DB
-            ),
+            usuarios.actualizar_usuario(str(RESOURCE_ID), UsuarioUpdate(), CURRENT_USER, DB),
             "update_usuario",
         ),
         (
@@ -776,9 +709,7 @@ async def test_usuarios_errors_permissions_404_and_422():
     for call, service_name in cases:
         with (
             patch.object(usuarios, "require_permission", AsyncMock()),
-            patch.object(
-                usuarios.usuario_service, service_name, AsyncMock(return_value=None)
-            ),
+            patch.object(usuarios.usuario_service, service_name, AsyncMock(return_value=None)),
         ):
             await assert_http_error(call, 404, "Usuario no encontrado")
     with patch.object(

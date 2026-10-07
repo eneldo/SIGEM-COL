@@ -23,6 +23,11 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
 
 ### Fixed
+- CI: `backend-tests` aplica migraciones y crea el administrador de pruebas antes de pytest (fallaba con `relation "municipios" does not exist`)
+- CI: `ruff` y `mypy` se ejecutan con la configuración de `src/backend/pyproject.toml`; `tests/` ya no se analiza con los valores por defecto de ruff
+- CI: `npm ci` y `npm audit` se ejecutan en `src/frontend` (antes fallaban por no encontrar el lockfile)
+- `JWT_ALGORITHM` fuera de HS256/HS384/HS512 se rechaza en producción, dejando inaplicable CVE-2026-85394 (python-jose)
+- Dependencia de SQLAlchemy acotada a `<2.1`: la 2.1 rompía `mypy --strict` con 35 errores ajenos al código
 - `DependenciasPage` consultaba `page_size=200` y el backend limita a 100 → 422 silencioso que dejaba vacío el selector de dependencia padre
 - Favicon: se referenciaba `/vite.svg` inexistente (404 en cada carga); ahora `/favicon.svg` con la marca SIGEM
 - `ProductoResponse` serializa `linea_base` y `meta_cuatrienio` como número JSON (el cambio a `NUMERIC(18,4)` los devolvía como string y rompía el contrato del frontend)

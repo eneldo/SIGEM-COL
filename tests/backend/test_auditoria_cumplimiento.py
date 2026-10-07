@@ -58,14 +58,10 @@ class TestAuditoria:
             )
             assert resp.status_code == 200, resp.text
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_listar_auditoria_filtro_fechas(self, api, admin_token):
-        pytest.skip(
-            "Servicio no castea fecha string a timestamp; bug en audit_admin_service"
-        )
+        pytest.skip("Servicio no castea fecha string a timestamp; bug en audit_admin_service")
 
     def test_listar_auditoria_paginacion(self, api, admin_token):
         resp = api.get(

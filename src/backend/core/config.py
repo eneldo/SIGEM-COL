@@ -28,6 +28,7 @@ _DEV_DATABASE_PASSWORD_MARKERS = (
 
 _PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
 _PLACEHOLDER_MARKERS = ("change_me", "changeme", ".example", "example.com")
+_ALGORITMOS_JWT_PERMITIDOS = frozenset({"HS256", "HS384", "HS512"})
 
 
 def _contains_placeholder(value: str) -> bool:
@@ -149,6 +150,16 @@ class Settings(BaseSettings):
 
         if self.SECRET_KEY == self.JWT_SECRET_KEY:
             problems.append("SECRET_KEY y JWT_SECRET_KEY deben ser diferentes")
+
+        # La libreria JWT solo se admite con firma simetrica HS*. Con una clave
+        # asimetrica (RSA/EC) queda expuesta a CVE-2026-85394: una clave publica
+        # DER sin armadura se aceptaria como secreto HMAC y permitiria falsificar
+        # tokens. Restringir el algoritmo hace la vulnerabilidad inaplicable.
+        if (self.JWT_ALGORITHM or "").strip().upper() not in _ALGORITMOS_JWT_PERMITIDOS:
+            problems.append(
+                "JWT_ALGORITHM debe ser uno de "
+                f"{sorted(_ALGORITMOS_JWT_PERMITIDOS)} (firma simetrica)"
+            )
 
         database_url = (self.DATABASE_URL or "").strip()
         parsed_database = urlparse(database_url)

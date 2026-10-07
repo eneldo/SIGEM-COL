@@ -1,6 +1,7 @@
 """Tests de integración CRUD para roles y permisos."""
 
 import uuid
+
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -22,9 +23,7 @@ class TestRolesCRUD:
             "nivel": 5,
             "permisos_ids": permiso_ids,
         }
-        resp = api.post(
-            f"{API_PREFIX}/roles", json=payload, headers=auth_header(admin_token)
-        )
+        resp = api.post(f"{API_PREFIX}/roles", json=payload, headers=auth_header(admin_token))
         assert resp.status_code == 201, resp.text
         data = resp.json()
         assert data["nombre"] == payload["nombre"]
@@ -34,18 +33,14 @@ class TestRolesCRUD:
         rol_id = data["id"]
 
         try:
-            get_resp = api.get(
-                f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token)
-            )
+            get_resp = api.get(f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token))
             assert get_resp.status_code == 200, get_resp.text
             assert get_resp.json()["id"] == rol_id
         finally:
             api.delete(f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token))
 
     def test_listar_roles_con_filtros(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/roles?page=1&page_size=10", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/roles?page=1&page_size=10", headers=auth_header(admin_token))
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert "items" in data
@@ -56,21 +51,15 @@ class TestRolesCRUD:
             assert "permisos" in item
 
     def test_listar_roles_con_busqueda(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/roles?search=ADMIN", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/roles?search=ADMIN", headers=auth_header(admin_token))
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert "items" in data
         for item in data["items"]:
-            assert (
-                "ADMIN" in item["codigo"].upper() or "ADMIN" in item["nombre"].upper()
-            )
+            assert "ADMIN" in item["codigo"].upper() or "ADMIN" in item["nombre"].upper()
 
     def test_obtener_rol_detalle(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/roles?page_size=1", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/roles?page_size=1", headers=auth_header(admin_token))
         if resp.status_code != 200 or not resp.json().get("items"):
             return
         rol_id = resp.json()["items"][0]["id"]
@@ -131,36 +120,26 @@ class TestRolesCRUD:
         assert create_resp.status_code == 201, create_resp.text
         rol_id = create_resp.json()["id"]
 
-        resp = api.delete(
-            f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token)
-        )
+        resp = api.delete(f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token))
         assert resp.status_code == 204, resp.text
 
-        get_resp = api.get(
-            f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token)
-        )
+        get_resp = api.get(f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token))
         assert get_resp.status_code == 404
 
     def test_id_invalido_devuelve_422_o_404(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/roles/no-es-uuid", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/roles/no-es-uuid", headers=auth_header(admin_token))
         assert resp.status_code in (400, 422, 404)
 
     def test_codigo_duplicado_devuelve_422(self, api, admin_token):
         codigo = f"ROL_DUP_{uuid.uuid4().hex[:8].upper()}"
         payload = {"codigo": codigo, "nombre": "Rol Duplicado", "nivel": 1}
-        resp1 = api.post(
-            f"{API_PREFIX}/roles", json=payload, headers=auth_header(admin_token)
-        )
+        resp1 = api.post(f"{API_PREFIX}/roles", json=payload, headers=auth_header(admin_token))
         if resp1.status_code != 201:
             return
         rol_id = resp1.json()["id"]
 
         try:
-            resp2 = api.post(
-                f"{API_PREFIX}/roles", json=payload, headers=auth_header(admin_token)
-            )
+            resp2 = api.post(f"{API_PREFIX}/roles", json=payload, headers=auth_header(admin_token))
             assert resp2.status_code in (400, 409, 422), resp2.text
         finally:
             api.delete(f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(admin_token))
@@ -171,9 +150,7 @@ class TestRolesCRUD:
             "nombre": "Sin Permiso",
             "nivel": 1,
         }
-        resp = api.post(
-            f"{API_PREFIX}/roles", json=payload, headers=auth_header(gestor_token)
-        )
+        resp = api.post(f"{API_PREFIX}/roles", json=payload, headers=auth_header(gestor_token))
         assert resp.status_code == 403, resp.text
         assert "security.roles.crear" in resp.json()["detail"]
 
@@ -218,9 +195,7 @@ class TestRolesCRUD:
         rol_id = create_resp.json()["id"]
 
         try:
-            resp = api.delete(
-                f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(gestor_token)
-            )
+            resp = api.delete(f"{API_PREFIX}/roles/{rol_id}", headers=auth_header(gestor_token))
             assert resp.status_code == 403, resp.text
             assert "security.roles.eliminar" in resp.json()["detail"]
         finally:
@@ -255,8 +230,6 @@ class TestPermisosListado:
             assert item["modulo"] == "linea_estrategica"
 
     def test_gestor_sin_permiso_ver_permisos_403(self, api, gestor_token):
-        resp = api.get(
-            f"{API_PREFIX}/roles/permisos", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{API_PREFIX}/roles/permisos", headers=auth_header(gestor_token))
         assert resp.status_code == 403, resp.text
         assert "security.roles.ver" in resp.json()["detail"]

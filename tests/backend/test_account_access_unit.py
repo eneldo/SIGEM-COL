@@ -158,9 +158,7 @@ def account_api(monkeypatch):
 
 
 def me(api, token):
-    return api.client.get(
-        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
-    )
+    return api.client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
 
 
 @pytest.mark.parametrize("change", ["inactive", "blocked", "deleted"])
@@ -176,9 +174,7 @@ def test_existing_tokens_cannot_authenticate_unavailable_accounts(account_api, c
     else:
         changes["deleted_at"] = datetime.now(UTC)
     # Change state independently of the revocation hooks to verify defense in depth.
-    api.session.execute(
-        update(Usuario).where(Usuario.id == api.user.id).values(**changes)
-    )
+    api.session.execute(update(Usuario).where(Usuario.id == api.user.id).values(**changes))
     api.session.commit()
 
     assert me(api, api.tokens[0]["access"]).status_code == 401
@@ -186,9 +182,7 @@ def test_existing_tokens_cannot_authenticate_unavailable_accounts(account_api, c
         "/api/v1/auth/refresh", json={"refresh_token": api.tokens[0]["refresh"]}
     )
     assert refresh.status_code == 401, refresh.text
-    mfa_token = create_mfa_token(
-        {"sub": str(api.user.id), "municipio_id": str(api.municipio_id)}
-    )
+    mfa_token = create_mfa_token({"sub": str(api.user.id), "municipio_id": str(api.municipio_id)})
     mfa = api.client.post(
         "/api/v1/auth/mfa/login",
         json={"mfa_token": mfa_token, "code": pyotp.TOTP(secret).now()},
@@ -202,26 +196,18 @@ async def test_deactivation_revokes_all_user_sessions_without_reviving_on_reacti
     account_api,
 ):
     api = account_api
-    await usuario_service.update_usuario(
-        api.db, api.municipio_id, api.user.id, {"activo": 0}
-    )
+    await usuario_service.update_usuario(api.db, api.municipio_id, api.user.id, {"activo": 0})
     assert api.db.commits == 1
     assert [
         s.activa
-        for s in api.session.scalars(
-            select(Sesion).where(Sesion.usuario_id == api.user.id)
-        )
+        for s in api.session.scalars(select(Sesion).where(Sesion.usuario_id == api.user.id))
     ] == [0, 0]
     assert api.session.get(Sesion, api.tokens[2]["sid"]).activa == 1
 
-    await usuario_service.update_usuario(
-        api.db, api.municipio_id, api.user.id, {"activo": 1}
-    )
+    await usuario_service.update_usuario(api.db, api.municipio_id, api.user.id, {"activo": 1})
     for token in api.tokens[:2]:
         assert me(api, token["access"]).status_code == 401
-        response = api.client.post(
-            "/api/v1/auth/refresh", json={"refresh_token": token["refresh"]}
-        )
+        response = api.client.post("/api/v1/auth/refresh", json={"refresh_token": token["refresh"]})
         assert response.status_code == 401, response.text
     assert me(api, api.tokens[2]["access"]).status_code == 200
 
@@ -249,17 +235,13 @@ async def test_gestor_status_changes_revoke_sessions(account_api, monkeypatch, a
         lambda _db: SimpleNamespace(log_event=AsyncMock()),
     )
     if action == "block":
-        await gestor_service.block_gestor(
-            api.db, api.municipio_id, gestor.id, "Prueba de bloqueo"
-        )
+        await gestor_service.block_gestor(api.db, api.municipio_id, gestor.id, "Prueba de bloqueo")
     else:
         await gestor_service.deactivate_gestor(api.db, api.municipio_id, gestor.id)
     assert api.db.commits == 1
     assert [
         s.activa
-        for s in api.session.scalars(
-            select(Sesion).where(Sesion.usuario_id == api.user.id)
-        )
+        for s in api.session.scalars(select(Sesion).where(Sesion.usuario_id == api.user.id))
     ] == [0, 0]
 
     await gestor_service.activate_gestor(api.db, api.municipio_id, gestor.id)
@@ -280,9 +262,7 @@ async def test_login_attempt_lock_revokes_existing_sessions(account_api, monkeyp
     assert api.db.commits == 1
     assert [
         s.activa
-        for s in api.session.scalars(
-            select(Sesion).where(Sesion.usuario_id == api.user.id)
-        )
+        for s in api.session.scalars(select(Sesion).where(Sesion.usuario_id == api.user.id))
     ] == [0, 0]
     assert api.session.get(Sesion, api.tokens[2]["sid"]).activa == 1
     assert me(api, api.tokens[0]["access"]).status_code == 401

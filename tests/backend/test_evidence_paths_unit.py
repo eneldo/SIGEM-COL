@@ -79,9 +79,7 @@ def download(api, endpoint, relative_path):
         "symlink_loop",
     ],
 )
-def test_download_rejects_unsafe_persisted_paths(
-    evidence_api, endpoint, attack, tmp_path
-):
+def test_download_rejects_unsafe_persisted_paths(evidence_api, endpoint, attack, tmp_path):
     outside = tmp_path / "private.pdf"
     outside.write_bytes(b"private data outside storage")
     if attack == "absolute":
@@ -112,9 +110,7 @@ def test_download_rejects_unsafe_persisted_paths(
 
 @pytest.mark.parametrize("endpoint", ["single", "multiple"])
 def test_download_preserves_valid_uploaded_files(evidence_api, endpoint):
-    relative_path = (
-        f"{evidence_api.avance.municipio_id}/{evidence_api.avance.id}/uploaded.pdf"
-    )
+    relative_path = f"{evidence_api.avance.municipio_id}/{evidence_api.avance.id}/uploaded.pdf"
     uploaded = evidence_api.storage / relative_path
     uploaded.parent.mkdir(parents=True)
     uploaded.write_bytes(b"%PDF-1.7 valid stored evidence")

@@ -127,9 +127,7 @@ class TestInformePDF:
         assert resp.status_code == 200, resp.text
         assert resp.headers.get("content-type") == "application/pdf"
         assert "attachment" in resp.headers.get("content-disposition", "")
-        assert "informe_gestion_sigem.pdf" in resp.headers.get(
-            "content-disposition", ""
-        )
+        assert "informe_gestion_sigem.pdf" in resp.headers.get("content-disposition", "")
         assert len(resp.content) > 0
 
     def test_informe_pdf_sin_token(self, api):

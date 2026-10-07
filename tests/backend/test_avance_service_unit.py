@@ -81,10 +81,7 @@ def ids():
 @pytest.mark.asyncio
 async def test_get_mis_productos_sin_gestor(ids):
     assert (
-        await service.get_mis_productos(
-            db_mock(scalars=[None]), ids.usuario, ids.municipio
-        )
-        == []
+        await service.get_mis_productos(db_mock(scalars=[None]), ids.usuario, ids.municipio) == []
     )
 
 
@@ -138,9 +135,7 @@ async def test_registrar_avance_errores(ids):
 
 
 def test_calcular_porcentaje_cumplimiento_desde_cero():
-    assert (
-        service.calcular_porcentaje_cumplimiento(Decimal("209"), Decimal("500")) == 41.8
-    )
+    assert service.calcular_porcentaje_cumplimiento(Decimal("209"), Decimal("500")) == 41.8
 
 
 def test_calcular_porcentaje_rechaza_meta_invalida_y_exceso():
@@ -160,9 +155,7 @@ async def test_registrar_avance_calcula_porcentaje_proyectado(ids):
         avance.id = ids.avance
 
     db.refresh.side_effect = refresh
-    with patch.object(
-        service, "AuditService", return_value=SimpleNamespace(log_event=AsyncMock())
-    ):
+    with patch.object(service, "AuditService", return_value=SimpleNamespace(log_event=AsyncMock())):
         result = await service.registrar_avance(
             db,
             ids.usuario,
@@ -222,9 +215,7 @@ async def test_registrar_avance_exitoso(ids):
         "evidencia_tipo": "application/pdf",
     }
     with patch.object(service, "AuditService", return_value=audit):
-        result = await service.registrar_avance(
-            db, ids.usuario, ids.municipio, ids.producto, data
-        )
+        result = await service.registrar_avance(db, ids.usuario, ids.municipio, ids.producto, data)
     assert result["id"] == str(ids.avance)
     assert result["avance_porcentaje"] == 5.0
     assert result["estado_revision"] == "BORRADOR"
@@ -242,12 +233,8 @@ async def test_registrar_avance_valores_predeterminados(ids):
         avance.observaciones_revision = None
 
     db.refresh.side_effect = refresh
-    with patch.object(
-        service, "AuditService", return_value=SimpleNamespace(log_event=AsyncMock())
-    ):
-        result = await service.registrar_avance(
-            db, ids.usuario, ids.municipio, ids.producto, {}
-        )
+    with patch.object(service, "AuditService", return_value=SimpleNamespace(log_event=AsyncMock())):
+        result = await service.registrar_avance(db, ids.usuario, ids.municipio, ids.producto, {})
     assert result["avance_porcentaje"] == 0.0
     assert result["estado_revision"] == "PENDIENTE"
 
@@ -304,9 +291,7 @@ async def test_actualizar_avance_rechaza_aprobado_y_sin_cambios(ids):
             patch.object(service, "_check_evidence_permission", AsyncMock()),
             pytest.raises((PermissionError, ValueError), match=message),
         ):
-            await service.actualizar_avance(
-                db_mock(), ids.avance, ids.municipio, ids.usuario, data
-            )
+            await service.actualizar_avance(db_mock(), ids.avance, ids.municipio, ids.usuario, data)
 
 
 @pytest.mark.asyncio
@@ -320,9 +305,7 @@ async def test_eliminar_avance_exitoso_con_evidencias(ids):
         patch.object(service, "_check_evidence_permission", AsyncMock()),
         patch.object(service, "AuditService", return_value=audit),
     ):
-        result = await service.eliminar_avance(
-            db, ids.avance, ids.municipio, ids.usuario
-        )
+        result = await service.eliminar_avance(db, ids.avance, ids.municipio, ids.usuario)
     assert result == {"id": str(avance.id), "eliminado": True}
     assert all(ev.soft_delete.called for ev in evidencias)
     avance.soft_delete.assert_called_once_with(ids.usuario)
@@ -344,9 +327,7 @@ async def test_eliminar_avance_aprobado(ids):
 
 @pytest.mark.asyncio
 async def test_resumen_sin_gestor(ids):
-    result = await service.get_resumen_avances(
-        db_mock(scalars=[None]), ids.usuario, ids.municipio
-    )
+    result = await service.get_resumen_avances(db_mock(scalars=[None]), ids.usuario, ids.municipio)
     assert result == {
         "total_productos": 0,
         "productos_con_avance": 0,
@@ -392,9 +373,7 @@ async def test_avances_para_revision_filtros_y_serializacion(ids):
     assert result[0]["fecha_registro"] is None
     assert result[0]["created_at"] is None
     assert (
-        await service.get_avances_para_revision(
-            db_mock(executes=[ResultFake()]), ids.municipio
-        )
+        await service.get_avances_para_revision(db_mock(executes=[ResultFake()]), ids.municipio)
         == []
     )
 
@@ -646,23 +625,17 @@ async def test_helpers_permisos_y_busqueda(ids):
             db_mock(scalars=[uuid.uuid4()]), avance, ids.usuario, ids.municipio
         )
     assert (
-        await service._get_avance_or_404(
-            db_mock(scalars=[avance]), ids.avance, ids.municipio
-        )
+        await service._get_avance_or_404(db_mock(scalars=[avance]), ids.avance, ids.municipio)
         is avance
     )
     with pytest.raises(ValueError, match="no encontrado"):
-        await service._get_avance_or_404(
-            db_mock(scalars=[None]), ids.avance, ids.municipio
-        )
+        await service._get_avance_or_404(db_mock(scalars=[None]), ids.avance, ids.municipio)
 
 
 @pytest.mark.asyncio
 async def test_agregar_evidencias_validaciones(ids):
     with pytest.raises(ValueError, match="al menos"):
-        await service.agregar_evidencias(
-            db_mock(), ids.avance, ids.municipio, ids.usuario, []
-        )
+        await service.agregar_evidencias(db_mock(), ids.avance, ids.municipio, ids.usuario, [])
     avance = entity()
     with (
         patch.object(service, "_get_avance_or_404", AsyncMock(return_value=avance)),
@@ -710,9 +683,7 @@ async def test_agregar_evidencias_exitoso(tmp_path, ids):
         ),
         patch.object(service, "AuditService", return_value=audit),
     ):
-        result = await service.agregar_evidencias(
-            db, ids.avance, ids.municipio, ids.usuario, files
-        )
+        result = await service.agregar_evidencias(db, ids.avance, ids.municipio, ids.usuario, files)
     assert [item["nombre"] for item in result] == ["a.txt", "b.txt"]
     assert result[1]["descripcion"] is None
     assert result[0]["created_at"] is not None
@@ -912,9 +883,7 @@ async def test_eliminar_evidencia_actualiza_denormalizado(tmp_path, ids, remaini
 
 
 @pytest.mark.asyncio
-async def test_eliminar_evidencia_no_actualiza_si_no_es_actual_e_ignora_oserror(
-    tmp_path, ids
-):
+async def test_eliminar_evidencia_no_actualiza_si_no_es_actual_e_ignora_oserror(tmp_path, ids):
     avance = entity(evidencia_url="otra.txt")
     evidencia = entity(url="actual.txt")
     db = db_mock(scalars=[evidencia])
@@ -926,9 +895,7 @@ async def test_eliminar_evidencia_no_actualiza_si_no_es_actual_e_ignora_oserror(
         patch.object(type(tmp_path), "resolve", side_effect=OSError("disk")),
         patch.object(service, "AuditService", return_value=audit),
     ):
-        await service.eliminar_evidencia(
-            db, ids.avance, evidencia.id, ids.municipio, ids.usuario
-        )
+        await service.eliminar_evidencia(db, ids.avance, evidencia.id, ids.municipio, ids.usuario)
     assert avance.evidencia_url == "otra.txt"
 
 

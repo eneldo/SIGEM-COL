@@ -291,12 +291,12 @@ async def get_metricas_productos(
     con_linea_base = sum(1 for p in productos if p.linea_base and p.linea_base > 0)
     con_gestor = sum(1 for p in productos if p.gestor_lider_id)
 
-    promedio_avance = 0
+    promedio_avance: float = 0
     if con_linea_base > 0 and con_meta > 0:
-        avances = []
+        avances: list[float] = []
         for p in productos:
             if p.linea_base and p.meta_cuatrienio and p.meta_cuatrienio > 0:
-                avance = min(100, ((p.linea_base) / p.meta_cuatrienio) * 100)  # type: ignore[call-overload]
+                avance = float(min(100, float(p.linea_base) / float(p.meta_cuatrienio) * 100))
                 avances.append(avance)
         if avances:
             promedio_avance = round(sum(avances) / len(avances), 1)

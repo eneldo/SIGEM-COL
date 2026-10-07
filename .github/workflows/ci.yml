@@ -15,7 +15,12 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
+  # La configuracion de ruff/mypy vive en src/backend/pyproject.toml; se aplica de
+  # forma explicita para que `tests/` no se lint-e con los valores por defecto.
+  RUFF_CONFIG: src/backend/pyproject.toml
   PYTEST_CMD: python -m pytest tests -c src/backend/pyproject.toml --cov-report=xml --cov-fail-under=100
+  # Credenciales deterministas para el usuario de pruebas; nunca se usan fuera de CI.
+  TEST_ADMIN_PASSWORD: "SigemAdmin2026!"
 
 jobs:
   backend-quality:
@@ -31,11 +36,11 @@ jobs:
         working-directory: src/backend
         run: python -m pip install -e ".[dev]"
       - name: Ruff lint
-        run: python -m ruff check src/backend tests
+        run: python -m ruff check --config "${{ env.RUFF_CONFIG }}" src/backend tests
       - name: Ruff format check
-        run: python -m ruff format --check src/backend tests
+        run: python -m ruff format --check --config "${{ env.RUFF_CONFIG }}" src/backend tests
       - name: Mypy
-        run: python -m mypy src/backend
+        run: python -m mypy --config-file src/backend/pyproject.toml src/backend
       - name: Bandit
         run: python -m bandit -r src/backend -ll
 
@@ -69,6 +74,9 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       RATE_LIMIT_LOGIN_ATTEMPTS: "10000000"
       RATE_LIMIT_DEFAULT_REQUESTS: "10000000"
+      SIGEM_BOOTSTRAP_PASSWORD: ${{ env.TEST_ADMIN_PASSWORD }}
+      SIGEM_BOOTSTRAP_USERNAME: admin
+      SIGEM_BOOTSTRAP_MUNICIPIO: "00000"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -79,6 +87,13 @@ jobs:
       - name: Install backend with dev extras
         working-directory: src/backend
         run: python -m pip install -e ".[dev]"
+      - name: Apply database migrations
+        # Sin este paso la suite falla con `relation "municipios" does not exist`:
+        # las fixtures de integracion necesitan esquema, catalogos y el municipio 00000.
+        run: python -m alembic -c alembic.ini upgrade head
+      - name: Bootstrap test administrator
+        # Crea el usuario `admin` que usan las fixtures (tests/conftest.py).
+        run: python scripts/setup/bootstrap_admin.py
       - name: Run backend test suite
         run: ${{ env.PYTEST_CMD }}
       - name: Coverage job summary
@@ -151,15 +166,28 @@ jobs:
       - name: Install pip-audit
         run: python -m pip install pip-audit
       - name: pip-audit dependency scan
-        run: python -m pip_audit --ignore-vuln PYSEC-2026-1325 --ignore-vuln PYSEC-2026-3740
+        # CVE-2026-85394 (python-jose <=3.5.0, critico) no tiene version corregida.
+        # Solo aplica cuando la verificacion usa una clave asimetrica; SIGEM firma
+        # con secreto simetrico HS* y `validate_production()` rechaza cualquier
+        # otro algoritmo, lo que hace la vulnerabilidad inaplicable.
+        # Migrar a PyJWT sigue recomendado (ver context/decisions.md).
+        run: >-
+          python -m pip_audit
+          --ignore-vuln PYSEC-2026-1325
+          --ignore-vuln PYSEC-2026-3740
+          --ignore-vuln CVE-2026-85394
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - name: Install frontend dependencies
+        # El manifiesto y el lockfile viven en src/frontend; desde la raiz
+        # `npm ci` fallaba por no encontrar un lockfile.
+        working-directory: src/frontend
         run: npm ci
       - name: npm audit production dependencies
+        working-directory: src/frontend
         run: npm audit --omit=dev --audit-level=high
 
   docker-build:

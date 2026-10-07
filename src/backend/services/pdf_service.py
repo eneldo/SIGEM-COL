@@ -321,5 +321,5 @@ async def generar_informe_gestion_pdf(
     # Exportar a bytes
     pdf_bytes = pdf.output()
     if isinstance(pdf_bytes, str):
-        pdf_bytes = pdf_bytes.encode("latin-1")
-    return pdf_bytes
+        return pdf_bytes.encode("latin-1")
+    return bytes(pdf_bytes)

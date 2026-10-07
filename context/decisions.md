@@ -1,5 +1,21 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-07: Pipeline de CI utilizable
+
+**Contexto:** El pipeline nunca quedo verde: `backend-quality` fallaba con errores de lint, `backend-tests` fallaba con `relation "municipios" does not exist` y el job `security` lanzaba `npm` fuera del directorio del manifiesto.
+
+**Decisión:**
+- **Lint con la configuración del proyecto.** `ruff` resolvia configuracion por archivo y aplicaba sus valores por defecto a `tests/`, que no tiene un `pyproject.toml` propio. El workflow ahora pasa `--config src/backend/pyproject.toml` de forma explicita, y `--config-file` para `mypy`.
+- **Base de pruebas reproducible.** `backend-tests` aplica `alembic upgrade head` y ejecuta `bootstrap_admin.py` antes de pytest, con credenciales deterministas propias del job.
+- **`npm` en el directorio correcto.** `npm ci` y `npm audit` usan `working-directory: src/frontend`.
+- **Rango de SQLAlchemy acotado a `<2.1`.** La version 2.1 cambio el tipado de las sentencias y provoco 35 errores de `mypy --strict` sin relacion con el codigo. Se fijo el rango compatible en lugar de silenciar la comprobacion.
+
+**Riesgo aceptado:** `CVE-2026-85394` (python-jose <=3.5.0, critico) se ignora en `pip-audit` porque no existe version corregida. Solo es explotable cuando la verificacion usa una clave asimetrica; SIGEM firma con secreto simetrico y `validate_production()` ahora rechaza `JWT_ALGORITHM` fuera de HS256/HS384/HS512, lo que hace la vulnerabilidad inaplicable por construccion.
+
+**Deuda tecnica:** python-jose esta sin mantenimiento. Migrar la firma de tokens a PyJWT sigue recomendado y queda como tarea separada.
+
+---
+
 ## 2026-10-06: Contención de evidencias y revocación de cuentas deshabilitadas
 
 **Contexto:** La revisión detectó rutas de evidencias controladas por el cliente que permitían descargar archivos fuera de `STORAGE_PATH`, y sesiones que conservaban acceso después de desactivar o bloquear su usuario.

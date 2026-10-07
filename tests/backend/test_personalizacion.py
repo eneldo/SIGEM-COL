@@ -65,9 +65,7 @@ def _put(api, token, payload):
 
 class TestPersonalizacionAPI:
     def test_get_devuelve_valores_por_defecto(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token))
         assert resp.status_code == 200, resp.text
         assert resp.json() == {
             "color_primario": "#0f3d3b",
@@ -85,9 +83,7 @@ class TestPersonalizacionAPI:
 
     def test_get_devuelve_la_configuracion_guardada(self, api, admin_token):
         _put(api, admin_token, _payload(nombre_sistema="Municipio Demo"))
-        resp = api.get(
-            f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token))
         assert resp.status_code == 200, resp.text
         assert resp.json()["nombre_sistema"] == "Municipio Demo"
 
@@ -97,9 +93,7 @@ class TestPersonalizacionAPI:
         assert resp.status_code == 200, resp.text
         assert resp.json()["nombre_sistema"] == "Segunda versión"
 
-        get_resp = api.get(
-            f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token)
-        )
+        get_resp = api.get(f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token))
         assert get_resp.json()["nombre_sistema"] == "Segunda versión"
 
     def test_put_guarda_y_limpia_el_nombre(self, api, admin_token):
@@ -112,9 +106,7 @@ class TestPersonalizacionAPI:
         assert resp.status_code == 200, resp.text
         assert resp.json()["logo_data_url"] == PNG_DATA_URL
 
-        get_resp = api.get(
-            f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token)
-        )
+        get_resp = api.get(f"{API_PREFIX}/personalizacion", headers=auth_header(admin_token))
         assert get_resp.json()["logo_data_url"] == PNG_DATA_URL
 
     def test_put_sin_logotipo_limpia_el_anterior(self, api, admin_token):
@@ -128,9 +120,7 @@ class TestPersonalizacionAPI:
         assert resp.status_code == 403, resp.text
 
     def test_gestor_puede_leer(self, api, gestor_token):
-        resp = api.get(
-            f"{API_PREFIX}/personalizacion", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{API_PREFIX}/personalizacion", headers=auth_header(gestor_token))
         assert resp.status_code == 200, resp.text
 
     def test_get_sin_token_devuelve_401(self, api):

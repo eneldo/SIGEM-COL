@@ -215,9 +215,7 @@ async def test_update_rol_missing_and_all_fields_permissions():
 
 async def test_update_rol_without_optional_changes():
     item = role()
-    result = await rs.update_rol(
-        database(Result(item), Result(item), Result(rows=[])), item.id, {}
-    )
+    result = await rs.update_rol(database(Result(item), Result(item), Result(rows=[])), item.id, {})
     assert result["codigo"] == item.codigo
 
 
@@ -236,9 +234,7 @@ async def test_delete_rol_soft_delete_and_missing():
 
 async def test_list_permisos_with_and_without_module_filter():
     item = permission()
-    filtered = await rs.list_permisos(
-        database(Result(rows=[item])), {"modulo": "USUARIOS"}
-    )
+    filtered = await rs.list_permisos(database(Result(rows=[item])), {"modulo": "USUARIOS"})
     empty = await rs.list_permisos(database(Result(rows=[])))
 
     assert filtered == {
@@ -298,9 +294,7 @@ async def test_create_usuario_rejects_duplicate_code_and_username():
     with pytest.raises(ValueError, match="código"):
         await us.create_usuario(database(Result(uuid4())), mid, valid_user_payload())
     with pytest.raises(ValueError, match="username"):
-        await us.create_usuario(
-            database(Result(None), Result(uuid4())), mid, valid_user_payload()
-        )
+        await us.create_usuario(database(Result(None), Result(uuid4())), mid, valid_user_payload())
 
 
 async def test_create_usuario_translates_integrity_error():
@@ -339,9 +333,7 @@ async def test_create_usuario_with_valid_role_and_dependency():
 async def test_create_usuario_ignores_missing_role_and_uses_defaults():
     db = database(Result(None), Result(None), Result(None))
     with patch.object(us, "get_password_hash", return_value="hashed"):
-        result = await us.create_usuario(
-            db, uuid4(), valid_user_payload(rol_id=uuid4())
-        )
+        result = await us.create_usuario(db, uuid4(), valid_user_payload(rol_id=uuid4()))
 
     assert result["telefono"] is None
     assert result["cargo"] is None
@@ -365,18 +357,14 @@ async def test_list_usuarios_filters_states_and_serializes_roles_and_dates():
     )
 
     assert result["page"] == 1 and result["page_size"] == 100
-    assert result["items"][0]["roles"] == [
-        {"codigo": "ADMIN", "nombre": "Administrador"}
-    ]
+    assert result["items"][0]["roles"] == [{"codigo": "ADMIN", "nombre": "Administrador"}]
     assert result["items"][0]["ultimo_acceso"] == NOW.isoformat()
     assert result["items"][1]["ultimo_acceso"] is None
 
     inactive = await us.list_usuarios(
         database(Result(0), Result(rows=[])), mid, {"estado": "INACTIVO"}
     )
-    other = await us.list_usuarios(
-        database(Result(0), Result(rows=[])), mid, {"estado": "OTRO"}
-    )
+    other = await us.list_usuarios(database(Result(0), Result(rows=[])), mid, {"estado": "OTRO"})
     assert inactive["total_pages"] == 0
     assert other["items"] == []
 

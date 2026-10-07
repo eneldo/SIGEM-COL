@@ -1,8 +1,8 @@
 """Tests de integración CRUD para catálogos: líneas, programas, productos, dependencias."""
 
 import uuid
-from tests.conftest import API_PREFIX, auth_header
 
+from tests.conftest import API_PREFIX, auth_header
 
 MUNICIPIO_ID = "3955c3f3-e036-4b74-b1fc-b330603d99a9"
 PLAN_DESARROLLO_ID = "fba239a8-68a0-4d1b-9ff4-1b00857b629b"
@@ -300,9 +300,7 @@ class TestProgramasCRUD:
             "descripcion": "Descripción de prueba",
             "linea_estrategica_id": linea_id,
         }
-        resp = api.post(
-            f"{API_PREFIX}/programas", json=payload, headers=auth_header(admin_token)
-        )
+        resp = api.post(f"{API_PREFIX}/programas", json=payload, headers=auth_header(admin_token))
         assert resp.status_code == 201, resp.text
         data = resp.json()
         assert data["nombre"] == payload["nombre"]
@@ -342,9 +340,7 @@ class TestProgramasCRUD:
         programa_id = _get_programa_id(api, admin_token)
         if not programa_id:
             return
-        resp = api.get(
-            f"{API_PREFIX}/programas/{programa_id}", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/programas/{programa_id}", headers=auth_header(admin_token))
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert data["id"] == programa_id
@@ -402,9 +398,7 @@ class TestProgramasCRUD:
         assert create_resp.status_code == 201, create_resp.text
         programa_id = create_resp.json()["id"]
 
-        resp = api.delete(
-            f"{API_PREFIX}/programas/{programa_id}", headers=auth_header(admin_token)
-        )
+        resp = api.delete(f"{API_PREFIX}/programas/{programa_id}", headers=auth_header(admin_token))
         assert resp.status_code == 204, resp.text
 
         get_resp = api.get(
@@ -413,9 +407,7 @@ class TestProgramasCRUD:
         assert get_resp.status_code == 404
 
     def test_id_invalido_devuelve_422_o_404(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/programas/no-es-uuid", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/programas/no-es-uuid", headers=auth_header(admin_token))
         assert resp.status_code in (400, 422, 404)
 
     def test_codigo_duplicado_en_misma_linea(self, api, admin_token):
@@ -428,9 +420,7 @@ class TestProgramasCRUD:
             "nombre": "Programa Duplicado",
             "linea_estrategica_id": linea_id,
         }
-        resp1 = api.post(
-            f"{API_PREFIX}/programas", json=payload, headers=auth_header(admin_token)
-        )
+        resp1 = api.post(f"{API_PREFIX}/programas", json=payload, headers=auth_header(admin_token))
         if resp1.status_code != 201:
             return
         programa_id = resp1.json()["id"]
@@ -457,9 +447,7 @@ class TestProgramasCRUD:
             "nombre": "Sin Permiso",
             "linea_estrategica_id": linea_id,
         }
-        resp = api.post(
-            f"{API_PREFIX}/programas", json=payload, headers=auth_header(gestor_token)
-        )
+        resp = api.post(f"{API_PREFIX}/programas", json=payload, headers=auth_header(gestor_token))
         assert resp.status_code == 403, resp.text
         assert "programa.crear" in resp.json()["detail"]
 
@@ -540,9 +528,7 @@ class TestProductosCRUD:
             "programa_id": programa_id,
             "dependencia_responsable_id": dependencia_id,
         }
-        resp = api.post(
-            f"{API_PREFIX}/productos", json=payload, headers=auth_header(admin_token)
-        )
+        resp = api.post(f"{API_PREFIX}/productos", json=payload, headers=auth_header(admin_token))
         assert resp.status_code == 201, resp.text
         data = resp.json()
         assert data["nombre"] == payload["nombre"]
@@ -591,9 +577,7 @@ class TestProductosCRUD:
             return
         producto_id = resp.json()["items"][0]["id"]
 
-        resp = api.get(
-            f"{API_PREFIX}/productos/{producto_id}", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/productos/{producto_id}", headers=auth_header(admin_token))
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert data["id"] == producto_id
@@ -653,9 +637,7 @@ class TestProductosCRUD:
         assert create_resp.status_code == 201, create_resp.text
         producto_id = create_resp.json()["id"]
 
-        resp = api.delete(
-            f"{API_PREFIX}/productos/{producto_id}", headers=auth_header(admin_token)
-        )
+        resp = api.delete(f"{API_PREFIX}/productos/{producto_id}", headers=auth_header(admin_token))
         assert resp.status_code == 204, resp.text
 
         get_resp = api.get(
@@ -664,9 +646,7 @@ class TestProductosCRUD:
         assert get_resp.status_code == 404
 
     def test_id_invalido_devuelve_422_o_404(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/productos/no-es-uuid", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/productos/no-es-uuid", headers=auth_header(admin_token))
         assert resp.status_code in (400, 422, 404)
 
     def test_codigo_duplicado_en_mismo_programa(self, api, admin_token):
@@ -679,9 +659,7 @@ class TestProductosCRUD:
             "nombre": "Producto Duplicado",
             "programa_id": programa_id,
         }
-        resp1 = api.post(
-            f"{API_PREFIX}/productos", json=payload, headers=auth_header(admin_token)
-        )
+        resp1 = api.post(f"{API_PREFIX}/productos", json=payload, headers=auth_header(admin_token))
         if resp1.status_code != 201:
             return
         producto_id = resp1.json()["id"]
@@ -708,9 +686,7 @@ class TestProductosCRUD:
             "nombre": "Sin Permiso",
             "programa_id": programa_id,
         }
-        resp = api.post(
-            f"{API_PREFIX}/productos", json=payload, headers=auth_header(gestor_token)
-        )
+        resp = api.post(f"{API_PREFIX}/productos", json=payload, headers=auth_header(gestor_token))
         assert resp.status_code == 403, resp.text
         assert "producto.crear" in resp.json()["detail"]
 
@@ -887,9 +863,7 @@ class TestDependenciasCRUD:
         assert get_resp.status_code == 404
 
     def test_id_invalido_devuelve_422_o_404(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/dependencias/no-es-uuid", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/dependencias/no-es-uuid", headers=auth_header(admin_token))
         assert resp.status_code in (400, 422, 404)
 
     def test_codigo_duplicado_en_municipio(self, api, admin_token):

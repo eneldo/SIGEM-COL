@@ -7,9 +7,7 @@ class TestDashboardAdmin:
     """Pruebas del dashboard de administrador."""
 
     def test_admin_dashboard_kpis(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/dashboard/admin/kpis", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/dashboard/admin/kpis", headers=auth_header(admin_token))
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, dict)
@@ -30,9 +28,7 @@ class TestDashboardGestor:
         assert resp.status_code == 200
 
     def test_gestor_resumen(self, api, gestor_token):
-        resp = api.get(
-            f"{API_PREFIX}/gestor/dashboard/resumen", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{API_PREFIX}/gestor/dashboard/resumen", headers=auth_header(gestor_token))
         assert resp.status_code == 200
 
     def test_gestor_dashboard_requires_auth(self, api):
@@ -48,9 +44,7 @@ class TestRBAC:
         assert resp.status_code == 403
 
     def test_gestor_no_acceso_lineas(self, api, gestor_token):
-        resp = api.get(
-            f"{API_PREFIX}/lineas-estrategicas", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{API_PREFIX}/lineas-estrategicas", headers=auth_header(gestor_token))
         assert resp.status_code == 403
 
     def test_gestor_no_acceso_programas(self, api, gestor_token):
@@ -78,9 +72,7 @@ class TestRBAC:
         assert resp.status_code == 200
 
     def test_admin_acceso_lineas(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/lineas-estrategicas", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/lineas-estrategicas", headers=auth_header(admin_token))
         assert resp.status_code == 200
 
     def test_admin_acceso_programas(self, api, admin_token):

@@ -73,9 +73,7 @@ def create_temp_user(api, admin_token, *, rol_id=None, username=None, password=N
     }
     if rol_id:
         payload["rol_id"] = rol_id
-    resp = api.post(
-        f"{API_PREFIX}/usuarios", json=payload, headers=auth_header(admin_token)
-    )
+    resp = api.post(f"{API_PREFIX}/usuarios", json=payload, headers=auth_header(admin_token))
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["id"], username, password
 
@@ -216,9 +214,7 @@ def gestor_credentials(api, admin_token):
     rol_id = next((r["id"] for r in roles.json() if r["codigo"] == "GESTOR"), None)
     assert rol_id, "El rol GESTOR debe existir en el catálogo de roles"
 
-    deps = api.get(
-        f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token)
-    )
+    deps = api.get(f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token))
     dependencia_id = _first_item(deps, "catalogos/dependencias")["id"]
 
     username = unique_username("tges")

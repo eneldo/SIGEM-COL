@@ -44,9 +44,7 @@ def service(db):
 
 @pytest.fixture
 def ids():
-    return SimpleNamespace(
-        user=uuid.uuid4(), municipio=uuid.uuid4(), session=uuid.uuid4()
-    )
+    return SimpleNamespace(user=uuid.uuid4(), municipio=uuid.uuid4(), session=uuid.uuid4())
 
 
 @pytest.fixture
@@ -130,9 +128,7 @@ async def test_authenticate_rejects_unavailable_accounts(
     db.execute.side_effect = [ScalarResult(municipio), ScalarResult(user)]
     monkeypatch.setattr(auth_module, "set_tenant_context", AsyncMock())
 
-    assert (
-        await service.authenticate_user("alice", "password", municipio.codigo) is None
-    )
+    assert await service.authenticate_user("alice", "password", municipio.codigo) is None
     attempt = db.add.call_args.args[0]
     assert attempt.razon_fallo == reason
     assert attempt.exitoso is False
@@ -167,9 +163,7 @@ async def test_authenticate_invalid_password_tracks_and_may_lock(
 
 
 @pytest.mark.asyncio
-async def test_authenticate_success_issues_tokens(
-    service, db, municipio, user, monkeypatch
-):
+async def test_authenticate_success_issues_tokens(service, db, municipio, user, monkeypatch):
     db.execute.side_effect = [ScalarResult(municipio), ScalarResult(user)]
     monkeypatch.setattr(auth_module, "set_tenant_context", AsyncMock())
     monkeypatch.setattr(auth_module, "verify_password", lambda *_: True)
@@ -191,16 +185,12 @@ async def test_authenticate_success_issues_tokens(
 
 
 @pytest.mark.asyncio
-async def test_authenticate_success_requires_mfa(
-    service, db, municipio, user, monkeypatch
-):
+async def test_authenticate_success_requires_mfa(service, db, municipio, user, monkeypatch):
     user.mfa_activo = True
     db.execute.side_effect = [ScalarResult(municipio), ScalarResult(user)]
     monkeypatch.setattr(auth_module, "set_tenant_context", AsyncMock())
     monkeypatch.setattr(auth_module, "verify_password", lambda *_: True)
-    monkeypatch.setattr(
-        auth_module, "create_mfa_token", lambda data: f"mfa:{data['sub']}"
-    )
+    monkeypatch.setattr(auth_module, "create_mfa_token", lambda data: f"mfa:{data['sub']}")
     service.get_user_roles = AsyncMock(return_value=["ADMIN"])
 
     result = await service.authenticate_user("alice", "password", municipio.codigo)
@@ -218,9 +208,7 @@ async def test_issue_tokens_persists_session_and_builds_payload(
 ):
     monkeypatch.setattr(auth_module, "create_refresh_token", lambda _: "refresh")
     monkeypatch.setattr(auth_module, "decode_token", lambda _: {"jti": "refresh-jti"})
-    monkeypatch.setattr(
-        auth_module, "create_access_token", lambda data: f"access:{data['sid']}"
-    )
+    monkeypatch.setattr(auth_module, "create_access_token", lambda data: f"access:{data['sid']}")
 
     result = await service._issue_tokens(
         user,
@@ -356,9 +344,7 @@ async def test_refresh_rotates_session(service, db, user, ids, monkeypatch):
     decode = MagicMock(side_effect=[old_payload, {"jti": "new-jti"}])
     monkeypatch.setattr(auth_module, "decode_token", decode)
     monkeypatch.setattr(auth_module, "create_refresh_token", lambda _: "new-refresh")
-    monkeypatch.setattr(
-        auth_module, "create_access_token", lambda data: f"access:{data['sid']}"
-    )
+    monkeypatch.setattr(auth_module, "create_access_token", lambda data: f"access:{data['sid']}")
     monkeypatch.setattr(auth_module, "set_tenant_context", AsyncMock())
     db.execute.return_value = ScalarResult(old_session)
     service.get_current_user = AsyncMock(return_value=user)
@@ -377,9 +363,7 @@ async def test_refresh_rotates_session(service, db, user, ids, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_refresh_rejects_invalid_rotated_token(
-    service, db, user, ids, monkeypatch
-):
+async def test_refresh_rejects_invalid_rotated_token(service, db, user, ids, monkeypatch):
     old_session = SimpleNamespace(
         id=ids.session,
         activa=1,
@@ -394,12 +378,8 @@ async def test_refresh_rejects_invalid_rotated_token(
         "sub": str(ids.user),
         "municipio_id": str(ids.municipio),
     }
-    monkeypatch.setattr(
-        auth_module, "decode_token", MagicMock(side_effect=[old_payload, None])
-    )
-    monkeypatch.setattr(
-        auth_module, "create_refresh_token", lambda _: "invalid-refresh"
-    )
+    monkeypatch.setattr(auth_module, "decode_token", MagicMock(side_effect=[old_payload, None]))
+    monkeypatch.setattr(auth_module, "create_refresh_token", lambda _: "invalid-refresh")
     monkeypatch.setattr(auth_module, "set_tenant_context", AsyncMock())
     db.execute.return_value = ScalarResult(old_session)
     service.get_current_user = AsyncMock(return_value=user)
@@ -466,9 +446,7 @@ async def test_mfa_login_issues_tokens(service, user, ids, monkeypatch):
     service.get_user_roles = AsyncMock(return_value=["ADMIN"])
     service._issue_tokens = AsyncMock(return_value={"access_token": "access"})
 
-    assert await service.mfa_login("token", "123456", "ip", "ua") == {
-        "access_token": "access"
-    }
+    assert await service.mfa_login("token", "123456", "ip", "ua") == {"access_token": "access"}
     service._issue_tokens.assert_awaited_once()
 
 
@@ -588,10 +566,7 @@ async def test_user_role_and_permission_queries(service, db, ids):
 async def test_change_password_rejects_missing_user(service, db):
     service.get_current_user = AsyncMock(return_value=None)
     assert (
-        await service.change_password(
-            str(uuid.uuid4()), str(uuid.uuid4()), "old", "new"
-        )
-        is False
+        await service.change_password(str(uuid.uuid4()), str(uuid.uuid4()), "old", "new") is False
     )
     db.commit.assert_not_awaited()
 
@@ -601,10 +576,7 @@ async def test_change_password_rejects_wrong_password(service, db, user, monkeyp
     service.get_current_user = AsyncMock(return_value=user)
     monkeypatch.setattr(auth_module, "verify_password", lambda *_: False)
     assert (
-        await service.change_password(
-            str(user.id), str(user.municipio_id), "bad", "new"
-        )
-        is False
+        await service.change_password(str(user.id), str(user.municipio_id), "bad", "new") is False
     )
     db.commit.assert_not_awaited()
 
@@ -615,12 +587,7 @@ async def test_change_password_updates_hash(service, db, user, monkeypatch):
     monkeypatch.setattr(auth_module, "verify_password", lambda *_: True)
     monkeypatch.setattr(auth_module, "get_password_hash", lambda value: f"hash:{value}")
 
-    assert (
-        await service.change_password(
-            str(user.id), str(user.municipio_id), "old", "new"
-        )
-        is True
-    )
+    assert await service.change_password(str(user.id), str(user.municipio_id), "old", "new") is True
     assert user.password_hash == "hash:new"
     assert user.must_change_password is False
     assert user.ultimo_cambio_password is not None

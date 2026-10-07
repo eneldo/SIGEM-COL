@@ -99,15 +99,11 @@ class TestTokenValidation:
         assert "Token" in resp.json()["detail"]
 
     def test_me_with_invalid_token(self, api):
-        resp = api.get(
-            f"{API_PREFIX}/auth/me", headers=auth_header("invalid.jwt.token")
-        )
+        resp = api.get(f"{API_PREFIX}/auth/me", headers=auth_header("invalid.jwt.token"))
         assert resp.status_code == 401
 
     def test_me_with_malformed_header(self, api):
-        resp = api.get(
-            f"{API_PREFIX}/auth/me", headers={"Authorization": "NotBearer xxx"}
-        )
+        resp = api.get(f"{API_PREFIX}/auth/me", headers={"Authorization": "NotBearer xxx"})
         assert resp.status_code == 401
 
     def test_me_with_empty_token_value(self, api):
@@ -131,9 +127,7 @@ class TestLogout:
             assert resp.status_code == 200
             assert "Sesión cerrada" in resp.json()["message"]
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
 
 class TestPasswordChange:

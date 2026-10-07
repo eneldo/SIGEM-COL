@@ -96,9 +96,7 @@ async def test_save_crea_la_fila_cuando_no_existe():
 async def test_save_actualiza_la_fila_existente():
     row = fila()
     db = db_mock(row=row)
-    data = payload(
-        nombre_sistema="Actualizado", logo_data_url="data:image/png;base64,BBBB"
-    )
+    data = payload(nombre_sistema="Actualizado", logo_data_url="data:image/png;base64,BBBB")
     result = await service.save_personalizacion(db, uuid4(), data)
     assert result["nombre_sistema"] == "Actualizado"
     assert result["logo_data_url"] == "data:image/png;base64,BBBB"
@@ -136,9 +134,7 @@ async def test_ruta_put_guarda_la_configuracion():
             AsyncMock(return_value=esperado),
         ) as save_service,
     ):
-        response = await personalizacion.actualizar_personalizacion(
-            body, CURRENT_USER, DB
-        )
+        response = await personalizacion.actualizar_personalizacion(body, CURRENT_USER, DB)
     assert response.nombre_sistema == "Municipio Demo"
     assert permission.await_count == 1
     assert permission.await_args.args[1] == CURRENT_USER["user"].id

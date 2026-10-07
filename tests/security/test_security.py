@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+
 from tests.conftest import API_PREFIX, auth_header
 
 
@@ -81,9 +82,7 @@ class TestXSSProtection:
         if resp.status_code == 201:
             data = resp.json()
             # Cleanup
-            api.delete(
-                f"{API_PREFIX}/usuarios/{data['id']}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{data['id']}", headers=auth_header(admin_token))
 
 
 class TestAuthBypass:

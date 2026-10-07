@@ -18,9 +18,7 @@ from src.backend.schemas.auth import (
 
 
 def make_request(path="/api/v1/auth/me", headers=None, client=("127.0.0.1", 1234)):
-    raw_headers = [
-        (key.lower().encode(), value.encode()) for key, value in (headers or {}).items()
-    ]
+    raw_headers = [(key.lower().encode(), value.encode()) for key, value in (headers or {}).items()]
     return Request(
         {
             "type": "http",
@@ -37,9 +35,7 @@ def make_request(path="/api/v1/auth/me", headers=None, client=("127.0.0.1", 1234
 
 @pytest.fixture
 def ids():
-    return SimpleNamespace(
-        user=uuid.uuid4(), municipio=uuid.uuid4(), session=uuid.uuid4()
-    )
+    return SimpleNamespace(user=uuid.uuid4(), municipio=uuid.uuid4(), session=uuid.uuid4())
 
 
 @pytest.fixture
@@ -86,9 +82,7 @@ def assert_http_error(exc_info, status_code, detail):
 async def test_get_current_user_rejects_missing_or_malformed_bearer(authorization):
     headers = {} if authorization is None else {"Authorization": authorization}
     with pytest.raises(HTTPException) as exc_info:
-        await auth.get_current_user_from_token(
-            make_request(headers=headers), MagicMock()
-        )
+        await auth.get_current_user_from_token(make_request(headers=headers), MagicMock())
     assert_http_error(exc_info, 401, "Token de autenticación requerido")
 
 
@@ -195,9 +189,7 @@ async def test_get_current_user_enforces_security_flags(
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_returns_context_on_allowed_path(
-    monkeypatch, services, user, ids
-):
+async def test_get_current_user_returns_context_on_allowed_path(monkeypatch, services, user, ids):
     service, _ = services
     user.must_change_password = True
     user.mfa_activo = False
@@ -303,9 +295,7 @@ async def test_mfa_setup_error_and_success(services, current_user):
 async def test_mfa_verify_all_paths(services, current_user):
     service, audit = services
     data = MFAVerifyRequest(code="123456")
-    service.mfa_verify = AsyncMock(
-        side_effect=[ValueError("not configured"), False, True]
-    )
+    service.mfa_verify = AsyncMock(side_effect=[ValueError("not configured"), False, True])
     with pytest.raises(HTTPException) as exc_info:
         await auth.mfa_verify(data, current_user, MagicMock())
     assert_http_error(exc_info, 400, "not configured")
@@ -337,9 +327,7 @@ async def test_mfa_login_error_and_success(services, ids):
 async def test_mfa_disable_all_paths(services, current_user):
     service, audit = services
     data = MFADisableRequest(password="password", code="123456")
-    service.mfa_disable = AsyncMock(
-        side_effect=[ValueError("not enabled"), False, True]
-    )
+    service.mfa_disable = AsyncMock(side_effect=[ValueError("not enabled"), False, True])
     with pytest.raises(HTTPException) as exc_info:
         await auth.mfa_disable(data, current_user, MagicMock())
     assert_http_error(exc_info, 400, "not enabled")
@@ -378,9 +366,7 @@ async def test_logout_revokes_expected_sessions(services, current_user, ids, wit
         "message": "Sesión cerrada exitosamente"
     }
     if with_sid:
-        service.revoke_session.assert_awaited_once_with(
-            ids.session, current_user["user"].id
-        )
+        service.revoke_session.assert_awaited_once_with(ids.session, current_user["user"].id)
         service.revoke_all_sessions.assert_not_awaited()
     else:
         service.revoke_all_sessions.assert_awaited_once_with(current_user["user"].id)
