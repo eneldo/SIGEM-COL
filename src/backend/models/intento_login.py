@@ -23,5 +23,5 @@ class IntentoLogin(Base):
     fecha_intento = Column(DateTime(timezone=True), nullable=False)
     razon_fallo = Column(Text, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<IntentoLogin {self.username_intentado} - {'OK' if self.exitoso else 'FAIL'}>"

@@ -47,5 +47,5 @@ class Usuario(BaseModel):
     # Unique constraint: username per municipality
     __table_args__ = ({"schema": None},)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Usuario {self.username} - {self.nombre_completo}>"

@@ -18,7 +18,7 @@ class Rol(BaseModel):
     # Relationships
     permisos = relationship("RolPermiso", backref="rol", cascade="all, delete-orphan")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Rol {self.codigo} - {self.nombre}>"
 
 
@@ -32,5 +32,5 @@ class Permiso(BaseModel):
     accion = Column(String(100), nullable=False)
     estado = Column(String(50), default="ACTIVO", nullable=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Permiso {self.codigo}>"

@@ -26,5 +26,5 @@ class MFAFactor(Base):
     revocado = Column(Boolean, default=False, nullable=False)
     fecha_revocacion = Column(DateTime(timezone=True), nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MFAFactor {self.tipo} - {self.nombre}>"

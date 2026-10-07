@@ -27,5 +27,5 @@ class Evidencia(BaseModel):
 
     avance = relationship("AvanceProducto", backref="evidencias")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Evidencia {self.nombre} avance={self.avance_id}>"

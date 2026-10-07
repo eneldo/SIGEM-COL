@@ -24,5 +24,5 @@ class Sesion(Base):
     ultima_actividad = Column(DateTime(timezone=True), nullable=True)
     fecha_expiracion = Column(DateTime(timezone=True), nullable=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Sesion {self.token_jti[:20]}...>"

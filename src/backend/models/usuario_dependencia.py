@@ -21,5 +21,5 @@ class UsuarioDependencia(Base):
     )
     es_principal = Column(Boolean, default=False, nullable=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<UsuarioDependencia usuario={self.usuario_id} dependencia={self.dependencia_id}>"

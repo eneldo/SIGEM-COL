@@ -19,5 +19,5 @@ class Municipio(BaseModel):
     direccion = Column(String(500), nullable=True)
     activo = Column(Integer, default=1, nullable=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Municipio {self.codigo} - {self.nombre}>"

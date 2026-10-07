@@ -27,5 +27,5 @@ class LineaEstrategica(BaseModel):
     municipio = relationship("Municipio", backref="lineas_estrategicas")
     programas = relationship("Programa", backref="linea_estrategica")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<LineaEstrategica {self.codigo} - {self.nombre}>"
