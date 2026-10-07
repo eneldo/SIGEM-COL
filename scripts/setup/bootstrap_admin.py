@@ -22,17 +22,20 @@ async def bootstrap_admin() -> None:
     username = os.environ.get("SIGEM_BOOTSTRAP_USERNAME", "admin")
     municipio_codigo = os.environ.get("SIGEM_BOOTSTRAP_MUNICIPIO", "00000")
 
+    # En produccion el administrador debe cambiar su clave en el primer ingreso.
+    # Las suites de integracion necesitan una cuenta ya operativa, por eso la
+    # obligacion puede desactivarse explicitamente (solo en CI).
+    must_change_password = os.environ.get(
+        "SIGEM_BOOTSTRAP_MUST_CHANGE_PASSWORD", "true"
+    ).strip().lower() not in ("false", "0", "no")
+
     async with AsyncSessionLocal() as session:
         municipio = await session.scalar(
             select(Municipio).where(Municipio.codigo == municipio_codigo)
         )
-        role = await session.scalar(
-            select(Rol).where(Rol.codigo == "SUPERADMIN_PLATAFORMA")
-        )
+        role = await session.scalar(select(Rol).where(Rol.codigo == "SUPERADMIN_PLATAFORMA"))
         if municipio is None or role is None:
-            raise RuntimeError(
-                "Run Alembic migrations before bootstrapping the administrator"
-            )
+            raise RuntimeError("Run Alembic migrations before bootstrapping the administrator")
 
         # Scope this session to the municipality: usuarios/usuario_roles have
         # FORCE ROW LEVEL SECURITY and reject unscoped reads and writes.
@@ -55,14 +58,14 @@ async def bootstrap_admin() -> None:
                 email="admin@sigem.gov.co",
                 nombre_completo="Administrador SIGEM",
                 password_hash=get_password_hash(password),
-                must_change_password=True,
+                must_change_password=must_change_password,
                 activo=1,
             )
             session.add(user)
             await session.flush()
         else:
             user.password_hash = get_password_hash(password)
-            user.must_change_password = True
+            user.must_change_password = must_change_password
             user.activo = 1
             user.estado = "ACTIVO"
             user.fecha_bloqueo = None

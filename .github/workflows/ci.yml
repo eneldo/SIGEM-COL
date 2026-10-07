@@ -77,6 +77,9 @@ jobs:
       SIGEM_BOOTSTRAP_PASSWORD: "SigemAdmin2026!"
       SIGEM_BOOTSTRAP_USERNAME: admin
       SIGEM_BOOTSTRAP_MUNICIPIO: "00000"
+      # La suite necesita una cuenta operativa; en produccion el cambio de clave
+      # en el primer ingreso sigue siendo obligatorio.
+      SIGEM_BOOTSTRAP_MUST_CHANGE_PASSWORD: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
