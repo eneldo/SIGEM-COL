@@ -13,7 +13,7 @@ import asyncio
 import uuid
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -164,6 +164,9 @@ async def registrar_avance(
     """
     Registra un nuevo avance para un producto.
     """
+    if avance_data.get("evidencia_url") is not None:
+        raise ValueError("La ruta de evidencia se genera únicamente al subir el archivo.")
+
     gestor_stmt = select(GestorLider.id).where(
         and_(
             GestorLider.usuario_id == usuario_id,
@@ -206,7 +209,7 @@ async def registrar_avance(
         avance_porcentaje=porcentaje,
         avance_valor=valor,
         observaciones=avance_data.get("observaciones"),
-        evidencia_url=avance_data.get("evidencia_url"),
+        evidencia_url=None,
         indicador=producto.indicador,
         periodo=avance_data.get("periodo"),
         fecha_registro=now,
@@ -759,6 +762,26 @@ async def guardar_evidencia(
     }
 
 
+def _resolve_evidence_path(relative_path: str) -> Path:
+    """Resolve stored paths without allowing absolute paths or storage escapes."""
+    path = Path(relative_path)
+    if path.is_absolute() or PureWindowsPath(relative_path).is_absolute() or ".." in path.parts:
+        raise ValueError("Ruta de evidencia inválida.")
+
+    try:
+        storage_root = Path(settings.STORAGE_PATH).resolve()
+        file_path = (storage_root / path).resolve()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError("Ruta de evidencia inválida.") from exc
+
+    # Resolving before checking containment also rejects symlinks out of storage.
+    if not file_path.is_relative_to(storage_root):
+        raise ValueError("Ruta de evidencia inválida.")
+    if not file_path.is_file():
+        raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
+    return file_path
+
+
 async def obtener_archivo_evidencia(
     db: AsyncSession,
     avance_id: uuid.UUID,
@@ -795,9 +818,7 @@ async def obtener_archivo_evidencia(
         if gestor_id != avance.gestor_lider_id:
             raise ValueError("No tiene permiso para ver esta evidencia.")
 
-    file_path = Path(settings.STORAGE_PATH) / avance.evidencia_url
-    if not file_path.is_file():
-        raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
+    file_path = _resolve_evidence_path(str(avance.evidencia_url))
 
     filename = str(avance.evidencia_nombre or file_path.name)
     content_type = str(avance.evidencia_tipo or "application/octet-stream")
@@ -1046,9 +1067,7 @@ async def obtener_archivo_evidencia_por_id(
         if gestor_id != avance.gestor_lider_id:
             raise PermissionError("No tiene permiso para ver esta evidencia.")
 
-    file_path = Path(settings.STORAGE_PATH) / evidencia.url
-    if not file_path.is_file():
-        raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
+    file_path = _resolve_evidence_path(str(evidencia.url))
 
     filename = str(evidencia.nombre or file_path.name)
     content_type = str(evidencia.tipo or "application/octet-stream")

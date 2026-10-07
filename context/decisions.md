@@ -1,5 +1,18 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-06: Contención de evidencias y revocación de cuentas deshabilitadas
+
+**Contexto:** La revisión detectó rutas de evidencias controladas por el cliente que permitían descargar archivos fuera de `STORAGE_PATH`, y sesiones que conservaban acceso después de desactivar o bloquear su usuario.
+
+**Decisión:**
+- El alta de avances rechaza `evidencia_url` no nula; las rutas físicas solo se generan en los servicios de carga. Ambas descargas de evidencias resuelven la ruta y rechazan rutas absolutas, segmentos `..` y enlaces simbólicos que escapen del almacenamiento. La contención también se aplica a referencias ya persistidas.
+- La consulta de usuario autenticado exige `activo=1`, ausencia de bloqueo y cuenta no eliminada, protegiendo solicitudes con access token, refresh y segundo paso MFA.
+- Desactivar usuarios, desactivar/bloquear gestores y bloquear por intentos fallidos revoca sus sesiones en la misma transacción del cambio de cuenta. Reactivar una cuenta no recupera sesiones antiguas.
+
+**Verificación:** Pruebas de regresión con archivos temporales y consultas SQL reales en una base SQLite aislada; las comprobaciones de RLS y operación PostgreSQL siguen correspondiendo a la suite de integración.
+
+---
+
 ## 2026-10-04: Módulo de Personalización (branding por municipio)
 
 **Contexto:** Configuración → Personalización requiere colores primario/secundario, nombre del sistema y logotipo compartidos por municipio, con el logotipo visible en el Sidebar y como favicon.

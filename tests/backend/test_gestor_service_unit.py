@@ -473,7 +473,7 @@ async def test_change_status_branches(monkeypatch, audit, status, activo, blocke
     monkeypatch.setattr(
         service, "_build_gestor_dict", AsyncMock(return_value={"estado": status})
     )
-    db = DB()
+    db = DB(executes=[SimpleNamespace(rowcount=2)] if not activo else [])
     result = await service._change_gestor_status(
         db, uuid4(), gestor.id, status, "EVENT", " razón " if blocked else None
     )

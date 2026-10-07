@@ -29,6 +29,7 @@ from ..models.usuario import Usuario
 from ..models.usuario_dependencia import UsuarioDependencia
 from ..models.usuario_rol import UsuarioRol
 from ..services.audit_service import AuditService
+from ..services.auth_service import AuthService
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -747,6 +748,9 @@ async def _change_gestor_status(
         usuario.motivo_bloqueo = None  # type: ignore[assignment]
     elif new_status == ESTADO_INACTIVO:
         usuario.activo = 0  # type: ignore[assignment]
+
+    if new_status in (ESTADO_BLOQUEADO, ESTADO_INACTIVO):
+        await AuthService(db).revoke_all_sessions(uuid.UUID(str(usuario.id)), commit=False)
 
     await db.commit()
 

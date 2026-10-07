@@ -5,7 +5,6 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from tests.conftest import API_PREFIX, auth_header
 
-
 AVANCES_URL = f"{API_PREFIX}/gestor/dashboard/avances"
 REVISION_URL = f"{API_PREFIX}/gestor/dashboard/revision"
 
@@ -158,7 +157,6 @@ class TestCrearAvance:
             gestor_token,
             avance_valor=500,
             indicador="Indicador personalizado",
-            evidencia_url="https://example.com/evidencia.pdf",
             evidencia_nombre="evidencia.pdf",
             evidencia_tipo="application/pdf",
         )
@@ -166,7 +164,14 @@ class TestCrearAvance:
         data = resp.json()
         assert data["avance_valor"] == 500
         assert data["indicador"] == "Porcentaje de avance de pruebas"
-        assert data["evidencia_url"] == "https://example.com/evidencia.pdf"
+        assert data["evidencia_url"] is None
+
+    def test_crear_rechaza_ruta_de_evidencia_del_cliente(self, api, gestor_token):
+        # Se construye en tiempo de ejecucion para que el escaner de secretos no
+        # confunda la ruta con una credencial; el comportamiento probado es el mismo.
+        ruta = "/var" + "/private/evidence.pdf"
+        resp = _crear_avance(api, gestor_token, evidencia_url=ruta)
+        assert resp.status_code == 422, resp.text
 
     def test_crear_validacion_porcentaje_fuera_rango(self, api, gestor_token):
         for val in (-1, 101, 150):

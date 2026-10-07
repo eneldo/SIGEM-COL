@@ -56,7 +56,9 @@ class AvanceCreate(BaseModel):
         Decimal("0"), ge=0, decimal_places=4, description="Valor incremental reportado"
     )
     observaciones: str | None = Field(None, max_length=1000, description="Observaciones del avance")
-    evidencia_url: str | None = Field(None, max_length=500, description="URL de evidencia")
+    evidencia_url: None = Field(
+        None, deprecated=True, description="La ruta se genera únicamente al subir una evidencia"
+    )
     indicador: str | None = Field(None, max_length=300, deprecated=True)
     periodo: str | None = Field(None, max_length=50, description="Periodo del avance")
     estado_revision: str | None = Field("PENDIENTE", description="Estado de revisión")

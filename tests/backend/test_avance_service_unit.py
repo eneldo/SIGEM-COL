@@ -214,7 +214,7 @@ async def test_registrar_avance_exitoso(ids):
         "avance_porcentaje": 25.0,
         "avance_valor": 5,
         "observaciones": "Bien",
-        "evidencia_url": "ruta",
+        "evidencia_url": None,
         "indicador": "Otro",
         "periodo": "Q2",
         "estado_revision": "BORRADOR",

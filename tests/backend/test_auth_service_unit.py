@@ -146,6 +146,12 @@ async def test_authenticate_invalid_password_tracks_and_may_lock(
 ):
     user.intentos_fallidos = starting_attempts
     db.execute.side_effect = [ScalarResult(municipio), ScalarResult(user)]
+    if locked:
+        db.execute.side_effect = [
+            ScalarResult(municipio),
+            ScalarResult(user),
+            SimpleNamespace(rowcount=2),
+        ]
     monkeypatch.setattr(auth_module, "set_tenant_context", AsyncMock())
     monkeypatch.setattr(auth_module, "verify_password", lambda *_: False)
     monkeypatch.setattr(auth_module.settings, "RATE_LIMIT_LOGIN_ATTEMPTS", 3)

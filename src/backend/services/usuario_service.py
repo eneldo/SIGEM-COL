@@ -16,6 +16,7 @@ from ..models.rol import Rol
 from ..models.usuario import Usuario
 from ..models.usuario_dependencia import UsuarioDependencia
 from ..models.usuario_rol import UsuarioRol
+from ..services.auth_service import AuthService
 
 
 async def create_usuario(
@@ -287,6 +288,8 @@ async def update_usuario(
         usuario.cargo = update_data["cargo"]
     if "activo" in update_data:
         usuario.activo = update_data["activo"]
+        if not usuario.activo:
+            await AuthService(db).revoke_all_sessions(usuario_id, commit=False)
     if "must_change_password" in update_data:
         usuario.must_change_password = update_data["must_change_password"]
 

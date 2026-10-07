@@ -340,7 +340,7 @@ export const gestorDashboard = {
   avances: (productoId: string) =>
     api.get<{ id: string; producto_id: string; avance_porcentaje: number; avance_valor: number | null; observaciones: string | null; evidencia_url: string | null; indicador: string | null; periodo: string | null; fecha_registro: string | null; estado_revision: string; evidencia_nombre: string | null; evidencia_tipo: string | null; observaciones_revision: string | null; estado: string; created_at: string | null }[]>(`/api/v1/gestor/dashboard/avances/${productoId}`),
 
-  registrarAvance: (productoId: string, data: { avance_porcentaje?: number; avance_valor?: number; observaciones?: string; evidencia_url?: string; indicador?: string; periodo?: string; estado_revision?: string; evidencia_nombre?: string; evidencia_tipo?: string }) =>
+  registrarAvance: (productoId: string, data: { avance_porcentaje?: number; avance_valor?: number; observaciones?: string; indicador?: string; periodo?: string; estado_revision?: string; evidencia_nombre?: string; evidencia_tipo?: string }) =>
     api.post('/api/v1/gestor/dashboard/avances', data, { params: { producto_id: productoId } }),
 
   actualizarAvance: (avanceId: string, data: { avance_porcentaje?: number; avance_valor?: number | null; observaciones?: string | null; indicador?: string | null; periodo?: string | null; estado_revision?: string | null }) =>

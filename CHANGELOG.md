@@ -30,6 +30,8 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Tests de avances (`test_crud_avances`, `test_ejemplos_avances`, `test_avance_flujo`) recalculan el porcentaje esperado desde el acumulado reservado y la meta, eliminando la dependencia del orden de ejecución
 
 ### Security
+- Evidencias: el alta de avances rechaza rutas físicas del cliente y ambas descargas validan contención en `STORAGE_PATH`, incluidas rutas absolutas, traversal y enlaces simbólicos externos; el formulario dirige al usuario a la carga de archivos en lugar de solicitar una URL
+- Sesiones: access token, refresh y segundo paso MFA rechazan cuentas inactivas o bloqueadas; desactivaciones y bloqueos revocan sesiones junto al cambio de cuenta
 - Salud del servicio reportada con 503 en `GET /health` cuando la base de datos está caída
 - Endpoints de métricas protegidos con `METRICS_TOKEN` (bearer) cuando está definido
 - Escaneo de secretos (gitleaks), de dependencias Python (pip-audit) y de dependencias Node (npm audit) como gates obligatorios de CI

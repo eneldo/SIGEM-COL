@@ -111,6 +111,7 @@ class AuthService:
             if user.intentos_fallidos >= settings.RATE_LIMIT_LOGIN_ATTEMPTS:
                 user.fecha_bloqueo = datetime.now(UTC)  # type: ignore[assignment]
                 user.motivo_bloqueo = "MAX_LOGIN_ATTEMPTS"  # type: ignore[assignment]
+                await self.revoke_all_sessions(uuid.UUID(str(user.id)), commit=False)
 
             attempt.exitoso = False  # type: ignore[assignment]
             attempt.razon_fallo = "INVALID_PASSWORD"  # type: ignore[assignment]
@@ -398,13 +399,18 @@ class AuthService:
 
     async def get_current_user(self, user_id: str, municipio_id: str) -> Usuario | None:
         result = await self.db.execute(
-            select(Usuario).where(
+            select(Usuario)
+            .where(
                 and_(
                     Usuario.id == uuid.UUID(user_id),
                     Usuario.municipio_id == uuid.UUID(municipio_id),
                     Usuario.deleted_at.is_(None),
+                    Usuario.activo == 1,
+                    Usuario.fecha_bloqueo.is_(None),
+                    Usuario.estado != "ELIMINADO_LOGICAMENTE",
                 )
             )
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
 
@@ -458,11 +464,13 @@ class AuthService:
         await self.db.commit()
         return True
 
-    async def revoke_all_sessions(self, user_id: uuid.UUID) -> int:
+    async def revoke_all_sessions(self, user_id: uuid.UUID, *, commit: bool = True) -> int:
+        """Revoke sessions, optionally within the caller's account-status transaction."""
         result = await self.db.execute(
             update(Sesion)
             .where(and_(Sesion.usuario_id == user_id, Sesion.activa == 1))
             .values(activa=0)
         )
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
         return result.rowcount

@@ -406,6 +406,7 @@ async def test_update_usuario_missing_and_all_fields_with_role():
     old_relation = SimpleNamespace(usuario_id=uid, rol_id=uuid4())
     db = database(
         Result(item),
+        SimpleNamespace(rowcount=2),
         Result(rows=[old_relation]),
         Result(role(id=rid)),
         Result(item),
