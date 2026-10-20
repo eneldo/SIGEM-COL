@@ -31,7 +31,6 @@ function renderPage() {
   return render(
     <MemoryRouter
       initialEntries={['/change-password']}
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
         <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -143,7 +142,7 @@ describe('ChangePasswordPage', () => {
     })
     expect(mockedAuth.getMe).toHaveBeenCalledTimes(1)
     const state = useAuthStore.getState()
-    expect(state.token).toBe('tok-1')
+    expect(state.token).toBeNull()
     expect(state.mustChangePassword).toBe(false)
     expect(state.user).toEqual(usuario)
   })

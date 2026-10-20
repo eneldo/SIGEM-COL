@@ -12,7 +12,7 @@ if command -v docker >/dev/null 2>&1; then
     if command -v cygpath >/dev/null 2>&1; then
         HOST_PATH="$(cygpath -m "$TLS_DIR")"
     fi
-    MSYS_NO_PATHCONV=1 docker run --rm -v "$HOST_PATH:/certs" alpine/openssl req -x509 -nodes -newkey rsa:2048 -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout /certs/privkey.pem -out /certs/fullchain.pem
+    MSYS_NO_PATHCONV=1 docker run --rm -v "$HOST_PATH:/certs" alpine/openssl:3.5.2 req -x509 -nodes -newkey rsa:2048 -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout /certs/privkey.pem -out /certs/fullchain.pem
 elif command -v openssl >/dev/null 2>&1; then
     openssl req -x509 -nodes -newkey rsa:2048 -days 365 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout "$TLS_DIR/privkey.pem" -out "$TLS_DIR/fullchain.pem"
 else

@@ -13,6 +13,9 @@ vi.mock('../../lib/api', () => ({
     getMe: vi.fn(),
     changePassword: vi.fn(),
   },
+  setAccessToken: vi.fn(),
+  setRefreshToken: vi.fn(),
+  clearAccessToken: vi.fn(),
   default: {},
 }))
 

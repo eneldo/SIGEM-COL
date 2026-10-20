@@ -1,5 +1,15 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-05: Retiro de credenciales administrativas versionadas
+
+**Decisión:** La documentación, memoria, contexto, scripts y tests no conservan credenciales reutilizables. Las pruebas de integración que dependen de la cuenta administrativa reciben `SIGEM_TEST_ADMIN_PASSWORD` por entorno; los usuarios temporales usan contraseñas únicas generadas por fixture. Los scripts manuales reciben sus credenciales exclusivamente por entorno.
+
+**Gitleaks:** La allowlist queda limitada y anclada a entradas no secretas usadas en pruebas negativas; no permite credenciales administrativas ni rutas completas.
+
+**Acciones operativas pendientes:** Rotar en cada sistema externo todas las credenciales que pudieron quedar expuestas y sanear el historial Git coordinadamente siguen siendo obligatorios. Esta modificación no ejecuta rotaciones ni reescribe historial.
+
+---
+
 ## 2026-10-04: Módulo de Personalización (branding por municipio)
 
 **Contexto:** Configuración → Personalización requiere colores primario/secundario, nombre del sistema y logotipo compartidos por municipio, con el logotipo visible en el Sidebar y como favicon.
@@ -139,3 +149,52 @@
 **Fix:** Handler global en `main.py`: `@app.exception_handler(ValueError)` → 422 con `detail=str(exc)`. Tests de seguridad aceptan 400/422/404/500.
 
 **Alternativa considerada:** Cambiar path params a `uuid.UUID` (FastAPI valida nativamente). Desestimado por requerir 15+ ediciones en rutas y servicios.
+---
+
+## 2026-10-06: MFA obligatorio tambien para SUPERADMIN_PLATAFORMA
+
+**Contexto:** La decision del 2026-09-30 dejaba exento a `SUPERADMIN_PLATAFORMA` del enforcement de MFA. Una cuenta de ese nivel protegida solo por contrasena, junto con una credencial administrativa que estaba versionada en el repositorio, constituye una ruta directa de compromiso total.
+
+**Decision:** `MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL", "SUPERADMIN_PLATAFORMA")`. Se elimina la exencion.
+
+**Consecuencia operativa:** La cuenta administrativa inicial debe completar el enrolamiento de TOTP en su primer ingreso. `scripts/setup/bootstrap_admin.py` documenta el procedimiento.
+
+---
+
+## 2026-10-06: Refresh token en cookie HttpOnly
+
+**Contexto:** El refresh token viajaba en el cuerpo de la respuesta y el access token se persistia en `localStorage`, por lo que cualquier XSS permitia robar la sesion completa.
+
+**Decision:** El refresh token se entrega en una cookie `HttpOnly; Secure; SameSite=Strict` con `Path=/api/v1/auth`, y se retira del cuerpo de la respuesta. El access token permanece solo en memoria. `POST /auth/refresh` valida el header `Origin` contra `CORS_ORIGINS` como defensa CSRF, y rota la cookie en cada renovacion.
+
+**Consecuencia:** Requiere HTTPS y que el navegador acepte la cookie en el mismo sitio que la API; en produccion el frontend y la API se sirven tras el mismo nginx, por lo que `SameSite=Strict` es suficiente.
+
+---
+
+## 2026-10-06: Rate limiting distribuido con Redis
+
+**Contexto:** El limitador era un contador en memoria por proceso: con varias replicas cada una contaba por separado y el limite real se multiplicaba por el numero de contenedores. `RATE_LIMIT_LOGIN_WINDOW_MINUTES` tampoco se usaba.
+
+**Decision:** `core/rate_limit.py` define dos backends. En produccion se usa `RedisRateLimitBackend` (INCR + EXPIRE) compartido por todas las replicas; en desarrollo, `InMemoryRateLimitBackend`. El bucket de autenticacion usa su propia ventana (`RATE_LIMIT_LOGIN_WINDOW_MINUTES`) y, si Redis no responde, falla cerrado (`RATE_LIMIT_FAIL_CLOSED_LOGIN`). El trafico general degrada al contador local en memoria.
+
+**Consecuencia:** Redis pasa a ser dependencia critica del flujo de login en produccion; ya lo era por el cache y por `health/ready`.
+
+---
+
+## 2026-10-06: El aislamiento RLS solo se puede validar con un rol sin BYPASSRLS
+
+**Contexto:** Las pruebas de RLS ejecutadas con el rol de migracion (`sigem`, SUPERUSER con BYPASSRLS) siempre pasaban: los superusuarios ignoran RLS aunque la tabla tenga `FORCE ROW LEVEL SECURITY`. Eso ocultaba que las politicas solo existen a partir de la revision 017.
+
+**Decision:** `tests/security/test_rls_isolation.py` crea un rol equivalente a `sigem_app` (sin SUPERUSER, sin BYPASSRLS, sin CREATE sobre el esquema, con los mismos permisos de `infra/postgres/init/01-app-role.sh`), replica esos permisos, ejecuta las pruebas con el y lo elimina al terminar. Las migraciones se aplican antes en el job `backend-tests` de CI.
+
+**Hallazgo asociado:** La base de datos de desarrollo local declara la revision 009 pero contiene columnas de la 008, por lo que `alembic upgrade head` falla y sus politicas son anteriores a `WITH CHECK`. Se validaron las 20 migraciones sobre una base limpia. La base local debe recrearse o repararse antes de volver a usarla como referencia.
+
+---
+
+## 2026-10-06: Secretos TOTP cifrados en reposo
+
+**Contexto:** `mfa_factors.mfa_secret` se guardaba en texto claro; una lectura de la base, de un respaldo o de una sesion privilegiada permitia generar codigos MFA validos.
+
+**Decision:** Los secretos se cifran con AES-GCM usando una clave derivada de `ENCRYPTION_KEY`, con nonce aleatorio y versionado del formato (`enc:v1:`). `decrypt_totp_secret` acepta el formato heredado en claro, lo que permite migrar de forma oportunista; `ENCRYPTION_KEY` se valida en produccion y debe ser distinta de `SECRET_KEY` y `JWT_SECRET_KEY`.
+
+**Consecuencia:** Rotar `ENCRYPTION_KEY` exige reenrolar a los usuarios con MFA activo, o conservar la clave anterior durante la transicion.

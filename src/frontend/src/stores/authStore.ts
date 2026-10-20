@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { auth } from '../lib/api'
+import { auth, clearAccessToken, refreshAccessToken, setAccessToken } from '../lib/api'
 import type { User } from '../lib/types'
 
 interface AuthState {
@@ -20,7 +19,6 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>()(
-  persist(
     (set, get) => ({
       user: null,
       token: null,
@@ -37,8 +35,11 @@ export const useAuthStore = create<AuthState>()(
         const response = await auth.login(payload)
         const { access_token, must_change_password, user } = response.data
 
-        localStorage.setItem('token', access_token)
-        localStorage.setItem('user', JSON.stringify(user))
+        setAccessToken(access_token)
+        localStorage.removeItem('token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('sigem-auth')
 
         set({
           token: access_token,
@@ -54,10 +55,13 @@ export const useAuthStore = create<AuthState>()(
         try {
           await auth.logout()
         } catch {
-          // ignore logout errors
+          clearAccessToken()
         } finally {
+          clearAccessToken()
           localStorage.removeItem('token')
+          localStorage.removeItem('refresh_token')
           localStorage.removeItem('user')
+          localStorage.removeItem('sigem-auth')
           set({
             user: null,
             token: null,
@@ -70,26 +74,26 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setToken: (token: string) => {
-        localStorage.setItem('token', token)
+        setAccessToken(token)
         set({ token })
       },
 
       setUser: (user: User) => {
-        localStorage.setItem('user', JSON.stringify(user))
         set({ user })
       },
 
       checkAuth: async () => {
-        const token = get().token
-        if (!token) {
-          set({ isAuthenticated: false, user: null })
-          return
-        }
-
         try {
+          const token = get().token ?? (await refreshAccessToken())
+          if (!token) {
+            set({ isAuthenticated: false, user: null })
+            clearAccessToken()
+            return
+          }
+          set({ token })
+
           const response = await auth.getMe()
           const user = response.data
-          localStorage.setItem('user', JSON.stringify(user))
           set({
             user,
             isAuthenticated: true,
@@ -97,8 +101,11 @@ export const useAuthStore = create<AuthState>()(
             loginTimestamp: get().loginTimestamp || Date.now(),
           })
         } catch {
+          clearAccessToken()
           localStorage.removeItem('token')
+          localStorage.removeItem('refresh_token')
           localStorage.removeItem('user')
+          localStorage.removeItem('sigem-auth')
           set({
             user: null,
             token: null,
@@ -118,16 +125,4 @@ export const useAuthStore = create<AuthState>()(
         set({ passwordChangeDismissed: false, loginTimestamp: Date.now() })
       },
     }),
-    {
-      name: 'sigem-auth',
-      partialize: (state) => ({
-        token: state.token,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        mustChangePassword: state.mustChangePassword,
-        loginTimestamp: state.loginTimestamp,
-        passwordChangeDismissed: state.passwordChangeDismissed,
-      }),
-    },
-  ),
 )

@@ -123,8 +123,10 @@ class TestSecurityHeaders:
         headers = resp.headers
         assert headers.get("X-Content-Type-Options") == "nosniff"
         assert headers.get("X-Frame-Options") == "DENY"
-        assert headers.get("X-XSS-Protection") == "1; mode=block"
         assert headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        assert headers.get("Permissions-Policy")
+        assert headers.get("Content-Security-Policy")
+        assert headers.get("X-XSS-Protection") is None
 
 
 class TestInputValidation:

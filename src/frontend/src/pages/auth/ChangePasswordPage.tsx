@@ -30,7 +30,7 @@ const requirements = [
 
 export function ChangePasswordPage() {
   const navigate = useNavigate()
-  const { setUser, setToken } = useAuthStore()
+  const { setUser } = useAuthStore()
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -61,7 +61,6 @@ export function ChangePasswordPage() {
       const meRes = await auth.getMe()
       const user = meRes.data
       setUser(user)
-      setToken(localStorage.getItem('token') || '')
       useAuthStore.setState({ mustChangePassword: false })
 
       const isAdmin = user.roles.some((role) =>

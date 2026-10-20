@@ -4,8 +4,9 @@ title = "SIGEM Colombia"
 useDefault = true
 
 [allowlist]
-description = "Known development and test placeholder credentials committed deliberately in fixtures, docs and example configuration; none grants access to any real system"
+description = "Non-secret negative-test inputs"
+regexTarget = "secret"
 regexes = [
-  '''manything_12345''',
-  '''anything_12345''',
+  '''^(manything|anything)_12345$''',
+  '''^clave-de-prueba-local$''',
 ]

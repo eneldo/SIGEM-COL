@@ -23,17 +23,7 @@ Sistema completo de seguimiento al Plan de Desarrollo Municipal con Docker despl
 
 ## Credenciales
 
-| Usuario | Password | Rol | Municipio |
-|---------|----------|-----|-----------|
-| admin | SigemAdmin2026! | SUPERADMIN_PLATAFORMA | 00000 (bdb39d8c) |
-| superadmin | SuperAdmin2026! | SUPERADMIN_PLATAFORMA | 00000 (bdb39d8c) |
-| candresmejia | @aTrfh0xcHYKng*QOkyDshUr | GESTOR_LIDER | 00000 (bdb39d8c) |
-| ldiazmoreno | @aTrfh0xcHYKng*QOkyDshUr | GESTOR_LIDER | 00000 (bdb39d8c) |
-| mgarcialopez | Gestor2026! | GESTOR_LIDER | 00000 |
-| crodriguezperez | Gestor2026! | GESTOR_LIDER | 00000 |
-| amartinezsanchez | Gestor2026! | GESTOR_LIDER | 00000 |
-| pfernandezruiz | Gestor2026! | GESTOR_LIDER | 00000 |
-| agomezvargas | Gestor2026! | GESTOR_LIDER | 00000 |
+Las credenciales no se almacenan en documentación ni contexto. Deben aprovisionarse y entregarse mediante el gestor de secretos o variables de entorno del entorno correspondiente.
 
 ## GitHub
 

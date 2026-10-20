@@ -79,6 +79,8 @@ jobs:
       - name: Install backend with dev extras
         working-directory: src/backend
         run: python -m pip install -e ".[dev]"
+      - name: Apply database migrations
+        run: python -m alembic upgrade head
       - name: Run backend test suite
         run: ${{ env.PYTEST_CMD }}
       - name: Coverage job summary
@@ -151,7 +153,7 @@ jobs:
       - name: Install pip-audit
         run: python -m pip install pip-audit
       - name: pip-audit dependency scan
-        run: python -m pip_audit --ignore-vuln PYSEC-2026-1325 --ignore-vuln PYSEC-2026-3740
+        run: python -m pip_audit --strict
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}

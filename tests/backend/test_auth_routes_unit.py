@@ -127,6 +127,30 @@ async def test_get_current_user_rejects_revoked_session(monkeypatch, services, i
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"type": "access"},
+        {"type": "access", "sub": "not-a-uuid", "municipio_id": "not-a-uuid"},
+        {"type": "access", "sub": 123, "municipio_id": "not-a-uuid"},
+    ],
+)
+@pytest.mark.asyncio
+async def test_get_current_user_rejects_malformed_claims(
+    monkeypatch, services, payload
+):
+    service, _ = services
+    monkeypatch.setattr(auth, "decode_token", lambda _: payload)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await auth.get_current_user_from_token(
+            make_request(headers={"Authorization": "Bearer token"}), MagicMock()
+        )
+
+    assert_http_error(exc_info, 401, "Token inválido o expirado")
+    service.get_current_user.assert_not_called()
+
+
 async def test_get_current_user_rejects_unknown_user(monkeypatch, services, ids):
     service, _ = services
     service.get_active_session = AsyncMock(return_value=True)
@@ -158,6 +182,13 @@ async def test_get_current_user_rejects_unknown_user(monkeypatch, services, ids)
             False,
             False,
             ["ADMINISTRADOR_MUNICIPAL"],
+            "MFA_SETUP_REQUIRED",
+        ),
+        (
+            "/api/v1/catalogos",
+            False,
+            False,
+            ["SUPERADMIN_PLATAFORMA"],
             "MFA_SETUP_REQUIRED",
         ),
     ],
@@ -358,12 +389,19 @@ async def test_refresh_error_and_success(services, ids):
     service, audit = services
     result = {"user": {"id": ids.user, "municipio_id": ids.municipio}}
     service.refresh_session = AsyncMock(side_effect=[None, result])
-    data = RefreshTokenRequest(refresh_token="refresh")
-    request = make_request(headers={"User-Agent": "pytest"}, client=None)
+    request = make_request(
+        headers={"User-Agent": "pytest", "Cookie": "sigem_refresh=refresh"},
+        client=None,
+    )
+    response = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
-        await auth.refresh_tokens(data, request, MagicMock())
+        await auth.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
     assert_http_error(exc_info, 401, "Refresh token inválido o expirado.")
-    assert await auth.refresh_tokens(data, request, MagicMock()) == result
+    assert response.delete_cookie.call_count == 1
+    assert (
+        await auth.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
+        == result
+    )
     audit.log_event.assert_awaited_once()
 
 
@@ -374,7 +412,8 @@ async def test_logout_revokes_expected_sessions(services, current_user, ids, wit
     service.revoke_session = AsyncMock()
     service.revoke_all_sessions = AsyncMock()
     current_user["sid"] = str(ids.session) if with_sid else None
-    assert await auth.logout(current_user, MagicMock()) == {
+    response = MagicMock()
+    assert await auth.logout(response, current_user, MagicMock()) == {
         "message": "Sesión cerrada exitosamente"
     }
     if with_sid:
@@ -385,4 +424,5 @@ async def test_logout_revokes_expected_sessions(services, current_user, ids, wit
     else:
         service.revoke_all_sessions.assert_awaited_once_with(current_user["user"].id)
         service.revoke_session.assert_not_awaited()
+    response.delete_cookie.assert_called_once()
     audit.log_event.assert_awaited_once()

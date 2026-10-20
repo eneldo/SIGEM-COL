@@ -76,7 +76,7 @@ Artefacto: `frontend-coverage` (directorio `src/frontend/coverage`, reportes `te
 | Gate | Herramienta | Comportamiento |
 |---|---|---|
 | Secretos | `gitleaks/gitleaks-action@v3` con `GITLEAKS_CONFIG=.gitleaks.toml`, `fetch-depth: 0` | escanea historial completo; falla ante cualquier hallazgo no allowlisteado |
-| Dependencias Python | `python -m pip_audit` tras `pip install -e ".[dev]"` | falla ante cualquier CVE no ignorado |
+| Dependencias Python | `python -m pip_audit --strict` tras `pip install -e ".[dev]"` | falla ante cualquier CVE |
 | Dependencias Node | `npm audit --omit=dev --audit-level=high` en `src/frontend` | falla ante CVE de severidad **high** o **critical** en dependencias de producción |
 
 ---
@@ -138,25 +138,33 @@ La allowlist usa `regexes` con esos valores exactos (más `[extend] useDefault =
 
 Verificación de que el reglamento sigue activo: una clave sintética insertada en una copia del árbol sí es detectada (el allowlist no desactiva el escaneo).
 
-### pip-audit — CVEs ignorados
+### pip-audit — sin CVEs ignorados
 
-Ejecución local en un venv limpio con solo `pip install -e "src/backend[dev]"` (equivalente al job de CI):
+Desde la migración de `python-jose` a **PyJWT** (2026-10-06) el job ejecuta `pip_audit --strict`
+**sin `--ignore-vuln`**.
 
+Hallazgos que motivaron el cambio:
+
+| ID | Paquete | Resolución |
+|---|---|---|
+| `GHSA-3qf3-8w2g-rqmx` | `python-jose 3.5.0` | sustituido por `pyjwt[crypto]>=2.9.0` |
+| `PYSEC-2026-1325` | `ecdsa 0.19.2` | desapareció con `python-jose` (único consumidor) |
+| `PYSEC-2026-3740` | `nltk 3.10.3` | dependencia de `safety`; ya no bloquea porque no se ignoran advisories |
+
+Verificación reproducible del conjunto bloqueado (no del entorno global):
+
+```bash
+uv export --format requirements-txt --no-dev --no-emit-project --directory src/backend \
+  --output-file /tmp/sigem-req.txt
+python -m pip_audit -r /tmp/sigem-req.txt --strict
 ```
-ecdsa 0.19.2  PYSEC-2026-1325  (sin versión de fix)
-nltk  3.10.3  PYSEC-2026-3740  (sin versión de fix)
-```
 
-| ID ignorado | Paquete | Origen | Justificación |
-|---|---|---|---|
-| `PYSEC-2026-1325` | `ecdsa 0.19.2` | dependencia de `python-jose` | el advisory no publica versión corregida; no hay acción posible en el consumidor |
-| `PYSEC-2026-3740` | `nltk 3.10.3` | dependencia de `safety` (extra `dev`) | el advisory no publica versión corregida; dependencia de una herramienta de desarrollo, no del runtime |
-
-Banderas usadas: `--ignore-vuln PYSEC-2026-1325 --ignore-vuln PYSEC-2026-3740`. Con ellas, `pip_audit` sale con 0. **Cualquier nuevo CVE falla el job** hasta que se revise y, si corresponde, se documente aquí.
+Cualquier CVE nuevo, incluso sin versión corregida, **falla el job**.
 
 ### npm audit — dependencias de producción
 
-`npm audit --omit=dev --audit-level=high` en `src/frontend`: **0 high/critical** (pasa). Quedan 2 advisories *moderate* en `react-router`/`react-router-dom` 6.x (GHSA-wrjc-x8rr-h8h6 y GHSA-337j-9hxr-rhxg); la corrección obliga a `react-router-dom@7`, cambio mayor que debe planificarse por separado. El umbral `--audit-level=high` no se relaja: si aparece un high/critical, el job falla.
+`npm audit --omit=dev` en `src/frontend`: **0 vulnerabilidades**. Los advisories de `react-router` 6.x
+se resolvieron actualizando a `react-router-dom@7`, por lo que ya no hay excepción que documentar.
 
 ---
 
@@ -196,10 +204,10 @@ npm run build
 docker run --rm -v "${PWD}:/repo" -w /repo zricethezav/gitleaks:latest detect -v
 
 python -m pip install pip-audit
-python -m pip_audit --ignore-vuln PYSEC-2026-1325 --ignore-vuln PYSEC-2026-3740
+python -m pip_audit --strict
 
 cd src/frontend
-npm audit --omit=dev --audit-level=high
+npm audit --omit=dev
 ```
 
 ### Imágenes Docker

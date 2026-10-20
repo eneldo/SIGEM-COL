@@ -10,6 +10,9 @@ vi.mock('../lib/api', () => ({
     getMe: vi.fn(),
     changePassword: vi.fn(),
   },
+  setAccessToken: vi.fn(),
+  setRefreshToken: vi.fn(),
+  clearAccessToken: vi.fn(),
   default: {},
 }))
 
@@ -62,8 +65,9 @@ describe('login', () => {
     expect(state.user).toEqual(user)
     expect(state.mustChangePassword).toBe(false)
     expect(state.loginTimestamp).toEqual(expect.any(Number))
-    expect(localStorage.getItem('token')).toBe('tok-1')
-    expect(localStorage.getItem('user')).toBe(JSON.stringify(user))
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('refresh_token')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
   })
 
   it('marca mustChangePassword cuando el backend lo solicita', async () => {
@@ -121,18 +125,18 @@ describe('logout', () => {
 })
 
 describe('setToken y setUser', () => {
-  it('setToken guarda en estado y localStorage', () => {
+  it('setToken guarda exclusivamente en memoria', () => {
     useAuthStore.getState().setToken('tok-nuevo')
 
     expect(useAuthStore.getState().token).toBe('tok-nuevo')
-    expect(localStorage.getItem('token')).toBe('tok-nuevo')
+    expect(localStorage.getItem('token')).toBeNull()
   })
 
-  it('setUser guarda en estado y localStorage', () => {
+  it('setUser guarda exclusivamente en estado', () => {
     useAuthStore.getState().setUser(user)
 
     expect(useAuthStore.getState().user).toEqual(user)
-    expect(localStorage.getItem('user')).toBe(JSON.stringify(user))
+    expect(localStorage.getItem('user')).toBeNull()
   })
 })
 
@@ -158,7 +162,7 @@ describe('checkAuth', () => {
     expect(state.isAuthenticated).toBe(true)
     expect(state.user?.username).toBe('ana')
     expect(state.mustChangePassword).toBe(true)
-    expect(localStorage.getItem('user')).toContain('ana')
+    expect(localStorage.getItem('user')).toBeNull()
   })
 
   it('conserva el timestamp de login existente', async () => {
@@ -199,14 +203,13 @@ describe('aviso de cambio de contraseña', () => {
 })
 
 describe('persistencia', () => {
-  it('serializa la sesión bajo la clave sigem-auth', async () => {
+  it('no persiste tokens ni estado de autenticación', async () => {
     mockedAuth.login.mockResolvedValue(loginResponse as never)
 
     await useAuthStore.getState().login('ana', 'secreta')
 
-    const raw = localStorage.getItem('sigem-auth')
-    expect(raw).toBeTruthy()
-    const persisted = JSON.parse(raw ?? '{}') as { state: { token: string } }
-    expect(persisted.state.token).toBe('tok-1')
+    expect(localStorage.getItem('sigem-auth')).toBeNull()
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('refresh_token')).toBeNull()
   })
 })

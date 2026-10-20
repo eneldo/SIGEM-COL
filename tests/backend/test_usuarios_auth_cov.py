@@ -8,6 +8,7 @@ from tests.conftest import (
     API_PREFIX,
     auth_header,
     create_temp_user,
+    credential_from_env,
     login_as,
     unique_username,
 )
@@ -21,7 +22,7 @@ class TestUsuariosCRUD:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -403,7 +404,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -415,7 +416,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -454,7 +455,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "99999",
             },
         )
@@ -467,7 +468,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -496,7 +497,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -516,7 +517,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -531,7 +532,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -546,7 +547,7 @@ class TestAuthFlujos:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -904,6 +905,9 @@ class TestAuthFlujos:
     def test_login_sin_municipio_codigo(self, api):
         resp = api.post(
             f"{API_PREFIX}/auth/login",
-            json={"username": "admin", "password": "SigemAdmin2026!"},
+            json={
+                "username": "admin",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
+            },
         )
         assert resp.status_code in (200, 401), resp.text

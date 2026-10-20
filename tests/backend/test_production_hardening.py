@@ -62,6 +62,7 @@ def _prod_settings(**overrides: Any) -> Settings:
         "DEBUG": False,
         "SECRET_KEY": PROD_SECRET,
         "JWT_SECRET_KEY": PROD_JWT_SECRET,
+        "ENCRYPTION_KEY": "E" * 40,
         "DATABASE_URL": PROD_DATABASE_URL,
         "REDIS_URL": "redis://:redis-production-secret@redis:6379/0",
         "REDIS_PASSWORD": "redis-production-secret",
@@ -69,6 +70,9 @@ def _prod_settings(**overrides: Any) -> Settings:
         "BACKEND_URL": "https://sigem.gov.co",
         "CORS_ORIGINS": ["https://sigem.gov.co"],
         "METRICS_TOKEN": "metrics-production-secret-with-32-characters",
+        "TRUST_PROXY_HEADERS": True,
+        "REFRESH_COOKIE_SECURE": True,
+        "REFRESH_COOKIE_SAMESITE": "strict",
     }
     values.update(overrides)
     return Settings(**values)
@@ -224,15 +228,30 @@ def test_rate_limit_buckets_independientes():
 
 def test_rate_limit_buckets_por_prefijo():
     limiter = RateLimitMiddleware(
-        FastAPI(), default_max_requests=1, login_max_requests=3
+        FastAPI(),
+        default_max_requests=1,
+        login_max_requests=3,
+        login_window_seconds=900,
     )
 
-    assert limiter._bucket_for("/api/v1/auth/login", "1.1.1.1") == ("login:1.1.1.1", 3)
+    assert limiter._bucket_for("/api/v1/auth/login", "1.1.1.1") == (
+        "login:1.1.1.1",
+        3,
+        900,
+        True,
+    )
     assert limiter._bucket_for("/api/v1/auth/mfa/verify", "1.1.1.1") == (
         "login:1.1.1.1",
         3,
+        900,
+        True,
     )
-    assert limiter._bucket_for("/api/v1/gestores", "1.1.1.1") == ("default:1.1.1.1", 1)
+    assert limiter._bucket_for("/api/v1/gestores", "1.1.1.1") == (
+        "default:1.1.1.1",
+        1,
+        60,
+        False,
+    )
 
 
 def test_rate_limit_prefijos_de_login_definidos():
@@ -389,6 +408,8 @@ def test_validate_production_mensaje_en_espanol():
         ({"SECRET_KEY": "corto"}, "SECRET_KEY"),
         ({"SECRET_KEY": DEV_SECRET_KEY_PLACEHOLDER}, "SECRET_KEY"),
         ({"JWT_SECRET_KEY": DEV_JWT_SECRET_PLACEHOLDER}, "JWT_SECRET_KEY"),
+        ({"ENCRYPTION_KEY": ""}, "ENCRYPTION_KEY"),
+        ({"ENCRYPTION_KEY": "short"}, "ENCRYPTION_KEY"),
         ({"JWT_SECRET_KEY": PROD_SECRET}, "JWT_SECRET_KEY"),
         ({"DATABASE_URL": ""}, "DATABASE_URL"),
         (
@@ -430,6 +451,42 @@ def test_validate_production_rechaza_configuracion_debil(
 ):
     with pytest.raises(RuntimeError, match=campo_esperado):
         _prod_settings(**overrides).validate_production()
+
+
+@pytest.mark.parametrize(
+    ("overrides", "campo_esperado"),
+    [
+        ({"ENCRYPTION_KEY": PROD_SECRET}, "ENCRYPTION_KEY"),
+        ({"JWT_ALGORITHM": "none"}, "JWT_ALGORITHM"),
+        ({"ACCESS_TOKEN_EXPIRE_MINUTES": 600}, "ACCESS_TOKEN_EXPIRE_MINUTES"),
+        ({"ACCESS_TOKEN_EXPIRE_MINUTES": 1}, "ACCESS_TOKEN_EXPIRE_MINUTES"),
+        ({"REFRESH_TOKEN_EXPIRE_DAYS": 365}, "REFRESH_TOKEN_EXPIRE_DAYS"),
+        ({"RATE_LIMIT_LOGIN_ATTEMPTS": 0}, "rate limiting"),
+        ({"RATE_LIMIT_WINDOW": 0}, "rate limiting"),
+        ({"REFRESH_COOKIE_SECURE": False}, "REFRESH_COOKIE_SECURE"),
+        ({"REFRESH_COOKIE_SAMESITE": "none"}, "REFRESH_COOKIE_SAMESITE"),
+        ({"TRUST_PROXY_HEADERS": False}, "TRUST_PROXY_HEADERS"),
+    ],
+)
+def test_validate_production_rechaza_configuracion_insegura_nueva(
+    overrides: dict, campo_esperado: str
+):
+    with pytest.raises(RuntimeError, match=campo_esperado):
+        _prod_settings(**overrides).validate_production()
+
+
+def test_validate_production_acepta_ventanas_dentro_de_rango():
+    _prod_settings(
+        ACCESS_TOKEN_EXPIRE_MINUTES=15,
+        REFRESH_TOKEN_EXPIRE_DAYS=7,
+        RATE_LIMIT_WINDOW=60,
+        RATE_LIMIT_LOGIN_WINDOW_MINUTES=15,
+    ).validate_production()
+
+
+def test_validate_production_rechaza_contrasena_de_app_desalineada():
+    with pytest.raises(RuntimeError, match="SIGEM_APP_PASSWORD"):
+        _prod_settings(SIGEM_APP_PASSWORD="otra-contrasena").validate_production()
 
 
 def test_json_formatter_genera_estructura_base():

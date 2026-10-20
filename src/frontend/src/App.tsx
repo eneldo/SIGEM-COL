@@ -95,7 +95,7 @@ export default function App() {
   }, [isAuthenticated, setBranding])
 
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 

@@ -14,6 +14,8 @@ from ..core.security import (
     create_mfa_token,
     create_refresh_token,
     decode_token,
+    decrypt_totp_secret,
+    encrypt_totp_secret,
     generate_temporary_password,
     get_password_hash,
     verify_password,
@@ -328,8 +330,11 @@ class AuthService:
         if not user or not user.mfa_activo or not user.mfa_secret:
             return None
 
-        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+        secret = decrypt_totp_secret(str(user.mfa_secret))
+        if not pyotp.TOTP(secret).verify(code, valid_window=1):
             return None
+        if not str(user.mfa_secret).startswith("enc:v1:"):
+            user.mfa_secret = encrypt_totp_secret(secret)  # type: ignore[assignment]
 
         roles = await self.get_user_roles(uuid.UUID(str(user.id)))
         token_data = {
@@ -349,22 +354,14 @@ class AuthService:
         if user.mfa_activo:
             return {"mfa_activo": True, "pending": False}
         if user.mfa_secret:
-            totp = pyotp.TOTP(str(user.mfa_secret))
-            return {
-                "mfa_activo": False,
-                "pending": True,
-                "secret": user.mfa_secret,
-                "qr_code_url": totp.provisioning_uri(
-                    name=str(user.username), issuer_name=settings.MFA_ISSUER
-                ),
-            }
+            return {"mfa_activo": False, "pending": True}
         return {"mfa_activo": False, "pending": False}
 
     async def mfa_setup(self, user: Usuario) -> dict:
         if user.mfa_activo:
             raise ValueError("MFA ya está activo; desactívelo antes de volver a configurarlo.")
         secret = pyotp.random_base32()
-        user.mfa_secret = secret  # type: ignore[assignment]
+        user.mfa_secret = encrypt_totp_secret(secret)  # type: ignore[assignment]
         user.mfa_activo = False  # type: ignore[assignment]
         await self.db.commit()
         totp = pyotp.TOTP(secret)
@@ -378,8 +375,11 @@ class AuthService:
     async def mfa_verify(self, user: Usuario, code: str) -> bool:
         if not user.mfa_secret:
             raise ValueError("No hay un secreto MFA pendiente; ejecute setup primero.")
-        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+        secret = decrypt_totp_secret(str(user.mfa_secret))
+        if not pyotp.TOTP(secret).verify(code, valid_window=1):
             return False
+        if not str(user.mfa_secret).startswith("enc:v1:"):
+            user.mfa_secret = encrypt_totp_secret(secret)  # type: ignore[assignment]
         user.mfa_activo = True  # type: ignore[assignment]
         await self.db.commit()
         return True
@@ -389,7 +389,8 @@ class AuthService:
             raise ValueError("MFA no está activo en esta cuenta.")
         if not verify_password(password, str(user.password_hash)):
             return False
-        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+        secret = decrypt_totp_secret(str(user.mfa_secret))
+        if not pyotp.TOTP(secret).verify(code, valid_window=1):
             return False
         user.mfa_activo = False  # type: ignore[assignment]
         user.mfa_secret = None  # type: ignore[assignment]

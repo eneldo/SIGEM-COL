@@ -1,12 +1,32 @@
 """Security module - JWT, password hashing, token management"""
 
+import base64
+import hashlib
+import os
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from typing import Any, Literal
+from uuid import UUID, uuid4
 
-from jose import JWTError, jwt  # type: ignore[import-untyped]
+import jwt
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from passlib.context import CryptContext  # type: ignore[import-untyped]
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .config import settings
+
+
+class TokenClaims(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    sub: UUID
+    municipio_id: UUID
+    type: Literal["access", "refresh", "mfa"]
+    exp: int
+    sid: UUID | None = None
+    jti: UUID | None = None
+    username: str | None = None
+
 
 pwd_context = CryptContext(
     schemes=["argon2"],
@@ -53,12 +73,41 @@ def create_mfa_token(data: dict) -> str:
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_token(token: str) -> dict | None:
+def decode_token(token: str) -> dict[str, Any] | None:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        return payload
-    except JWTError:
+        claims = TokenClaims.model_validate(payload)
+        return {
+            **payload,
+            "sub": str(claims.sub),
+            "municipio_id": str(claims.municipio_id),
+            "sid": str(claims.sid) if claims.sid else None,
+            "jti": str(claims.jti) if claims.jti else None,
+        }
+    except (jwt.InvalidTokenError, ValidationError, TypeError, ValueError):
         return None
+
+
+def _encryption_key() -> bytes:
+    value = settings.ENCRYPTION_KEY.encode("utf-8")
+    return hashlib.sha256(value).digest()
+
+
+def encrypt_totp_secret(secret: str) -> str:
+    nonce = os.urandom(12)
+    ciphertext = AESGCM(_encryption_key()).encrypt(nonce, secret.encode("utf-8"), b"totp:v1")
+    payload = base64.urlsafe_b64encode(nonce + ciphertext).decode("ascii")
+    return f"enc:v1:{payload}"
+
+
+def decrypt_totp_secret(value: str) -> str:
+    if not value.startswith("enc:v1:"):
+        return value
+    try:
+        payload = base64.urlsafe_b64decode(value.removeprefix("enc:v1:").encode("ascii"))
+        return AESGCM(_encryption_key()).decrypt(payload[:12], payload[12:], b"totp:v1").decode()
+    except (InvalidTag, ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("No fue posible descifrar el secreto MFA") from exc
 
 
 def generate_temporary_password(length: int = 24) -> str:

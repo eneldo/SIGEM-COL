@@ -50,7 +50,7 @@ services:
     logging: *logging-json
 
   migrate:
-    image: sigem-backend:latest
+    image: sigem-backend:local
     restart: "no"
     env_file:
       - ./.env.local
@@ -65,7 +65,7 @@ services:
     logging: *logging-json
 
   backend:
-    image: sigem-backend:latest
+    image: sigem-backend:local
     build:
       context: ../..
       dockerfile: infra/docker/backend/Dockerfile
@@ -94,7 +94,7 @@ services:
     logging: *logging-json
 
   frontend:
-    image: sigem-frontend:latest
+    image: sigem-frontend:local
     build:
       context: ../..
       dockerfile: infra/docker/frontend/Dockerfile
@@ -143,7 +143,7 @@ services:
     logging: *logging-json
 
   backup:
-    image: sigem-backup:latest
+    image: sigem-backup:local
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.backup
@@ -163,7 +163,7 @@ services:
     logging: *logging-json
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     profiles:
       - monitoring
     restart: unless-stopped

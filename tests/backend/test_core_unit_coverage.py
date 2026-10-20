@@ -162,31 +162,48 @@ def test_metrics_falls_back_to_normalized_request_path():
 
 @pytest.mark.asyncio
 async def test_request_id_middleware_uses_supplied_and_generated_ids():
-    call_next = AsyncMock(side_effect=[Response(), Response()])
-    supplied = make_request(headers={"X-Request-ID": "known"})
+    call_next = AsyncMock(side_effect=[Response(), Response(), Response()])
+    supplied = make_request(headers={"X-Request-ID": "known-request_123"})
+    invalid = make_request(headers={"X-Request-ID": "bad\r\nvalue"})
     generated = make_request()
     layer = middleware.RequestIDMiddleware(Mock())
 
     first = await layer.dispatch(supplied, call_next)
-    second = await layer.dispatch(generated, call_next)
+    second = await layer.dispatch(invalid, call_next)
+    third = await layer.dispatch(generated, call_next)
 
-    assert first.headers["X-Request-ID"] == "known"
-    assert second.headers["X-Request-ID"] == generated.state.request_id
-    assert second.headers["X-Request-ID"]
+    assert first.headers["X-Request-ID"] == "known-request_123"
+    assert second.headers["X-Request-ID"] == invalid.state.request_id
+    assert second.headers["X-Request-ID"] != "bad\r\nvalue"
+    assert third.headers["X-Request-ID"] == generated.state.request_id
+    assert len(third.headers["X-Request-ID"]) == 36
 
 
-def test_rate_limiter_cleanup_removes_expired_and_preserves_recent(monkeypatch):
-    limiter = middleware.RateLimitMiddleware(Mock(), window_seconds=10)
-    limiter._last_cleanup = 0
-    limiter.counters["expired"] = [1]
-    limiter.counters["recent"] = [95]
-    monkeypatch.setattr(middleware.time, "time", Mock(return_value=100))
+def test_rate_limiter_cleanup_removes_expired_and_preserves_recent():
+    from src.backend.core.rate_limit import InMemoryRateLimitBackend
 
-    limiter._cleanup()
-    limiter._cleanup()
+    backend = InMemoryRateLimitBackend()
+    backend._last_cleanup = 0
+    backend.counters["expired"] = [1]
+    backend.counters["recent"] = [95]
 
-    assert "expired" not in limiter.counters
-    assert limiter.counters["recent"] == [95]
+    class _FixedTime:
+        @staticmethod
+        def time() -> int:
+            return 100
+
+    import time as time_module
+
+    original = time_module.time
+    time_module.time = _FixedTime.time
+    try:
+        backend._cleanup(10)
+        backend._cleanup(10)
+    finally:
+        time_module.time = original
+
+    assert "expired" not in backend.counters
+    assert backend.counters["recent"] == [95]
 
 
 @pytest.mark.asyncio

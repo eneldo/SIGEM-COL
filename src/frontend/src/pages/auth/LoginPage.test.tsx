@@ -13,6 +13,9 @@ vi.mock('../../lib/api', () => ({
     getMe: vi.fn(),
     changePassword: vi.fn(),
   },
+  setAccessToken: vi.fn(),
+  setRefreshToken: vi.fn(),
+  clearAccessToken: vi.fn(),
   default: {},
 }))
 
@@ -33,7 +36,6 @@ function renderLogin() {
   return render(
     <MemoryRouter
       initialEntries={['/login']}
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -90,7 +92,7 @@ describe('LoginPage', () => {
 
     expect(await screen.findByText('panel gestor')).toBeInTheDocument()
     expect(mockedAuth.login).toHaveBeenCalledWith({ username: 'ana', password: 'secreta' })
-    expect(localStorage.getItem('token')).toBe('tok-1')
+    expect(localStorage.getItem('token')).toBeNull()
   })
 
   it('redirige al panel de administración según el rol', async () => {

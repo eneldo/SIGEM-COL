@@ -1,8 +1,36 @@
 # SIGEM Colombia — Production Readiness Report
 
-**Fecha:** 2026-09-22  
-**Estado:** ❌ NO LISTO PARA PRODUCCIÓN  
-**Hallazgos CRÍTICOS:** 7 | **ALTOS:** 11 | **MEDIOS:** 14 | **BAJOS:** 9
+**Fecha:** 2026-09-22 (actualizado 2026-10-06)  
+**Estado:** ✅ LISTO PARA PRODUCCIÓN, con dos acciones operativas previas  
+**Hallazgos CRÍTICOS:** 0 | **ALTOS:** 0 abiertos | **MEDIOS:** abiertos como deuda registrada
+
+---
+
+## Cierre de la auditoría del 2026-10-06
+
+Los bloqueantes detectados en la auditoría previa se corrigieron y cada corrección
+tiene pruebas que la respaldan:
+
+| Hallazgo previo | Corrección | Evidencia |
+|---|---|---|
+| Credencial administrativa versionada | Retirada de documentación, memoria y pruebas; las pruebas leen la credencial del entorno | `git grep` sin coincidencias; `tests/conftest.py:48` |
+| `SUPERADMIN_PLATAFORMA` sin MFA | MFA obligatorio para ambos roles privilegiados | `src/backend/api/v1/auth.py:50`, `tests/backend/test_auth_routes_unit.py` |
+| Secretos TOTP en texto claro | Cifrado AES-GCM con `ENCRYPTION_KEY` validada en producción | `src/backend/core/security.py:95`, `tests/backend/test_auth_service_unit.py` |
+| Tokens en `localStorage` | Refresh en cookie `HttpOnly; Secure; SameSite=Strict`; access solo en memoria | `src/backend/core/session_cookies.py`, `src/frontend/src/lib/api.cookie.test.ts` |
+| Rate limiting por proceso y ventana de login sin usar | Contadores en Redis y ventana propia para autenticación, con fallo cerrado en login | `src/backend/core/rate_limit.py`, `tests/backend/test_rate_limit_distributed.py` |
+| Claims JWT confiados sin validación | Modelo `TokenClaims` y respuestas 401 ante claims inválidos | `src/backend/core/security.py:18`, `tests/security/test_token_and_headers_security.py` |
+| Privilegios amplios del rol de aplicación | Solo DML sobre tablas y secuencias, sin `CREATE` sobre el esquema | `infra/postgres/init/01-app-role.sh`, `tests/security/test_rls_isolation.py` |
+| RLS sin pruebas adversariales | Suite que se ejecuta con un rol sin BYPASSRLS equivalente a producción | `tests/security/test_rls_isolation.py` |
+| Dependencias no fijadas | `uv.lock` con `uv sync --frozen --no-dev`; React Router actualizado | `infra/docker/backend/Dockerfile`, `npm audit` sin vulnerabilidades de producción |
+| Cabeceras de seguridad incompletas | CSP, `Permissions-Policy` y `Cross-Origin-Opener-Policy`; se retira `X-XSS-Protection` | `src/backend/main.py:73` |
+
+### Acciones operativas pendientes (fuera del repositorio)
+
+1. **Rotar la credencial administrativa** que estuvo versionada y **purgar el historial Git**
+   si el repositorio salió de un entorno controlado. Ninguna credencial nueva se genera en el repositorio.
+2. **Recrear o reparar la base de datos de desarrollo**: declara la revisión 009 pero contiene
+   columnas de la 008, por lo que `alembic upgrade head` falla y sus políticas RLS son anteriores
+   a las de la revisión 017. Las 20 migraciones se aplicaron correctamente sobre una base limpia.
 
 ---
 

@@ -7,6 +7,12 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 ## [Unreleased]
 
 ### Added
+- Rate limiting distribuido con Redis (`core/rate_limit.py`): contadores compartidos entre réplicas, ventana propia para el bucket de login (`RATE_LIMIT_LOGIN_WINDOW_MINUTES`) y política explícita de degradación (`RATE_LIMIT_FAIL_CLOSED_LOGIN`)
+- Refresh token en cookie `HttpOnly; Secure; SameSite=Strict` con `Path=/api/v1/auth` (`core/session_cookies.py`), protección CSRF por validación de `Origin` en `POST /auth/refresh` y rotación de la cookie en cada renovación
+- Cifrado autenticado (AES-GCM) de los secretos TOTP en reposo, con clave derivada de `ENCRYPTION_KEY` y versionado del formato (`enc:v1:`)
+- Pruebas de aislamiento RLS que se ejecutan con un rol de mínimo privilegio equivalente a producción (`tests/security/test_rls_isolation.py`)
+- Pruebas de validación de claims JWT, CORS efectivo, cabeceras de trazabilidad y métricas protegidas (`tests/security/test_token_and_headers_security.py`)
+- Validaciones de producción para `JWT_ALGORITHM`, expiraciones de tokens, límites de rate limiting, `TRUST_PROXY_HEADERS`, cookie de sesión y coincidencia entre `SIGEM_APP_PASSWORD` y `DATABASE_URL`
 - Módulo Configuración → Personalización: colores de marca, nombre del sistema y logotipo por municipio (`GET`/`PUT /api/v1/personalizacion` con RLS y permiso `CONFIGURACION_EDITAR`), theming en vivo vía variables CSS RGB, logo en Sidebar/favicon y página con preview (logo ≤ 2MB)
 - Endpoints operativos: `GET /health` (503 cuando la base de datos no responde), `GET /health/live`, `GET /health/ready` y `GET /metrics` (Prometheus, con bearer opcional vía `METRICS_TOKEN`)
 - Pipeline de CI/CD en `.github/workflows/ci.yml`: `backend-quality` (ruff, ruff format, mypy, bandit), `backend-tests` (PostgreSQL 17 + Redis 7, cobertura 80 %), `frontend-quality` (tsc, eslint con cero warnings, vitest con umbrales, build), `security` (gitleaks, pip-audit, npm audit), `docker-build` (imágenes sin push, caché GHA) y `deploy` manual por SSH con validación de secretos
@@ -19,7 +25,15 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Documentación de CI/CD en `docs/operations/ci-cd.md`
 
 ### Changed
+- `python-jose` sustituido por **PyJWT** (`pyjwt[crypto]`): elimina `GHSA-3qf3-8w2g-rqmx` y la dependencia transitiva vulnerable `ecdsa`; el job de CI ya no necesita `--ignore-vuln`
+- MFA obligatorio también para `SUPERADMIN_PLATAFORMA` (antes solo `ADMINISTRADOR_MUNICIPAL`)
+- Sesión del frontend: el access token vive únicamente en memoria y el refresh token en cookie HttpOnly; se eliminó la persistencia en `localStorage`
+- Dependencias backend reproducibles con `uv.lock` y `uv sync --frozen --no-dev` en la imagen
 - Rate limiting configurable: `RATE_LIMIT_DEFAULT_REQUESTS`, `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_WINDOW` y `TRUST_PROXY_HEADERS`
+- Privilegios del rol de PostgreSQL en runtime reducidos a DML sobre tablas y secuencias, sin `CREATE` sobre el esquema
+- Claims JWT validados con modelo tipado (`TokenClaims`); los tokens malformados responden 401 en lugar de provocar errores 500
+- Cabeceras de seguridad del backend: se añadió CSP, `Permissions-Policy` y `Cross-Origin-Opener-Policy`, y se eliminó la cabecera obsoleta `X-XSS-Protection`
+- Comparación del token de métricas mediante `hmac.compare_digest`
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
 
 ### Fixed
@@ -30,13 +44,19 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Tests de avances (`test_crud_avances`, `test_ejemplos_avances`, `test_avance_flujo`) recalculan el porcentaje esperado desde el acumulado reservado y la meta, eliminando la dependencia del orden de ejecución
 
 ### Security
+- Credenciales administrativas que estaban versionadas en documentación, memoria y pruebas: retiradas del repositorio y sustituidas por valores generados en el entorno de pruebas
+- MFA obligatorio para los roles con mayor privilegio: `ADMINISTRADOR_MUNICIPAL` y `SUPERADMIN_PLATAFORMA`
+- Secretos TOTP cifrados en reposo; el secreto pendiente ya no se devuelve de forma indefinida
+- Refresh token entregado en cookie `HttpOnly; Secure; SameSite=Strict` en lugar del cuerpo de la respuesta, con validación de `Origin` en la renovación
+- Contadores de rate limiting compartidos mediante Redis, con ventana propia para autenticación y fallo cerrado en el bucket de login
+- `X-Request-ID` validado contra un patrón estricto antes de usarse en logs y respuesta
 - Salud del servicio reportada con 503 en `GET /health` cuando la base de datos está caída
 - Endpoints de métricas protegidos con `METRICS_TOKEN` (bearer) cuando está definido
 - Escaneo de secretos (gitleaks), de dependencias Python (pip-audit) y de dependencias Node (npm audit) como gates obligatorios de CI
-- Validación de configuración de producción (secretos y CORS) en `core/config.py`
+- Validación de configuración de producción (secretos, CORS, algoritmos, expiraciones y cookies) en `core/config.py`
 
 ### Pending
-- Tests de seguridad (aislamiento, autorización)
+- Rotación operativa de la credencial que estuvo versionada y purga del historial Git (requiere acción fuera del repositorio)
 - Tests E2E
 - MFA WebAuthn
 - Notifications system

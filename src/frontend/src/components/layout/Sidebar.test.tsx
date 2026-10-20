@@ -30,7 +30,6 @@ function montarSidebar(user: User | null, entrada = '/admin/dashboard', open = t
   const utils = render(
     <MemoryRouter
       initialEntries={[entrada]}
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Sidebar open={open} onClose={onClose} />
       <RutaActual />

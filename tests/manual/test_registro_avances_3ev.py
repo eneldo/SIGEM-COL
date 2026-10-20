@@ -4,6 +4,7 @@ Ejecutar manualmente (requiere backend Docker):
     python tests/manual/test_registro_avances_3ev.py
 """
 
+import os
 import struct
 import zlib
 
@@ -47,8 +48,8 @@ def main() -> None:
     r = c.post(
         "/api/v1/auth/login",
         json={
-            "username": "enemova",
-            "password": "EneldoGestor2026!",
+            "username": os.environ["SIGEM_TEST_GESTOR_USERNAME"],
+            "password": os.environ["SIGEM_TEST_GESTOR_PASSWORD"],
             "municipio_codigo": "00000",
         },
     )
