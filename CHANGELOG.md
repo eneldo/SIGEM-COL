@@ -29,6 +29,7 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - MFA obligatorio también para `SUPERADMIN_PLATAFORMA` (antes solo `ADMINISTRADOR_MUNICIPAL`)
 - Sesión del frontend: el access token vive únicamente en memoria y el refresh token en cookie HttpOnly; se eliminó la persistencia en `localStorage`
 - Dependencias backend reproducibles con `uv.lock` y `uv sync --frozen --no-dev` en la imagen
+- Anotaciones de tipo completas en el backend para `mypy --strict`: los `dict` y `list` sin parametrizar pasan a `dict[str, Any]` / `list[Any]`, y todas las firmas de funciones y rutas quedan anotadas
 - Rate limiting configurable: `RATE_LIMIT_DEFAULT_REQUESTS`, `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_WINDOW` y `TRUST_PROXY_HEADERS`
 - Privilegios del rol de PostgreSQL en runtime reducidos a DML sobre tablas y secuencias, sin `CREATE` sobre el esquema
 - Claims JWT validados con modelo tipado (`TokenClaims`); los tokens malformados responden 401 en lugar de provocar errores 500
@@ -37,6 +38,11 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
 
 ### Fixed
+- CI: `backend-tests` aplica migraciones y crea el administrador de pruebas antes de pytest (fallaba con `relation "municipios" does not exist`)
+- CI: `ruff` y `mypy` se ejecutan con la configuración de `src/backend/pyproject.toml`; `tests/` ya no se analiza con los valores por defecto de ruff
+- CI: `npm ci` y `npm audit` se ejecutan en `src/frontend` (antes fallaban por no encontrar el lockfile)
+- `JWT_ALGORITHM` se restringe a HS256/HS384/HS512 en producción. La referencia a CVE-2026-85394 corresponde a la biblioteca `python-jose` utilizada anteriormente; el backend fue migrado a PyJWT.
+- Dependencia de SQLAlchemy acotada a `<2.1`: la 2.1 rompía `mypy --strict` con 35 errores ajenos al código
 - `DependenciasPage` consultaba `page_size=200` y el backend limita a 100 → 422 silencioso que dejaba vacío el selector de dependencia padre
 - Favicon: se referenciaba `/vite.svg` inexistente (404 en cada carga); ahora `/favicon.svg` con la marca SIGEM
 - `ProductoResponse` serializa `linea_base` y `meta_cuatrienio` como número JSON (el cambio a `NUMERIC(18,4)` los devolvía como string y rompía el contrato del frontend)
@@ -50,6 +56,8 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Refresh token entregado en cookie `HttpOnly; Secure; SameSite=Strict` en lugar del cuerpo de la respuesta, con validación de `Origin` en la renovación
 - Contadores de rate limiting compartidos mediante Redis, con ventana propia para autenticación y fallo cerrado en el bucket de login
 - `X-Request-ID` validado contra un patrón estricto antes de usarse en logs y respuesta
+- Evidencias: el alta de avances rechaza rutas físicas del cliente y ambas descargas validan contención en `STORAGE_PATH`, incluidas rutas absolutas, traversal y enlaces simbólicos externos; el formulario dirige al usuario a la carga de archivos en lugar de solicitar una URL
+- Sesiones: access token, refresh y segundo paso MFA rechazan cuentas inactivas o bloqueadas; desactivaciones y bloqueos revocan sesiones junto al cambio de cuenta
 - Salud del servicio reportada con 503 en `GET /health` cuando la base de datos está caída
 - Endpoints de métricas protegidos con `METRICS_TOKEN` (bearer) cuando está definido
 - Escaneo de secretos (gitleaks), de dependencias Python (pip-audit) y de dependencias Node (npm audit) como gates obligatorios de CI

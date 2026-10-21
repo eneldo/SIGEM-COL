@@ -13,6 +13,7 @@ Fecha: 2026-09-20
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +46,7 @@ INTENTOS_MAXIMOS_FALLIDOS = 3
 async def get_kpis_generales(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """
     Obtiene los indicadores clave de rendimiento generales del municipio.
 
@@ -155,7 +156,7 @@ async def get_kpis_generales(
 async def get_resumen_plan(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Obtiene un resumen del plan de desarrollo activo del municipio.
 
@@ -305,7 +306,7 @@ async def get_resumen_plan(
 async def get_gestores_summary(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene un resumen de todos los gestores líderes del municipio.
 
@@ -375,7 +376,7 @@ async def get_gestores_summary(
 async def get_alertas(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene las alertas de seguridad del municipio.
 
@@ -388,7 +389,7 @@ async def get_alertas(
     :param municipio_id: Identificador del municipio.
     :return: Lista de diccionarios con las alertas detectadas.
     """
-    alertas: list[dict] = []
+    alertas: list[dict[str, Any]] = []
     now = datetime.now(UTC)
     cutoff_date = now - timedelta(days=DIAS_INACTIVIDAD)
 
@@ -513,7 +514,7 @@ async def get_alertas(
 async def get_estadisticas_por_dependencia(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene estadísticas agrupadas por dependencia del municipio.
 
@@ -539,7 +540,7 @@ async def get_estadisticas_por_dependencia(
     deps_result = await db.execute(deps_stmt)
     dependencias = deps_result.scalars().all()
 
-    estadisticas: list[dict] = []
+    estadisticas: list[dict[str, Any]] = []
 
     for dep in dependencias:
         # Contar productos donde esta dependencia es la responsable

@@ -96,9 +96,7 @@ def test_optimize_image_translates_library_errors(monkeypatch, error):
 
     expected = (
         "resolución máxima"
-        if isinstance(
-            error, (Image.DecompressionBombError, Image.DecompressionBombWarning)
-        )
+        if isinstance(error, (Image.DecompressionBombError, Image.DecompressionBombWarning))
         else "dañada"
     )
     with pytest.raises(ValueError, match=expected):
@@ -166,9 +164,7 @@ def test_optimize_pdf_handles_missing_and_failing_images(monkeypatch):
     assert max(valid.image.size) == 2
 
 
-@pytest.mark.parametrize(
-    "error", [PdfReadError("broken"), OSError("broken"), ValueError("broken")]
-)
+@pytest.mark.parametrize("error", [PdfReadError("broken"), OSError("broken"), ValueError("broken")])
 def test_optimize_pdf_translates_reader_errors(monkeypatch, error):
     def fail_reader(*_args, **_kwargs):
         raise error
@@ -180,10 +176,7 @@ def test_optimize_pdf_translates_reader_errors(monkeypatch, error):
 
 
 def test_signature_detection_handles_empty_and_non_signature_fields():
-    assert (
-        optimizer._has_digital_signature(SimpleNamespace(get_fields=lambda: None))
-        is False
-    )
+    assert optimizer._has_digital_signature(SimpleNamespace(get_fields=lambda: None)) is False
     reader = SimpleNamespace(get_fields=lambda: {"text": {"/FT": "/Tx"}, "empty": {}})
     assert optimizer._has_digital_signature(reader) is False
 

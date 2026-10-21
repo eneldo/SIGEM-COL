@@ -1,6 +1,7 @@
 """Tests MFA TOTP - setup, verify, login de segundo factor y enforcement."""
 
 import pyotp
+
 from tests.conftest import API_PREFIX, auth_header, create_temp_user, login_as
 
 
@@ -33,9 +34,7 @@ class TestMFALifecycle:
             password = new_password
 
             # Status before setup.
-            status = api.get(
-                f"{API_PREFIX}/auth/mfa/status", headers=auth_header(token)
-            )
+            status = api.get(f"{API_PREFIX}/auth/mfa/status", headers=auth_header(token))
             assert status.status_code == 200, status.text
             assert status.json() == {
                 "mfa_activo": False,
@@ -78,9 +77,7 @@ class TestMFALifecycle:
             assert "access_token" not in data2
 
             # The mfa_token must not work as an access token.
-            not_access = api.get(
-                f"{API_PREFIX}/auth/me", headers=auth_header(data2["mfa_token"])
-            )
+            not_access = api.get(f"{API_PREFIX}/auth/me", headers=auth_header(data2["mfa_token"]))
             assert not_access.status_code == 401
 
             # Wrong code on the second step fails.
@@ -133,9 +130,7 @@ class TestMFALifecycle:
             assert login3.json().get("mfa_required") is not True
             assert login3.json().get("access_token")
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
 
 class TestMFAAdminEnforcement:
@@ -143,9 +138,7 @@ class TestMFAAdminEnforcement:
 
     @staticmethod
     def _admin_role_id(api, admin_token):
-        roles = api.get(
-            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
-        )
+        roles = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token))
         assert roles.status_code == 200, roles.text
         for rol in roles.json():
             if rol["codigo"] == "ADMINISTRADOR_MUNICIPAL":
@@ -179,9 +172,7 @@ class TestMFAAdminEnforcement:
             password = new_password
 
             # Any non-MFA endpoint is rejected while MFA is not enabled.
-            blocked = api.get(
-                f"{API_PREFIX}/catalogos/roles", headers=auth_header(token)
-            )
+            blocked = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(token))
             assert blocked.status_code == 403, blocked.text
             assert blocked.json()["detail"] == "MFA_SETUP_REQUIRED"
 
@@ -203,11 +194,7 @@ class TestMFAAdminEnforcement:
             )
             assert verify.status_code == 200, verify.text
 
-            allowed = api.get(
-                f"{API_PREFIX}/catalogos/roles", headers=auth_header(token)
-            )
+            allowed = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(token))
             assert allowed.status_code == 200, allowed.text
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))

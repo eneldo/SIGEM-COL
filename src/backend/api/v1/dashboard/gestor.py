@@ -11,6 +11,7 @@ Versión: 1.0
 Fecha: 2026-09-20
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -36,7 +37,9 @@ router = APIRouter(prefix="/gestor", tags=["Dashboard Gestor"])
 # ---------------------------------------------------------------------------
 
 
-async def _require_permission(db: AsyncSession, current_user: dict, permission: str) -> None:
+async def _require_permission(
+    db: AsyncSession, current_user: dict[str, Any], permission: str
+) -> None:
     """
     Verifica que el usuario autenticado tenga el permiso especificado.
     Lanza HTTPException 403 si no tiene el permiso.
@@ -104,9 +107,9 @@ async def _get_gestor_id(
     ),
 )
 async def kpis_personales(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.gestor.ver")
 
     usuario_id = UUID(str(current_user["user"].id))
@@ -140,9 +143,9 @@ async def kpis_personales(
     ),
 )
 async def mis_productos(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.gestor.ver")
 
     usuario_id = UUID(str(current_user["user"].id))
@@ -177,9 +180,9 @@ async def mis_productos(
     ),
 )
 async def mis_pendientes(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.gestor.ver")
 
     usuario_id = UUID(str(current_user["user"].id))
@@ -214,9 +217,9 @@ async def mis_pendientes(
     ),
 )
 async def mis_alertas(
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     await _require_permission(db, current_user, "dashboard.gestor.ver")
 
     usuario_id = UUID(str(current_user["user"].id))

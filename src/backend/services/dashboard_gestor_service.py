@@ -13,6 +13,7 @@ Fecha: 2026-09-20
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +43,7 @@ async def get_kpis_personales(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """
     Obtiene los indicadores clave de rendimiento personales del gestor.
 
@@ -121,7 +122,7 @@ async def get_mis_productos(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Lista todos los productos asignados al gestor líder.
 
@@ -155,7 +156,7 @@ async def get_mis_productos(
     result = await db.execute(productos_stmt)
     rows = result.all()
 
-    productos: list[dict] = []
+    productos: list[dict[str, Any]] = []
     for producto, programa, dependencia in rows:
         productos.append(
             {
@@ -193,7 +194,7 @@ async def get_mis_pendientes(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene los productos asignados al gestor que no han sido actualizados
     recientemente (en los últimos 15 días).
@@ -233,7 +234,7 @@ async def get_mis_pendientes(
     result = await db.execute(productos_stmt)
     rows = result.all()
 
-    pendientes: list[dict] = []
+    pendientes: list[dict[str, Any]] = []
     for producto, programa, dependencia in rows:
         if producto.updated_at:
             dias_sin_actualizacion = (now - producto.updated_at).days
@@ -277,7 +278,7 @@ async def get_mis_alertas(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene las alertas de seguridad personales del gestor.
 
@@ -292,7 +293,7 @@ async def get_mis_alertas(
     :param gestor_id: Identificador del gestor líder.
     :return: Lista de diccionarios con las alertas personales.
     """
-    alertas: list[dict] = []
+    alertas: list[dict[str, Any]] = []
     now = datetime.now(UTC)
 
     # Obtener gestor y usuario asociado

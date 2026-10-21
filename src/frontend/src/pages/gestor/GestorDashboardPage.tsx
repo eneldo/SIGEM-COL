@@ -59,7 +59,6 @@ export function GestorDashboardPage() {
     avance_porcentaje: 0,
     avance_valor: '',
     observaciones: '',
-    evidencia_url: '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [evidenciasAvance, setEvidenciasAvance] = useState<Avance | null>(null)
@@ -146,7 +145,6 @@ export function GestorDashboardPage() {
         avance_porcentaje: avanceForm.avance_porcentaje,
         avance_valor: avanceForm.avance_valor ? parseInt(avanceForm.avance_valor) : undefined,
         observaciones: avanceForm.observaciones || undefined,
-        evidencia_url: avanceForm.evidencia_url || undefined,
       })
       // Refresh avances
       const res = await gestorDashboard.avances(selectedProducto.id)
@@ -155,7 +153,7 @@ export function GestorDashboardPage() {
       const resumenRes = await gestorDashboard.resumen()
       setResumen(resumenRes.data)
       // Reset form
-      setAvanceForm({ avance_porcentaje: 0, avance_valor: '', observaciones: '', evidencia_url: '' })
+      setAvanceForm({ avance_porcentaje: 0, avance_valor: '', observaciones: '' })
       setShowModal(false)
     } catch {
       // Error handling
@@ -358,16 +356,9 @@ export function GestorDashboardPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-ink">URL de evidencia (opcional)</label>
-                <input
-                  type="url"
-                  value={avanceForm.evidencia_url}
-                  onChange={(e) => setAvanceForm({ ...avanceForm, evidencia_url: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink outline-none transition-colors focus:border-pine focus:ring-2 focus:ring-pine/20"
-                  placeholder="https://..."
-                />
-              </div>
+              <p className="text-sm text-ink-faint">
+                Después de registrar el avance, adjunta los archivos desde la opción Evidencias.
+              </p>
 
               {avances.length > 0 && (
                 <div className="border-t border-line pt-4">

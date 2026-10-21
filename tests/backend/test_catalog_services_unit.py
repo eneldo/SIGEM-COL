@@ -140,13 +140,11 @@ async def test_linea_crud_filters_and_errors():
     )
     assert listed["lineas"][0]["plan_desarrollo_nombre"] == "Plan"
     assert listed["page"] == 1 and listed["page_size"] == 100
-    assert (await ls.list_lineas(db_with(Result(0), Result(rows=[])), mid))[
-        "total_pages"
-    ] == 0
+    assert (await ls.list_lineas(db_with(Result(0), Result(rows=[])), mid))["total_pages"] == 0
     assert await ls.get_linea(db_with(Result(rows=[])), mid, lid) is None
-    assert (await ls.get_linea(db_with(Result(rows=[(linea, "Plan")])), mid, lid))[
-        "id"
-    ] == str(linea.id)
+    assert (await ls.get_linea(db_with(Result(rows=[(linea, "Plan")])), mid, lid))["id"] == str(
+        linea.id
+    )
     assert await ls.update_linea(db_with(Result(None)), mid, lid, {}) is None
 
     with pytest.raises(ValueError, match="plan de desarrollo"):
@@ -157,9 +155,7 @@ async def test_linea_crud_filters_and_errors():
             {"plan_desarrollo_id": uuid4()},
         )
     with pytest.raises(ValueError, match="Ya existe"):
-        await ls.update_linea(
-            db_with(Result(linea), Result(obj())), mid, lid, {"codigo": "DUP"}
-        )
+        await ls.update_linea(db_with(Result(linea), Result(obj())), mid, lid, {"codigo": "DUP"})
     new_plan = uuid4()
     updated = await ls.update_linea(
         db_with(Result(linea), Result(plan), Result(None), Result("Plan nuevo")),
@@ -219,15 +215,11 @@ async def test_programa_crud_filters_and_errors():
         },
     )
     assert listed["programas"][0]["sector"] == "Salud"
-    assert (await ps.list_programas(db_with(Result(0), Result(rows=[])), mid))[
-        "programas"
-    ] == []
+    assert (await ps.list_programas(db_with(Result(0), Result(rows=[])), mid))["programas"] == []
     assert await ps.get_programa(db_with(Result(rows=[])), mid, pid) is None
-    assert (
-        await ps.get_programa(
-            db_with(Result(rows=[(programa, "Línea", "LE-1")])), mid, pid
-        )
-    )["codigo"] == "COD-1"
+    assert (await ps.get_programa(db_with(Result(rows=[(programa, "Línea", "LE-1")])), mid, pid))[
+        "codigo"
+    ] == "COD-1"
     assert await ps.update_programa(db_with(Result(None)), mid, pid, {}) is None
     with pytest.raises(ValueError, match="línea estratégica"):
         await ps.update_programa(
@@ -256,9 +248,9 @@ async def test_programa_crud_filters_and_errors():
     assert updated["codigo"] == "NEW" and updated["nombre"] == "Nuevo"
     assert await ps.delete_programa(db_with(Result(None)), mid, pid) is None
     assert (await ps.delete_programa(db_with(Result(programa)), mid, pid))["deleted_at"]
-    assert (await ps.delete_programa(db_with(Result(programa)), mid, pid, uid))[
-        "id"
-    ] == str(programa.id)
+    assert (await ps.delete_programa(db_with(Result(programa)), mid, pid, uid))["id"] == str(
+        programa.id
+    )
     assert programa.deleted_by == uid
 
 
@@ -285,9 +277,9 @@ async def test_producto_create_list_get_and_errors():
         with pytest.raises(ValueError, match=match):
             await xs.create_producto(db_with(*results), mid, payload)
     minimal = {"programa_id": prog_id, "codigo": "P2", "nombre": "Mínimo"}
-    assert (
-        await xs.create_producto(db_with(Result(prog), Result(None)), mid, minimal)
-    )["gestor_lider_id"] is None
+    assert (await xs.create_producto(db_with(Result(prog), Result(None)), mid, minimal))[
+        "gestor_lider_id"
+    ] is None
 
     producto = obj(
         municipio_id=mid,
@@ -311,9 +303,7 @@ async def test_producto_create_list_get_and_errors():
         filters,
     )
     assert listed["productos"][0]["gestor_lider_nombre"] == "Gestor"
-    assert (await xs.list_productos(db_with(Result(0), Result(rows=[])), mid))[
-        "productos"
-    ] == []
+    assert (await xs.list_productos(db_with(Result(0), Result(rows=[])), mid))["productos"] == []
     assert await xs.get_producto(db_with(Result(rows=[])), mid, xid) is None
     detail = await xs.get_producto(
         db_with(Result(rows=[(producto, "Prog", "PR", "Dep", "Gestor")])), mid, xid
@@ -398,15 +388,12 @@ async def test_producto_update_delete_and_errors():
         xid,
         {"dependencia_responsable_id": None, "gestor_lider_id": None},
     )
-    assert (
-        cleared["dependencia_responsable_id"] is None
-        and cleared["gestor_lider_id"] is None
-    )
+    assert cleared["dependencia_responsable_id"] is None and cleared["gestor_lider_id"] is None
     assert await xs.delete_producto(db_with(Result(None)), mid, xid) is None
     assert (await xs.delete_producto(db_with(Result(product)), mid, xid))["deleted_at"]
-    assert (await xs.delete_producto(db_with(Result(product)), mid, xid, uid))[
-        "id"
-    ] == str(product.id)
+    assert (await xs.delete_producto(db_with(Result(product)), mid, xid, uid))["id"] == str(
+        product.id
+    )
     assert product.deleted_by == uid
 
 
@@ -418,24 +405,14 @@ async def test_dependencia_crud_filters_and_errors():
         mid,
         {"search": "a", "estado": "ACTIVO", "page": 2, "page_size": 200},
     )
-    assert listed["total"] == 0 and listed["items"][0]["dependencia_padre_id"] == str(
-        parent_id
-    )
-    await ds.list_dependencias(
-        db_with(Result(1), Result(rows=[])), mid, {"estado": "INACTIVO"}
-    )
-    await ds.list_dependencias(
-        db_with(Result(0), Result(rows=[])), mid, {"estado": "OTRO"}
-    )
+    assert listed["total"] == 0 and listed["items"][0]["dependencia_padre_id"] == str(parent_id)
+    await ds.list_dependencias(db_with(Result(1), Result(rows=[])), mid, {"estado": "INACTIVO"})
+    await ds.list_dependencias(db_with(Result(0), Result(rows=[])), mid, {"estado": "OTRO"})
     assert await ds.get_dependencia(db_with(Result(None)), mid, did) is None
-    assert (await ds.get_dependencia(db_with(Result(dep)), mid, did))[
-        "codigo"
-    ] == dep.codigo
+    assert (await ds.get_dependencia(db_with(Result(dep)), mid, did))["codigo"] == dep.codigo
 
     with pytest.raises(ValueError, match="Ya existe"):
-        await ds.create_dependencia(
-            db_with(Result(dep)), mid, {"codigo": "D", "nombre": "Dep"}
-        )
+        await ds.create_dependencia(db_with(Result(dep)), mid, {"codigo": "D", "nombre": "Dep"})
     with pytest.raises(ValueError, match="padre no existe"):
         await ds.create_dependencia(
             db_with(Result(None), Result(None)),
@@ -463,9 +440,7 @@ async def test_dependencia_crud_filters_and_errors():
             db_with(Result(dep), Result(obj())), mid, did, {"codigo": "OTRO"}
         )
     with pytest.raises(ValueError, match="padre de sí misma"):
-        await ds.update_dependencia(
-            db_with(Result(dep)), mid, did, {"dependencia_padre_id": did}
-        )
+        await ds.update_dependencia(db_with(Result(dep)), mid, did, {"dependencia_padre_id": did})
     with pytest.raises(ValueError, match="padre no existe"):
         await ds.update_dependencia(
             db_with(Result(dep), Result(None)),
@@ -488,13 +463,7 @@ async def test_dependencia_crud_filters_and_errors():
     assert updated["nombre"] == "Nueva"
 
     dep.soft_delete = Mock()
-    assert (
-        await ds.delete_dependencia(db_with(Result(None)), str(mid), str(did), str(uid))
-        is False
-    )
-    assert (
-        await ds.delete_dependencia(db_with(Result(dep)), str(mid), str(did), str(uid))
-        is True
-    )
+    assert await ds.delete_dependencia(db_with(Result(None)), str(mid), str(did), str(uid)) is False
+    assert await ds.delete_dependencia(db_with(Result(dep)), str(mid), str(did), str(uid)) is True
     dep.soft_delete.assert_called_once_with(uid)
     assert await ds.delete_dependencia(db_with(Result(dep)), mid, did, uid) is True

@@ -18,7 +18,7 @@ class UsuarioRol(Base):
         UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=False, index=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<UsuarioRol usuario={self.usuario_id} rol={self.rol_id}>"
 
 
@@ -29,5 +29,5 @@ class RolPermiso(Base):
     rol_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=False, index=True)
     permiso_id = Column(UUID(as_uuid=True), ForeignKey("permisos.id"), nullable=False, index=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<RolPermiso rol={self.rol_id} permiso={self.permiso_id}>"

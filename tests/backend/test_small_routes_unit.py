@@ -90,9 +90,7 @@ async def test_admin_routes_success(
 
     assert result == expected
     permission.assert_awaited_once_with(db, identity, "dashboard.admin.ver")
-    service.assert_awaited_once_with(
-        db=db, municipio_id=uuid.UUID(identity["municipio_id"])
-    )
+    service.assert_awaited_once_with(db=db, municipio_id=uuid.UUID(identity["municipio_id"]))
 
 
 @pytest.mark.unit
@@ -126,9 +124,7 @@ async def test_admin_routes_convert_service_errors(
     monkeypatch, identity, route_name, service_name, detail
 ):
     monkeypatch.setattr(admin, "_require_permission", AsyncMock())
-    monkeypatch.setattr(
-        admin, service_name, AsyncMock(side_effect=RuntimeError("database"))
-    )
+    monkeypatch.setattr(admin, service_name, AsyncMock(side_effect=RuntimeError("database")))
 
     with pytest.raises(HTTPException) as exc_info:
         await getattr(admin, route_name)(current_user=identity, db=object())
@@ -162,9 +158,7 @@ async def test_gestor_helpers(monkeypatch, identity):
     gestor_id = uuid.uuid4()
     db.execute.return_value = GestorResult(SimpleNamespace(id=gestor_id))
     await gestor._require_permission(db, identity, "permiso")
-    assert (
-        await gestor._get_gestor_id(db, identity["user"].id, uuid.uuid4()) == gestor_id
-    )
+    assert await gestor._get_gestor_id(db, identity["user"].id, uuid.uuid4()) == gestor_id
     required.assert_awaited_once_with(db, identity["user"].id, "permiso")
 
     db.execute.return_value = GestorResult(None)
@@ -216,9 +210,7 @@ async def test_gestor_routes_success(
     municipio_id = uuid.UUID(identity["municipio_id"])
     permission.assert_awaited_once_with(db, identity, "dashboard.gestor.ver")
     lookup.assert_awaited_once_with(db, identity["user"].id, municipio_id)
-    service.assert_awaited_once_with(
-        db=db, municipio_id=municipio_id, gestor_id=gestor_id
-    )
+    service.assert_awaited_once_with(db=db, municipio_id=municipio_id, gestor_id=gestor_id)
 
 
 @pytest.mark.unit
@@ -248,9 +240,7 @@ async def test_gestor_routes_convert_service_errors(
 ):
     monkeypatch.setattr(gestor, "_require_permission", AsyncMock())
     monkeypatch.setattr(gestor, "_get_gestor_id", AsyncMock(return_value=uuid.uuid4()))
-    monkeypatch.setattr(
-        gestor, service_name, AsyncMock(side_effect=RuntimeError("database"))
-    )
+    monkeypatch.setattr(gestor, service_name, AsyncMock(side_effect=RuntimeError("database")))
 
     with pytest.raises(HTTPException) as exc_info:
         await getattr(gestor, route_name)(current_user=identity, db=object())
@@ -263,9 +253,7 @@ async def test_gestor_routes_convert_service_errors(
 @pytest.mark.unit
 async def test_auditoria_routes_success_and_filters(monkeypatch, identity):
     permission = AsyncMock()
-    listing = AsyncMock(
-        return_value={"items": [], "total": 0, "page": 2, "page_size": 5}
-    )
+    listing = AsyncMock(return_value={"items": [], "total": 0, "page": 2, "page_size": 5})
     stats = AsyncMock(
         return_value={
             "total_eventos": 3,
@@ -292,9 +280,7 @@ async def test_auditoria_routes_success_and_filters(monkeypatch, identity):
         current_user=identity,
         db=db,
     )
-    stats_response = await auditoria.estadisticas_auditoria(
-        current_user=identity, db=db
-    )
+    stats_response = await auditoria.estadisticas_auditoria(current_user=identity, db=db)
 
     assert response.page == 2
     assert listing.await_args.args[2] == {
@@ -313,9 +299,7 @@ async def test_auditoria_routes_success_and_filters(monkeypatch, identity):
 
 @pytest.mark.unit
 async def test_auditoria_empty_filters_and_exception(monkeypatch, identity):
-    listing = AsyncMock(
-        return_value={"items": [], "total": 0, "page": 1, "page_size": 20}
-    )
+    listing = AsyncMock(return_value={"items": [], "total": 0, "page": 1, "page_size": 20})
     monkeypatch.setattr(auditoria, "require_permission", AsyncMock())
     monkeypatch.setattr(auditoria.audit_admin_service, "list_auditoria", listing)
 
@@ -350,9 +334,7 @@ async def test_catalogos_roles_success_and_exception(identity):
     ("roles", "search", "include_eliminadas"),
     [(["ADMINISTRADOR_MUNICIPAL"], None, False), ([], "planeación", True)],
 )
-async def test_catalogos_dependencias_all_query_paths(
-    identity, roles, search, include_eliminadas
-):
+async def test_catalogos_dependencias_all_query_paths(identity, roles, search, include_eliminadas):
     dependency = SimpleNamespace(
         id=uuid.uuid4(), codigo="D1", nombre="Planeación", descripcion=None
     )
@@ -388,9 +370,7 @@ async def test_cumplimiento_passthrough_success_and_exception(
     monkeypatch.setattr(cumplimiento, service_name, service)
     db = object()
 
-    assert await getattr(cumplimiento, route_name)(db=db, current_user=identity) == {
-        "ok": True
-    }
+    assert await getattr(cumplimiento, route_name)(db=db, current_user=identity) == {"ok": True}
     service.assert_awaited_once_with(db, identity["municipio_id"])
 
     service.side_effect = RuntimeError("database")
@@ -399,9 +379,7 @@ async def test_cumplimiento_passthrough_success_and_exception(
 
 
 @pytest.mark.unit
-async def test_cumplimiento_detalle_success_not_found_and_invalid_uuid(
-    monkeypatch, identity
-):
+async def test_cumplimiento_detalle_success_not_found_and_invalid_uuid(monkeypatch, identity):
     product_id = uuid.uuid4()
     service = AsyncMock(return_value={"id": str(product_id)})
     monkeypatch.setattr(cumplimiento, "get_detalle_producto", service)
@@ -413,15 +391,11 @@ async def test_cumplimiento_detalle_success_not_found_and_invalid_uuid(
 
     service.return_value = None
     with pytest.raises(HTTPException) as missing:
-        await cumplimiento.detalle_producto(
-            str(product_id), db=object(), current_user=identity
-        )
+        await cumplimiento.detalle_producto(str(product_id), db=object(), current_user=identity)
     assert missing.value.status_code == 404
 
     with pytest.raises(ValueError):
-        await cumplimiento.detalle_producto(
-            "invalid", db=object(), current_user=identity
-        )
+        await cumplimiento.detalle_producto("invalid", db=object(), current_user=identity)
 
 
 @pytest.mark.unit
@@ -442,9 +416,7 @@ async def test_reportes_passthrough_success_and_exception(
     monkeypatch.setattr(reportes, service_name, service)
     db = object()
 
-    assert await getattr(reportes, route_name)(db=db, current_user=identity) == {
-        "ok": True
-    }
+    assert await getattr(reportes, route_name)(db=db, current_user=identity) == {"ok": True}
     service.assert_awaited_once_with(db, identity["municipio_id"])
 
     service.side_effect = RuntimeError("database")

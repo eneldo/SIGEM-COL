@@ -13,7 +13,8 @@ import asyncio
 import uuid
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,7 +65,7 @@ async def get_mis_productos(
     db: AsyncSession,
     usuario_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene los productos asignados al gestor actual.
     """
@@ -114,7 +115,7 @@ async def get_avances_producto(
     db: AsyncSession,
     producto_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene los avances registrados para un producto específico.
     """
@@ -159,11 +160,14 @@ async def registrar_avance(
     usuario_id: uuid.UUID,
     municipio_id: uuid.UUID,
     producto_id: uuid.UUID,
-    avance_data: dict,
-) -> dict:
+    avance_data: dict[str, Any],
+) -> dict[str, Any]:
     """
     Registra un nuevo avance para un producto.
     """
+    if avance_data.get("evidencia_url") is not None:
+        raise ValueError("La ruta de evidencia se genera únicamente al subir el archivo.")
+
     gestor_stmt = select(GestorLider.id).where(
         and_(
             GestorLider.usuario_id == usuario_id,
@@ -206,7 +210,7 @@ async def registrar_avance(
         avance_porcentaje=porcentaje,
         avance_valor=valor,
         observaciones=avance_data.get("observaciones"),
-        evidencia_url=avance_data.get("evidencia_url"),
+        evidencia_url=None,
         indicador=producto.indicador,
         periodo=avance_data.get("periodo"),
         fecha_registro=now,
@@ -262,8 +266,8 @@ async def actualizar_avance(
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-    avance_data: dict,
-) -> dict:
+    avance_data: dict[str, Any],
+) -> dict[str, Any]:
     """
     Actualiza los campos editables de un avance existente.
     No permite editar avances ya aprobados.
@@ -350,7 +354,7 @@ async def eliminar_avance(
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """
     Elimina lógicamente un avance y sus evidencias.
     No permite eliminar avances ya aprobados.
@@ -398,7 +402,7 @@ async def get_resumen_avances(
     db: AsyncSession,
     usuario_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """
     Resumen de avances del gestor actual.
     """
@@ -474,7 +478,7 @@ async def get_avances_para_revision(
     gestor_lider_id: uuid.UUID | None = None,
     estado_revision: str | None = None,
     search: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Obtiene avances para revisión con datos del gestor y producto.
     Si se proporciona gestor_lider_id, filtra solo los avances de ese gestor (para gestor líder).
@@ -542,7 +546,7 @@ async def get_estadisticas_revision(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     gestor_lider_id: uuid.UUID | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Estadísticas para el dashboard de revisión.
     """
@@ -595,7 +599,7 @@ async def revisar_avance(
     nuevo_estado: str,
     observacion: str | None = None,
     gestor_lider_id: uuid.UUID | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Aprueba o rechaza un avance.
 
@@ -660,7 +664,7 @@ async def guardar_evidencia(
     content: bytes,
     filename: str,
     content_type: str,
-) -> dict:
+) -> dict[str, Any]:
     """
     Guarda el archivo de evidencia en disco y actualiza el avance.
     """
@@ -759,6 +763,26 @@ async def guardar_evidencia(
     }
 
 
+def _resolve_evidence_path(relative_path: str) -> Path:
+    """Resolve stored paths without allowing absolute paths or storage escapes."""
+    path = Path(relative_path)
+    if path.is_absolute() or PureWindowsPath(relative_path).is_absolute() or ".." in path.parts:
+        raise ValueError("Ruta de evidencia inválida.")
+
+    try:
+        storage_root = Path(settings.STORAGE_PATH).resolve()
+        file_path = (storage_root / path).resolve()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError("Ruta de evidencia inválida.") from exc
+
+    # Resolving before checking containment also rejects symlinks out of storage.
+    if not file_path.is_relative_to(storage_root):
+        raise ValueError("Ruta de evidencia inválida.")
+    if not file_path.is_file():
+        raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
+    return file_path
+
+
 async def obtener_archivo_evidencia(
     db: AsyncSession,
     avance_id: uuid.UUID,
@@ -795,9 +819,7 @@ async def obtener_archivo_evidencia(
         if gestor_id != avance.gestor_lider_id:
             raise ValueError("No tiene permiso para ver esta evidencia.")
 
-    file_path = Path(settings.STORAGE_PATH) / avance.evidencia_url
-    if not file_path.is_file():
-        raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
+    file_path = _resolve_evidence_path(str(avance.evidencia_url))
 
     filename = str(avance.evidencia_nombre or file_path.name)
     content_type = str(avance.evidencia_tipo or "application/octet-stream")
@@ -845,8 +867,8 @@ async def agregar_evidencias(
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-    archivos: list[dict],
-) -> list[dict]:
+    archivos: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Agrega una o más evidencias a un avance sin borrar las existentes.
     archivos: [{content: bytes, filename: str, content_type: str, descripcion: str|None}]
@@ -976,7 +998,7 @@ async def listar_evidencias(
     db: AsyncSession,
     avance_id: uuid.UUID,
     municipio_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Lista todas las evidencias (no eliminadas) de un avance."""
     avance = await _get_avance_or_404(db, avance_id, municipio_id)
 
@@ -1046,9 +1068,7 @@ async def obtener_archivo_evidencia_por_id(
         if gestor_id != avance.gestor_lider_id:
             raise PermissionError("No tiene permiso para ver esta evidencia.")
 
-    file_path = Path(settings.STORAGE_PATH) / evidencia.url
-    if not file_path.is_file():
-        raise ValueError("El archivo de evidencia no existe en el almacenamiento.")
+    file_path = _resolve_evidence_path(str(evidencia.url))
 
     filename = str(evidencia.nombre or file_path.name)
     content_type = str(evidencia.tipo or "application/octet-stream")
@@ -1062,7 +1082,7 @@ async def actualizar_descripcion_evidencia(
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
     descripcion: str | None,
-) -> dict:
+) -> dict[str, Any]:
     """Actualiza la descripción de una evidencia."""
     avance = await _get_avance_or_404(db, avance_id, municipio_id)
     await _check_evidence_permission(db, avance, usuario_id, municipio_id)
@@ -1095,7 +1115,7 @@ async def eliminar_evidencia(
     evidencia_id: uuid.UUID,
     municipio_id: uuid.UUID,
     usuario_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """Elimina lógicamente una evidencia y borra el archivo del disco."""
     avance = await _get_avance_or_404(db, avance_id, municipio_id)
     await _check_evidence_permission(db, avance, usuario_id, municipio_id)

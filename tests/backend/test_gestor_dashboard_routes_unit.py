@@ -84,9 +84,7 @@ def producto():
 def upload(name="x.pdf", content_type="application/pdf", content=b"%PDF-ok"):
     from io import BytesIO
 
-    return UploadFile(
-        filename=name, file=BytesIO(content), headers={"content-type": content_type}
-    )
+    return UploadFile(filename=name, file=BytesIO(content), headers={"content-type": content_type})
 
 
 async def assert_http(awaitable, code, detail=None):
@@ -105,15 +103,11 @@ async def test_helpers_access_and_basic_endpoints(monkeypatch):
 
     db = SimpleNamespace(scalar=AsyncMock(return_value=AID))
     assert (
-        await api._require_revision_access(
-            db, {**CURRENT, "roles": ["SUPERADMIN_PLATAFORMA"]}
-        )
+        await api._require_revision_access(db, {**CURRENT, "roles": ["SUPERADMIN_PLATAFORMA"]})
         is None
     )
     assert (
-        await api._require_revision_access(
-            db, {**CURRENT, "roles": ["ADMINISTRADOR_MUNICIPAL"]}
-        )
+        await api._require_revision_access(db, {**CURRENT, "roles": ["ADMINISTRADOR_MUNICIPAL"]})
         is None
     )
     assert await api._require_revision_access(db, CURRENT) is None
@@ -151,9 +145,7 @@ async def test_helpers_access_and_basic_endpoints(monkeypatch):
     monkeypatch.setattr(
         api,
         "get_estadisticas_revision",
-        AsyncMock(
-            return_value={"pendientes": 1, "aprobados_semana": 2, "devueltos": 3}
-        ),
+        AsyncMock(return_value={"pendientes": 1, "aprobados_semana": 2, "devueltos": 3}),
     )
     assert (await api.obtener_estadisticas_revision(CURRENT, db)).devueltos == 3
     await assert_http(api.obtener_estadisticas_revision(NO_USER, db), 401)
@@ -243,9 +235,7 @@ async def test_avance_mutations_success_auth_and_errors(
 
 
 async def test_empty_update(monkeypatch):
-    await assert_http(
-        api.editar_avance(AID, api.AvanceUpdate(), CURRENT, Mock()), 422, "campos"
-    )
+    await assert_http(api.editar_avance(AID, api.AvanceUpdate(), CURRENT, Mock()), 422, "campos")
 
 
 @pytest.mark.parametrize(
@@ -317,9 +307,7 @@ async def test_multi_evidence_endpoints(monkeypatch, tmp_path):
         (RuntimeError(), 500),
     ]:
         add.side_effect = error
-        await assert_http(
-            api.subir_evidencias(AID, [upload()], None, CURRENT, db), code
-        )
+        await assert_http(api.subir_evidencias(AID, [upload()], None, CURRENT, db), code)
 
     listing = AsyncMock(return_value=[evidencia()])
     monkeypatch.setattr(api, "listar_evidencias", listing)
@@ -340,9 +328,7 @@ async def test_multi_evidence_endpoints(monkeypatch, tmp_path):
 
     download = AsyncMock(return_value=(path, "x.pdf", "application/pdf"))
     monkeypatch.setattr(api, "obtener_archivo_evidencia_por_id", download)
-    assert (
-        await api.descargar_evidencia_por_id(AID, EID, CURRENT, db)
-    ).filename == "x.pdf"
+    assert (await api.descargar_evidencia_por_id(AID, EID, CURRENT, db)).filename == "x.pdf"
     await assert_http(api.descargar_evidencia_por_id(AID, EID, NO_USER, db), 401)
     for error, code in [(PermissionError("no"), 403), (ValueError("bad"), 404)]:
         download.side_effect = error

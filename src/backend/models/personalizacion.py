@@ -21,5 +21,5 @@ class Personalizacion(BaseModel):
 
     municipio = relationship("Municipio", backref="personalizaciones")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Personalizacion {self.nombre_sistema}>"

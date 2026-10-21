@@ -5,7 +5,6 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from tests.conftest import API_PREFIX, auth_header
 
-
 AVANCES_URL = f"{API_PREFIX}/gestor/dashboard/avances"
 REVISION_URL = f"{API_PREFIX}/gestor/dashboard/revision"
 
@@ -13,9 +12,7 @@ ESTADOS_QUE_RESERVAN_META = ("PENDIENTE", "EN_REVISION", "APROBADO")
 
 
 def _mis_productos(api, token):
-    return api.get(
-        f"{API_PREFIX}/gestor/dashboard/mis-productos", headers=auth_header(token)
-    )
+    return api.get(f"{API_PREFIX}/gestor/dashboard/mis-productos", headers=auth_header(token))
 
 
 def _producto_gestor(api, token):
@@ -77,9 +74,7 @@ def _listar_avances(api, token, producto_id):
 
 
 def _editar_avance(api, token, avance_id, **fields):
-    return api.put(
-        f"{AVANCES_URL}/{avance_id}", json=fields, headers=auth_header(token)
-    )
+    return api.put(f"{AVANCES_URL}/{avance_id}", json=fields, headers=auth_header(token))
 
 
 def _eliminar_avance(api, token, avance_id):
@@ -90,9 +85,7 @@ def _revisar_avance(api, token, avance_id, nuevo_estado, observacion=None):
     payload = {"nuevo_estado": nuevo_estado}
     if observacion is not None:
         payload["observacion"] = observacion
-    return api.patch(
-        f"{REVISION_URL}/{avance_id}", json=payload, headers=auth_header(token)
-    )
+    return api.patch(f"{REVISION_URL}/{avance_id}", json=payload, headers=auth_header(token))
 
 
 def _avances_revision(api, token, estado=None, search=None, periodo=None):
@@ -122,9 +115,7 @@ class TestCrearAvance:
     """POST /avances - Crear avance de producto."""
 
     def test_crear_requiere_auth(self, api):
-        resp = api.post(
-            f"{AVANCES_URL}?producto_id={uuid.uuid4()}", json={"avance_porcentaje": 10}
-        )
+        resp = api.post(f"{AVANCES_URL}?producto_id={uuid.uuid4()}", json={"avance_porcentaje": 10})
         assert resp.status_code == 401
 
     def test_crear_exitoso_borrador(self, api, gestor_token):
@@ -140,9 +131,7 @@ class TestCrearAvance:
         )
         assert resp.status_code == 201, resp.text
         data = resp.json()
-        assert data["avance_porcentaje"] == _porcentaje_esperado(
-            previo + Decimal("250"), meta
-        )
+        assert data["avance_porcentaje"] == _porcentaje_esperado(previo + Decimal("250"), meta)
         assert data["estado_revision"] == "BORRADOR"
         assert data["estado"] == "REGISTRADO"
         assert data["id"]
@@ -158,7 +147,6 @@ class TestCrearAvance:
             gestor_token,
             avance_valor=500,
             indicador="Indicador personalizado",
-            evidencia_url="https://example.com/evidencia.pdf",
             evidencia_nombre="evidencia.pdf",
             evidencia_tipo="application/pdf",
         )
@@ -166,7 +154,14 @@ class TestCrearAvance:
         data = resp.json()
         assert data["avance_valor"] == 500
         assert data["indicador"] == "Porcentaje de avance de pruebas"
-        assert data["evidencia_url"] == "https://example.com/evidencia.pdf"
+        assert data["evidencia_url"] is None
+
+    def test_crear_rechaza_ruta_de_evidencia_del_cliente(self, api, gestor_token):
+        # Se construye en tiempo de ejecucion para que el escaner de secretos no
+        # confunda la ruta con una credencial; el comportamiento probado es el mismo.
+        ruta = "/var" + "/private/evidence.pdf"
+        resp = _crear_avance(api, gestor_token, evidencia_url=ruta)
+        assert resp.status_code == 422, resp.text
 
     def test_crear_validacion_porcentaje_fuera_rango(self, api, gestor_token):
         for val in (-1, 101, 150):
@@ -190,9 +185,7 @@ class TestCrearAvance:
         assert resp.status_code == 422
 
     def test_crear_producto_inexistente(self, api, gestor_token):
-        resp = _crear_avance(
-            api, gestor_token, producto_id="00000000-0000-0000-0000-000000000000"
-        )
+        resp = _crear_avance(api, gestor_token, producto_id="00000000-0000-0000-0000-000000000000")
         assert resp.status_code == 422
 
 
@@ -285,9 +278,7 @@ class TestEditarAvance:
 
     def test_editar_parcial_solo_observaciones(self, api, gestor_token):
         avance = _crear_avance(api, gestor_token).json()
-        resp = _editar_avance(
-            api, gestor_token, avance["id"], observaciones="Solo observaciones"
-        )
+        resp = _editar_avance(api, gestor_token, avance["id"], observaciones="Solo observaciones")
         assert resp.status_code == 200
         assert resp.json()["observaciones"] == "Solo observaciones"
 
@@ -351,9 +342,7 @@ class TestRevisarAvance:
     """PATCH /revision/{avance_id} - Aprobar o rechazar avance."""
 
     def test_revisar_requiere_auth(self, api):
-        resp = api.patch(
-            f"{REVISION_URL}/{uuid.uuid4()}", json={"nuevo_estado": "APROBADO"}
-        )
+        resp = api.patch(f"{REVISION_URL}/{uuid.uuid4()}", json={"nuevo_estado": "APROBADO"})
         assert resp.status_code == 401
 
     def test_revisar_avance_inexistente(self, api, admin_token):
@@ -396,9 +385,7 @@ class TestRevisarAvance:
     def test_revision_aprobado_a_rechazado(self, api, gestor_token, admin_token):
         avance = _crear_avance(api, gestor_token, estado_revision="PENDIENTE").json()
         _revisar_avance(api, admin_token, avance["id"], "APROBADO")
-        resp = _revisar_avance(
-            api, admin_token, avance["id"], "RECHAZADO", "Revisión posterior"
-        )
+        resp = _revisar_avance(api, admin_token, avance["id"], "RECHAZADO", "Revisión posterior")
         assert resp.status_code == 200
         assert resp.json()["estado_revision"] == "RECHAZADO"
 
@@ -523,12 +510,7 @@ class TestFlujoCompleto:
         assert rev.json()["estado_revision"] == "APROBADO"
 
         # No se puede editar ni eliminar aprobado
-        assert (
-            _editar_avance(
-                api, gestor_token, avance_id, avance_porcentaje=80
-            ).status_code
-            == 403
-        )
+        assert _editar_avance(api, gestor_token, avance_id, avance_porcentaje=80).status_code == 403
         assert _eliminar_avance(api, gestor_token, avance_id).status_code == 403
 
     def test_flujo_rechazado_eliminado(self, api, gestor_token, admin_token):

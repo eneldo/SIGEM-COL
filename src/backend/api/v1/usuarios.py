@@ -24,9 +24,9 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 @router.post("", response_model=UsuarioResponse, status_code=201)
 async def crear_usuario(
     body: UsuarioCreate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> UsuarioResponse:
     await require_permission(db, current_user["user"].id, "security.usuarios.crear")
     municipio_id = current_user["municipio_id"]
     try:
@@ -42,9 +42,9 @@ async def listar_usuarios(
     estado: str = "",
     page: int = 1,
     page_size: int = 20,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> UsuarioListResponse:
     await require_permission(db, current_user["user"].id, "security.usuarios.ver")
     municipio_id = current_user["municipio_id"]
     filtros: dict[str, Any] = {"page": page, "page_size": page_size}
@@ -59,9 +59,9 @@ async def listar_usuarios(
 @router.get("/{usuario_id}", response_model=UsuarioResponse)
 async def obtener_usuario(
     usuario_id: str,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> UsuarioResponse:
     await require_permission(db, current_user["user"].id, "security.usuarios.ver")
     import uuid as _uuid
 
@@ -76,9 +76,9 @@ async def obtener_usuario(
 async def actualizar_usuario(
     usuario_id: str,
     body: UsuarioUpdate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> UsuarioResponse:
     await require_permission(db, current_user["user"].id, "security.usuarios.editar")
     import uuid as _uuid
 
@@ -93,9 +93,9 @@ async def actualizar_usuario(
 @router.delete("/{usuario_id}", status_code=204)
 async def eliminar_usuario(
     usuario_id: str,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     await require_permission(db, current_user["user"].id, "security.usuarios.eliminar")
     import uuid as _uuid
 

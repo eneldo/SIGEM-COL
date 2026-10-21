@@ -1,6 +1,7 @@
 """Auth routes - Authentication endpoints"""
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,7 +57,7 @@ MFA_ALLOWED_SUFFIXES = PASSWORD_CHANGE_ALLOWED_SUFFIXES
 MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL", "SUPERADMIN_PLATAFORMA")
 
 
-def _issue_session(response: Response, result: dict) -> None:
+def _issue_session(response: Response, result: dict[str, Any]) -> None:
     """Entrega el refresh token en cookie HttpOnly y lo retira del cuerpo."""
     refresh_token = result.pop("refresh_token", None)
     if refresh_token:
@@ -77,7 +78,7 @@ def _validate_refresh_origin(request: Request) -> None:
 
 async def get_current_user_from_token(
     request: Request, db: AsyncSession = Depends(get_db_with_rls)
-):
+) -> dict[str, Any]:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
@@ -160,7 +161,7 @@ async def login(
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
@@ -197,8 +198,8 @@ async def login(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    current_user=Depends(get_current_user_from_token),
-):
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
+) -> UserResponse:
     user = current_user["user"]
     return UserResponse(
         id=user.id,
@@ -215,9 +216,9 @@ async def get_current_user(
 @router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
-    current_user=Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user["user"]
     municipio_id = current_user["municipio_id"]
 
@@ -255,18 +256,18 @@ async def change_password(
 
 @router.get("/mfa/status", response_model=MFAStatusResponse)
 async def mfa_status(
-    current_user=Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> MFAStatusResponse:
     auth_service = AuthService(db)
     return MFAStatusResponse(**await auth_service.mfa_status(current_user["user"]))
 
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)
 async def mfa_setup(
-    current_user=Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> MFASetupResponse:
     auth_service = AuthService(db)
     try:
         result = await auth_service.mfa_setup(current_user["user"])
@@ -286,9 +287,9 @@ async def mfa_setup(
 @router.post("/mfa/verify")
 async def mfa_verify(
     data: MFAVerifyRequest,
-    current_user=Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     try:
         ok = await auth_service.mfa_verify(current_user["user"], data.code)
@@ -317,7 +318,7 @@ async def mfa_login(
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
@@ -350,9 +351,9 @@ async def mfa_login(
 @router.post("/mfa/disable")
 async def mfa_disable(
     data: MFADisableRequest,
-    current_user=Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     try:
         ok = await auth_service.mfa_disable(current_user["user"], data.password, data.code)
@@ -381,7 +382,7 @@ async def refresh_tokens(
     response: Response,
     data: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     _validate_refresh_origin(request)
 
     refresh_token = read_refresh_cookie(request) or data.refresh_token
@@ -419,9 +420,9 @@ async def refresh_tokens(
 @router.post("/logout")
 async def logout(
     response: Response,
-    current_user=Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     user = current_user["user"]
     sid = current_user.get("sid")
 

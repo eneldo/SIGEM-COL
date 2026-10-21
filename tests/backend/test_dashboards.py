@@ -2,7 +2,6 @@
 
 from tests.conftest import API_PREFIX, auth_header
 
-
 ADMIN_URL = f"{API_PREFIX}/dashboard/admin"
 GESTOR_URL = f"{API_PREFIX}/dashboard/gestor"
 GESTOR_DASHBOARD_URL = f"{API_PREFIX}/gestor/dashboard"
@@ -102,9 +101,7 @@ class TestDashboardAdminEstadisticasDependencia:
         assert resp.status_code == 401
 
     def test_estadisticas_admin_ok(self, api, admin_token):
-        resp = api.get(
-            f"{ADMIN_URL}/estadisticas-dependencia", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{ADMIN_URL}/estadisticas-dependencia", headers=auth_header(admin_token))
         assert resp.status_code == 200
         data = resp.json()
         assert "dependencias" in data
@@ -112,9 +109,7 @@ class TestDashboardAdminEstadisticasDependencia:
         assert isinstance(data["dependencias"], list)
 
     def test_estadisticas_gestor_token_denied(self, api, gestor_token):
-        resp = api.get(
-            f"{ADMIN_URL}/estadisticas-dependencia", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{ADMIN_URL}/estadisticas-dependencia", headers=auth_header(gestor_token))
         assert resp.status_code == 403
 
 
@@ -166,9 +161,7 @@ class TestDashboardGestorMisPendientes:
         assert resp.status_code == 401
 
     def test_mis_pendientes_gestor_ok(self, api, gestor_token):
-        resp = api.get(
-            f"{GESTOR_URL}/mis-pendientes", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{GESTOR_URL}/mis-pendientes", headers=auth_header(gestor_token))
         assert resp.status_code == 200
         data = resp.json()
         assert "pendientes" in data
@@ -208,9 +201,7 @@ class TestGestorDashboardEndpoints:
         assert resp.status_code == 401
 
     def test_mis_productos_gestor_ok(self, api, gestor_token):
-        resp = api.get(
-            f"{GESTOR_DASHBOARD_URL}/mis-productos", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{GESTOR_DASHBOARD_URL}/mis-productos", headers=auth_header(gestor_token))
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
@@ -220,9 +211,7 @@ class TestGestorDashboardEndpoints:
         assert resp.status_code == 401
 
     def test_resumen_gestor_ok(self, api, gestor_token):
-        resp = api.get(
-            f"{GESTOR_DASHBOARD_URL}/resumen", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{GESTOR_DASHBOARD_URL}/resumen", headers=auth_header(gestor_token))
         assert resp.status_code == 200
         data = resp.json()
         assert "total_productos" in data
@@ -240,9 +229,7 @@ class TestGestorDashboardEndpoints:
         assert resp.status_code in (200, 403)
 
     def test_avances_revision_admin_ok(self, api, admin_token):
-        resp = api.get(
-            f"{GESTOR_DASHBOARD_URL}/revision/avances", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{GESTOR_DASHBOARD_URL}/revision/avances", headers=auth_header(admin_token))
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
 
@@ -358,9 +345,7 @@ class TestEstructuraRespuestas:
             assert "gestor_id" in a
 
     def test_estadisticas_dependencia_structure(self, api, admin_token):
-        resp = api.get(
-            f"{ADMIN_URL}/estadisticas-dependencia", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{ADMIN_URL}/estadisticas-dependencia", headers=auth_header(admin_token))
         assert resp.status_code == 200
         data = resp.json()
         if data["dependencias"]:
@@ -391,9 +376,7 @@ class TestEstructuraRespuestas:
             assert "dependencia_responsable" in p
 
     def test_mis_pendientes_structure(self, api, gestor_token):
-        resp = api.get(
-            f"{GESTOR_URL}/mis-pendientes", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{GESTOR_URL}/mis-pendientes", headers=auth_header(gestor_token))
         assert resp.status_code == 200
         data = resp.json()
         if data["pendientes"]:
@@ -411,9 +394,7 @@ class TestEstructuraRespuestas:
             assert "mensaje" in a
 
     def test_resumen_avances_structure(self, api, gestor_token):
-        resp = api.get(
-            f"{GESTOR_DASHBOARD_URL}/resumen", headers=auth_header(gestor_token)
-        )
+        resp = api.get(f"{GESTOR_DASHBOARD_URL}/resumen", headers=auth_header(gestor_token))
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data["total_productos"], int)
@@ -435,9 +416,7 @@ class TestRBACDashboard:
         ]
         for ep in endpoints:
             resp = api.get(ep, headers=auth_header(admin_token))
-            assert resp.status_code in (200, 404), (
-                f"Falló {ep}: {resp.status_code} {resp.text}"
-            )
+            assert resp.status_code in (200, 404), f"Falló {ep}: {resp.status_code} {resp.text}"
 
     def test_gestor_solo_dashboard_propio(self, api, gestor_token):
         allowed = [
@@ -450,9 +429,7 @@ class TestRBACDashboard:
         ]
         for ep in allowed:
             resp = api.get(ep, headers=auth_header(gestor_token))
-            assert resp.status_code in (200, 404), (
-                f"Debería permitir {ep}: {resp.status_code}"
-            )
+            assert resp.status_code in (200, 404), f"Debería permitir {ep}: {resp.status_code}"
 
         denied = [
             f"{ADMIN_URL}/kpis",

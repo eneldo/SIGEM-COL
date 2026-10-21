@@ -2,9 +2,11 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import pyotp
 from sqlalchemy import and_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
@@ -39,7 +41,7 @@ class AuthService:
         municipio_codigo: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         # Municipality is mandatory: it scopes the login lookup under RLS.
         if not municipio_codigo:
             return None
@@ -57,7 +59,8 @@ class AuthService:
 
         # Scope this session to the municipality before touching any
         # RLS-protected table (usuarios, intentos_login, sesiones, ...).
-        await set_tenant_context(self.db, municipio.id)
+        # Los modelos usan Column legado, asi que `municipio.id` no se tipa como UUID.
+        await set_tenant_context(self.db, cast(uuid.UUID, municipio.id))
 
         # Get user by username + municipio
         user_result = await self.db.execute(
@@ -113,6 +116,7 @@ class AuthService:
             if user.intentos_fallidos >= settings.RATE_LIMIT_LOGIN_ATTEMPTS:
                 user.fecha_bloqueo = datetime.now(UTC)  # type: ignore[assignment]
                 user.motivo_bloqueo = "MAX_LOGIN_ATTEMPTS"  # type: ignore[assignment]
+                await self.revoke_all_sessions(uuid.UUID(str(user.id)), commit=False)
 
             attempt.exitoso = False  # type: ignore[assignment]
             attempt.razon_fallo = "INVALID_PASSWORD"  # type: ignore[assignment]
@@ -174,10 +178,10 @@ class AuthService:
         user: Usuario,
         municipio_id: uuid.UUID,
         roles: list[str],
-        token_data: dict,
+        token_data: dict[str, Any],
         ip_address: str | None,
         user_agent: str | None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create access/refresh tokens, persist the session and return the login payload.
 
         The access token carries a `sid` claim pointing to the persisted
@@ -213,7 +217,7 @@ class AuthService:
         roles: list[str],
         access_token: str,
         refresh_token: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -252,7 +256,7 @@ class AuthService:
         refresh_token: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Validate and rotate a refresh token, keeping the same session (`sid`).
 
         A refresh token that was already rotated (or whose session was revoked)
@@ -318,7 +322,7 @@ class AuthService:
         code: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Second login step: validate the TOTP code and issue real tokens."""
         payload = decode_token(mfa_token)
         if not payload or payload.get("type") != "mfa":
@@ -350,14 +354,14 @@ class AuthService:
     # MFA management (TOTP)
     # ------------------------------------------------------------------
 
-    async def mfa_status(self, user: Usuario) -> dict:
+    async def mfa_status(self, user: Usuario) -> dict[str, Any]:
         if user.mfa_activo:
             return {"mfa_activo": True, "pending": False}
         if user.mfa_secret:
             return {"mfa_activo": False, "pending": True}
         return {"mfa_activo": False, "pending": False}
 
-    async def mfa_setup(self, user: Usuario) -> dict:
+    async def mfa_setup(self, user: Usuario) -> dict[str, Any]:
         if user.mfa_activo:
             raise ValueError("MFA ya está activo; desactívelo antes de volver a configurarlo.")
         secret = pyotp.random_base32()
@@ -399,13 +403,18 @@ class AuthService:
 
     async def get_current_user(self, user_id: str, municipio_id: str) -> Usuario | None:
         result = await self.db.execute(
-            select(Usuario).where(
+            select(Usuario)
+            .where(
                 and_(
                     Usuario.id == uuid.UUID(user_id),
                     Usuario.municipio_id == uuid.UUID(municipio_id),
                     Usuario.deleted_at.is_(None),
+                    Usuario.activo == 1,
+                    Usuario.fecha_bloqueo.is_(None),
+                    Usuario.estado != "ELIMINADO_LOGICAMENTE",
                 )
             )
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
 
@@ -459,11 +468,13 @@ class AuthService:
         await self.db.commit()
         return True
 
-    async def revoke_all_sessions(self, user_id: uuid.UUID) -> int:
+    async def revoke_all_sessions(self, user_id: uuid.UUID, *, commit: bool = True) -> int:
+        """Revoke sessions, optionally within the caller's account-status transaction."""
         result = await self.db.execute(
             update(Sesion)
             .where(and_(Sesion.usuario_id == user_id, Sesion.activa == 1))
             .values(activa=0)
         )
-        await self.db.commit()
-        return result.rowcount
+        if commit:
+            await self.db.commit()
+        return cast(CursorResult[Any], result).rowcount

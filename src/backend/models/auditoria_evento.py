@@ -26,5 +26,5 @@ class AuditoriaEvento(Base):
     metadata_json = Column("metadata", Text, nullable=True)  # JSON seguro
     fecha_evento = Column(DateTime(timezone=True), nullable=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<AuditoriaEvento {self.evento_tipo} - {self.resultado}>"

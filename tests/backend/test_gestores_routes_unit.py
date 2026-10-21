@@ -103,17 +103,13 @@ async def test_create_success_and_errors(monkeypatch, permission):
     result = await api.create_gestor(data, Mock(), CURRENT, Mock())
     assert result.id == GID
     assert service.await_args.kwargs["allowed_role_codes"] == {"GESTOR"}
-    permission.assert_awaited_once_with(
-        service.await_args.kwargs["db"], UID, "gestor.crear"
-    )
+    permission.assert_awaited_once_with(service.await_args.kwargs["db"], UID, "gestor.crear")
     for error, code, detail in [
         (ValueError("invalid"), 422, "invalid"),
         (RuntimeError("secret"), 500, "Error interno"),
     ]:
         service.side_effect = error
-        await raises_http(
-            api.create_gestor(data, Mock(), CURRENT, Mock()), code, detail
-        )
+        await raises_http(api.create_gestor(data, Mock(), CURRENT, Mock()), code, detail)
 
 
 async def test_list_and_get(monkeypatch, permission):
@@ -127,9 +123,7 @@ async def test_list_and_get(monkeypatch, permission):
         }
     )
     monkeypatch.setattr(api, "svc_list", service)
-    result = await api.list_gestores(
-        "ana", "Líder", RID, "ACTIVO", 2, 5, CURRENT, Mock()
-    )
+    result = await api.list_gestores("ana", "Líder", RID, "ACTIVO", 2, 5, CURRENT, Mock())
     assert result.total == 1
     assert service.await_args.kwargs["filtros"]["rol_id"] == str(RID)
     service.return_value["gestores"] = []
@@ -180,18 +174,12 @@ async def test_update_and_permissions(monkeypatch, permission):
     permissions = AsyncMock(return_value=gestor())
     monkeypatch.setattr(api, "svc_update_permissions", permissions)
     pdata = GestorPermisosUpdate(rol_id=RID)
-    assert (
-        await api.update_gestor_permissions(GID, pdata, Mock(), CURRENT, Mock())
-    ).id == GID
+    assert (await api.update_gestor_permissions(GID, pdata, Mock(), CURRENT, Mock())).id == GID
     permissions.side_effect = ValueError("rol inválido")
-    await raises_http(
-        api.update_gestor_permissions(GID, pdata, Mock(), CURRENT, Mock()), 422
-    )
+    await raises_http(api.update_gestor_permissions(GID, pdata, Mock(), CURRENT, Mock()), 422)
     permissions.side_effect = None
     permissions.return_value = None
-    await raises_http(
-        api.update_gestor_permissions(GID, pdata, Mock(), CURRENT, Mock()), 404
-    )
+    await raises_http(api.update_gestor_permissions(GID, pdata, Mock(), CURRENT, Mock()), 404)
 
 
 async def test_block_all_paths(monkeypatch, permission):
@@ -205,20 +193,14 @@ async def test_block_all_paths(monkeypatch, permission):
     await raises_http(
         api.block_gestor(GID, GestorAccion(motivo="  "), Mock(), CURRENT, Mock()), 422
     )
-    result = await api.block_gestor(
-        GID, GestorAccion(motivo=" razón "), Mock(), CURRENT, Mock()
-    )
+    result = await api.block_gestor(GID, GestorAccion(motivo=" razón "), Mock(), CURRENT, Mock())
     assert result.estado == "BLOQUEADO"
     assert service.await_args.kwargs["motivo"] == "razón"
     service.side_effect = ValueError("ya bloqueado")
-    await raises_http(
-        api.block_gestor(GID, GestorAccion(motivo="x"), Mock(), CURRENT, Mock()), 422
-    )
+    await raises_http(api.block_gestor(GID, GestorAccion(motivo="x"), Mock(), CURRENT, Mock()), 422)
     service.side_effect = None
     service.return_value = None
-    await raises_http(
-        api.block_gestor(GID, GestorAccion(motivo="x"), Mock(), CURRENT, Mock()), 404
-    )
+    await raises_http(api.block_gestor(GID, GestorAccion(motivo="x"), Mock(), CURRENT, Mock()), 404)
 
 
 async def test_reset_password_all_paths(monkeypatch, permission):

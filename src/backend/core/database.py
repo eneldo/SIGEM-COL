@@ -4,13 +4,15 @@ RLS (Row-Level Security) activated via session variable.
 """
 
 import logging
-from collections.abc import AsyncIterator
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import Response
 
 from .config import settings
 
@@ -41,7 +43,9 @@ class RLSMiddleware(BaseHTTPMiddleware):
     and stores it in request.state for RLS activation.
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request.state.municipio_id = None
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -60,7 +64,7 @@ class RLSMiddleware(BaseHTTPMiddleware):
 TENANT_CONTEXT_SQL = "SELECT set_config('app.current_municipio_id', :value, false)"
 
 
-async def set_tenant_context(session: AsyncSession, municipio_id) -> None:
+async def set_tenant_context(session: AsyncSession, municipio_id: uuid.UUID | None) -> None:
     """
     Set (or clear) the PostgreSQL RLS tenant context for this session.
 

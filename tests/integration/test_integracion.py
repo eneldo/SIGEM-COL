@@ -106,15 +106,11 @@ class TestCatalogos:
     """Pruebas de catálogos del sistema."""
 
     def test_list_roles(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token))
         assert resp.status_code == 200
 
     def test_list_dependencias(self, api, admin_token):
-        resp = api.get(
-            f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token)
-        )
+        resp = api.get(f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token))
         assert resp.status_code == 200
 
     def test_list_roles_unauthenticated(self, api):

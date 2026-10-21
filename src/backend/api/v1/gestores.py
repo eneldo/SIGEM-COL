@@ -12,6 +12,7 @@ Versión: 1.1
 Fecha: 2026-09-20
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -74,7 +75,7 @@ router = APIRouter(prefix="/gestores", tags=["Gestores"])
 ADMIN_ROLE_CODES = {"SUPERADMIN_PLATAFORMA", "ADMINISTRADOR_MUNICIPAL"}
 
 
-def _allowed_role_codes(current_user: dict) -> set[str] | None:
+def _allowed_role_codes(current_user: dict[str, Any]) -> set[str] | None:
     """Administradores: cualquier rol. Coordinadores al crear: solo GESTOR."""
     role_codes = set(current_user.get("roles") or [])
     if role_codes & ADMIN_ROLE_CODES:
@@ -100,9 +101,9 @@ def _allowed_role_codes(current_user: dict) -> set[str] | None:
 async def create_gestor(
     gestor_data: GestorCreate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorPasswordReset:
     await require_permission(db, current_user["user"].id, "gestor.crear")
 
     municipio_id = current_user["municipio_id"]
@@ -156,9 +157,9 @@ async def list_gestores(
     ),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorListResponse:
     await require_permission(db, current_user["user"].id, "gestor.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -197,9 +198,9 @@ async def list_gestores(
 )
 async def get_gestor(
     gestor_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -233,9 +234,9 @@ async def update_gestor(
     gestor_id: UUID,
     gestor_data: GestorUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.editar")
 
     municipio_id = current_user["municipio_id"]
@@ -274,9 +275,9 @@ async def update_gestor_permissions(
     gestor_id: UUID,
     permisos_data: GestorPermisosUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.permisos")
 
     municipio_id = current_user["municipio_id"]
@@ -316,9 +317,9 @@ async def update_gestor_permissions(
 async def activate_gestor(
     gestor_id: UUID,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.activar")
 
     municipio_id = current_user["municipio_id"]
@@ -352,9 +353,9 @@ async def deactivate_gestor(
     gestor_id: UUID,
     request: Request,
     accion_data: GestorAccion | None = None,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.desactivar")
 
     municipio_id = current_user["municipio_id"]
@@ -389,9 +390,9 @@ async def block_gestor(
     gestor_id: UUID,
     accion_data: GestorAccion,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.bloquear")
 
     if not accion_data.motivo or not accion_data.motivo.strip():
@@ -437,9 +438,9 @@ async def block_gestor(
 async def unblock_gestor(
     gestor_id: UUID,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorResponse:
     await require_permission(db, current_user["user"].id, "gestor.desbloquear")
 
     municipio_id = current_user["municipio_id"]
@@ -478,9 +479,9 @@ async def reset_password(
     gestor_id: UUID,
     request: Request,
     body: GestorPasswordUpdate | None = None,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> GestorPasswordReset:
     await require_permission(db, current_user["user"].id, "gestor.permisos")
 
     municipio_id = current_user["municipio_id"]
@@ -526,9 +527,9 @@ async def reset_password(
 async def delete_gestor(
     gestor_id: UUID,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     await require_permission(db, current_user["user"].id, "gestor.eliminar")
 
     municipio_id = current_user["municipio_id"]
@@ -566,9 +567,9 @@ async def get_gestor_accesos(
     gestor_id: UUID,
     limit: int = Query(50, ge=1, le=200, description="Número máximo de accesos"),
     offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[GestorAccesoResponse]:
     await require_permission(db, current_user["user"].id, "auditoria.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -604,9 +605,9 @@ async def get_gestor_audit_events(
     gestor_id: UUID,
     limit: int = Query(100, ge=1, le=500, description="Número máximo de eventos"),
     offset: int = Query(0, ge=0, description="Desplazamiento para paginación"),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[dict[str, Any]]:
     await require_permission(db, current_user["user"].id, "auditoria.ver")
 
     municipio_id = current_user["municipio_id"]

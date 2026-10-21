@@ -12,6 +12,7 @@ Fecha: 2026-09-20
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,8 +35,8 @@ ELIMINADO = False
 async def create_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    create_data: dict,
-) -> dict:
+    create_data: dict[str, Any],
+) -> dict[str, Any]:
     plan_desarrollo_id = create_data.get("plan_desarrollo_id")
     numero = create_data.get("numero")
     nombre = create_data.get("nombre")
@@ -131,8 +132,8 @@ async def create_linea(
 async def list_lineas(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Lista líneas estratégicas con filtros y paginación.
 
@@ -238,7 +239,7 @@ async def get_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     linea_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Obtiene una línea estratégica por su ID dentro de un municipio.
 
@@ -294,8 +295,8 @@ async def update_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     linea_id: uuid.UUID,
-    update_data: dict,
-) -> dict | None:
+    update_data: dict[str, Any],
+) -> dict[str, Any] | None:
     """
     Actualiza la información de una línea estratégica.
 
@@ -408,7 +409,7 @@ async def delete_linea(
     municipio_id: uuid.UUID,
     linea_id: uuid.UUID,
     user_id: uuid.UUID | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Realiza la eliminación lógica de una línea estratégica.
 

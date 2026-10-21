@@ -39,5 +39,5 @@ class AvanceProducto(BaseModel):
     gestor_lider = relationship("GestorLider", backref="avances")
     usuario = relationship("Usuario", backref="avances_registrados")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<AvanceProducto {self.producto_id} - {self.avance_porcentaje}%>"

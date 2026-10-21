@@ -5,6 +5,7 @@ Calcula el avance y cumplimiento de metas cuatrienales.
 """
 
 import uuid
+from typing import Any
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +18,7 @@ from ..models.programa import Programa
 async def get_cumplimiento_general(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     base = (
         select(Producto)
         .join(Programa, Producto.programa_id == Programa.id)
@@ -72,7 +73,7 @@ async def get_cumplimiento_general(
 async def get_cumplimiento_por_linea(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list:
+) -> list[Any]:
     lineas_stmt = select(LineaEstrategica).where(
         and_(
             LineaEstrategica.municipio_id == municipio_id,
@@ -141,7 +142,7 @@ async def get_cumplimiento_por_linea(
 async def get_cumplimiento_por_programa(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list:
+) -> list[Any]:
     prog_stmt = (
         select(Programa, LineaEstrategica.nombre.label("linea_nombre"))
         .join(LineaEstrategica, Programa.linea_estrategica_id == LineaEstrategica.id)
@@ -212,7 +213,7 @@ async def get_detalle_producto(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     producto_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     stmt = (
         select(
             Producto,
@@ -273,7 +274,7 @@ async def get_detalle_producto(
 async def get_listado_productos_cumplimiento(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-) -> list:
+) -> list[Any]:
     stmt = (
         select(
             Producto,

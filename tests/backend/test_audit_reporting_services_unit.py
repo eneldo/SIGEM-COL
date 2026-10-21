@@ -104,9 +104,7 @@ async def test_audit_admin_lists_anonymous_event_and_missing_actor():
     missing_actor = SimpleNamespace(
         **{**anonymous.__dict__, "id": uuid.uuid4(), "usuario_id": uuid.uuid4()}
     )
-    db = FakeDB(
-        [Result(value=2), Result(rows=[anonymous, missing_actor]), Result(rows=[])]
-    )
+    db = FakeDB([Result(value=2), Result(rows=[anonymous, missing_actor]), Result(rows=[])])
 
     result = await list_auditoria(db, uuid.uuid4())
 
@@ -203,9 +201,7 @@ async def test_reporte_resumen_general():
 
 @pytest.mark.unit
 async def test_reporte_resumen_por_linea():
-    linea = SimpleNamespace(
-        id=uuid.uuid4(), codigo="L1", nombre="Línea", estado="ACTIVO"
-    )
+    linea = SimpleNamespace(id=uuid.uuid4(), codigo="L1", nombre="Línea", estado="ACTIVO")
     db = FakeDB([Result(rows=[linea]), Result(value=2), Result(value=5)])
 
     result = await get_resumen_por_linea(db, uuid.uuid4())

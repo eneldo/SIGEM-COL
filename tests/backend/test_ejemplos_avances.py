@@ -90,9 +90,7 @@ class TestCrearAvance:
         avance = _crear_avance(api, gestor_token, producto_id=producto["id"])
 
         assert avance["avance_valor"] == 300
-        assert avance["avance_porcentaje"] == _porcentaje_esperado(
-            previo + Decimal("300"), meta
-        )
+        assert avance["avance_porcentaje"] == _porcentaje_esperado(previo + Decimal("300"), meta)
         assert avance["estado_revision"] == "PENDIENTE"
         assert avance["estado"] == "REGISTRADO"
         assert avance["id"]
@@ -136,9 +134,7 @@ class TestEditarAvance:
         avance = _crear_avance(
             api, gestor_token, producto_id=producto["id"], avance_porcentaje=20.0
         )
-        previo = _acumulado_reservado(
-            api, gestor_token, producto["id"], excluir_id=avance["id"]
-        )
+        previo = _acumulado_reservado(api, gestor_token, producto["id"], excluir_id=avance["id"])
 
         resp = api.put(
             f"{API_PREFIX}/gestor/dashboard/avances/{avance['id']}",
@@ -148,9 +144,7 @@ class TestEditarAvance:
         assert resp.status_code == 200
         data = resp.json()
         assert data["avance_valor"] == 450
-        assert data["avance_porcentaje"] == _porcentaje_esperado(
-            previo + Decimal("450"), meta
-        )
+        assert data["avance_porcentaje"] == _porcentaje_esperado(previo + Decimal("450"), meta)
         assert data["observaciones"] == "Actualizado en prueba"
 
     def test_editar_avance_aprobado_prohibido(self, api, gestor_token, admin_token):

@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, ColumnElement, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase
@@ -31,7 +31,7 @@ class BaseModel(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(UUID(as_uuid=True), nullable=True)
 
-    def soft_delete(self, user_id: uuid.UUID):
+    def soft_delete(self, user_id: uuid.UUID) -> None:
         """Eliminación lógica"""
         self.deleted_at = datetime.now(UTC)  # type: ignore[assignment]
         self.deleted_by = user_id  # type: ignore[assignment]
@@ -47,7 +47,7 @@ class BaseModel(Base):
 
     @eliminado.inplace.expression
     @classmethod
-    def _eliminado_expression(cls):
+    def _eliminado_expression(cls) -> ColumnElement[bool]:
         return cls.deleted_at.is_not(None)
 
     @eliminado.inplace.setter

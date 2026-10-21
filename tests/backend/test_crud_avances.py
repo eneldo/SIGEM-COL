@@ -82,6 +82,7 @@ def _listar_ids(api, gestor_token, producto_id=None):
 
 def _png():
     from io import BytesIO
+
     from PIL import Image
 
     buf = BytesIO()
@@ -259,18 +260,14 @@ class TestCicloCompletoCRUD:
         )
         avance_id = avance["id"]
         assert avance["estado_revision"] == "BORRADOR"
-        assert avance["avance_porcentaje"] == _porcentaje_esperado(
-            previo + Decimal("100"), meta
-        )
+        assert avance["avance_porcentaje"] == _porcentaje_esperado(previo + Decimal("100"), meta)
 
         # READ
         ids = _listar_ids(api, gestor_token, producto_id)
         assert avance_id in ids
 
         # UPDATE
-        previo_edicion = _acumulado_reservado(
-            api, gestor_token, producto_id, excluir_id=avance_id
-        )
+        previo_edicion = _acumulado_reservado(api, gestor_token, producto_id, excluir_id=avance_id)
         upd = api.put(
             f"{AVANCES}/{avance_id}",
             json={
@@ -299,9 +296,7 @@ class TestCicloCompletoCRUD:
         assert rev.status_code == 200, rev.text
 
         # DELETE bloqueado en APROBADO
-        blocked = api.delete(
-            f"{AVANCES}/{avance_id}", headers=auth_header(gestor_token)
-        )
+        blocked = api.delete(f"{AVANCES}/{avance_id}", headers=auth_header(gestor_token))
         assert blocked.status_code == 403
 
         # Devolver y poder eliminar
@@ -336,9 +331,7 @@ class TestEdicionAvance:
             estado_revision="BORRADOR",
             avance_porcentaje=5.0,
         )
-        previo = _acumulado_reservado(
-            api, gestor_token, producto["id"], excluir_id=avance["id"]
-        )
+        previo = _acumulado_reservado(api, gestor_token, producto["id"], excluir_id=avance["id"])
 
         resp = api.put(
             f"{AVANCES}/{avance['id']}",
@@ -347,9 +340,7 @@ class TestEdicionAvance:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["avance_porcentaje"] == _porcentaje_esperado(
-            previo + Decimal("12"), meta
-        )
+        assert data["avance_porcentaje"] == _porcentaje_esperado(previo + Decimal("12"), meta)
         assert data["avance_valor"] == 12
 
     def test_editar_sin_campos_da_422(self, api, gestor_token):

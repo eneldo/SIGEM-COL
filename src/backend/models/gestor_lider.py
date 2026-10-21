@@ -29,5 +29,5 @@ class GestorLider(BaseModel):
     dependencia_principal = relationship("Dependencia", backref="gestores_lideres")
     productos = relationship("Producto", backref="gestor_lider")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<GestorLider {self.codigo} - {self.nombre_completo}>"

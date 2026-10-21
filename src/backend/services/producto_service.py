@@ -13,6 +13,7 @@ Fecha: 2026-09-20
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,8 +31,8 @@ from ..models.programa import Programa
 async def create_producto(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    create_data: dict,
-) -> dict:
+    create_data: dict[str, Any],
+) -> dict[str, Any]:
     """
     Crea un nuevo producto asociado a un programa.
 
@@ -184,8 +185,8 @@ async def create_producto(
 async def list_productos(
     db: AsyncSession,
     municipio_id: uuid.UUID,
-    filtros: dict | None = None,
-) -> dict:
+    filtros: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Lista productos con filtros y paginación.
 
@@ -337,7 +338,7 @@ async def get_producto(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     producto_id: uuid.UUID,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Obtiene un producto por su ID dentro de un municipio.
 
@@ -427,8 +428,8 @@ async def update_producto(
     db: AsyncSession,
     municipio_id: uuid.UUID,
     producto_id: uuid.UUID,
-    update_data: dict,
-) -> dict | None:
+    update_data: dict[str, Any],
+) -> dict[str, Any] | None:
     """
     Actualiza la información de un producto.
 
@@ -619,7 +620,7 @@ async def delete_producto(
     municipio_id: uuid.UUID,
     producto_id: uuid.UUID,
     user_id: uuid.UUID | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Realiza la eliminación lógica de un producto.
 

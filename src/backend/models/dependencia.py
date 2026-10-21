@@ -26,5 +26,5 @@ class Dependencia(BaseModel):
         "Dependencia", remote_side="Dependencia.id", backref="subdependencias"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Dependencia {self.codigo} - {self.nombre}>"

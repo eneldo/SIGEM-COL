@@ -10,6 +10,39 @@
 
 ---
 
+## 2026-10-07: Pipeline de CI utilizable
+
+**Contexto:** El pipeline nunca quedo verde: `backend-quality` fallaba con errores de lint, `backend-tests` fallaba con `relation "municipios" does not exist` y el job `security` lanzaba `npm` fuera del directorio del manifiesto.
+
+**Decisión:**
+- **Lint con la configuración del proyecto.** `ruff` resolvia configuracion por archivo y aplicaba sus valores por defecto a `tests/`, que no tiene un `pyproject.toml` propio. El workflow ahora pasa `--config src/backend/pyproject.toml` de forma explicita, y `--config-file` para `mypy`.
+- **Base de pruebas reproducible.** `backend-tests` aplica `alembic upgrade head` y ejecuta `bootstrap_admin.py` antes de pytest, con credenciales deterministas propias del job.
+- **`npm` en el directorio correcto.** `npm ci` y `npm audit` usan `working-directory: src/frontend`.
+- **Rango de SQLAlchemy acotado a `<2.1`.** La version 2.1 cambio el tipado de las sentencias y provoco 35 errores de `mypy --strict` sin relacion con el codigo. Se fijo el rango compatible en lugar de silenciar la comprobacion.
+
+**Decisión histórica de seguridad:** En la versión anterior se documentó la aceptación temporal del riesgo CVE-2026-85394 asociado a `python-jose`. Durante la integración se incorporó PyJWT y se retiraron las excepciones de vulnerabilidades del pipeline de `pip-audit`. Se mantiene la restricción de algoritmos JWT a HS256, HS384 y HS512 en producción.
+
+**Estado actual:** La migración de `python-jose` a `PyJWT` está incorporada en el código. Quedan pendientes las pruebas funcionales de autenticación, renovación de sesiones, MFA y auditoría de dependencias.
+
+**Tipado estricto:** `mypy --strict` nunca se habia ejecutado porque `ruff` fallaba antes en el pipeline; al habilitarlo aparecieron 392 errores. Se annotaron en su totalidad en lugar de relajar la configuracion: los `dict`/`list` sin parametrizar pasan a `dict[str, Any]`/`list[Any]` y todas las firmas quedan tipadas.
+
+**Rutas FastAPI:** donde ya exista `response_model` explicito se reutilizo esa expresion como anotacion de retorno (FastAPI ignora la anotacion cuando `response_model` esta declarado). En las 16 rutas sin `response_model` se anot `dict[str, Any]`, `FileResponse`, `StreamingResponse` o `None` segun lo que devuelven. El esquema OpenAPI pasa a documentar esos cuerpos, que antes aparecian como `{}`. Se verifico que las 16 devuelven siempre `dict` o `list`, de modo que la validacion anadida no rechaza respuestas que antes pasaban.
+
+---
+
+## 2026-10-06: Contención de evidencias y revocación de cuentas deshabilitadas
+
+**Contexto:** La revisión detectó rutas de evidencias controladas por el cliente que permitían descargar archivos fuera de `STORAGE_PATH`, y sesiones que conservaban acceso después de desactivar o bloquear su usuario.
+
+**Decisión:**
+- El alta de avances rechaza `evidencia_url` no nula; las rutas físicas solo se generan en los servicios de carga. Ambas descargas de evidencias resuelven la ruta y rechazan rutas absolutas, segmentos `..` y enlaces simbólicos que escapen del almacenamiento. La contención también se aplica a referencias ya persistidas.
+- La consulta de usuario autenticado exige `activo=1`, ausencia de bloqueo y cuenta no eliminada, protegiendo solicitudes con access token, refresh y segundo paso MFA.
+- Desactivar usuarios, desactivar/bloquear gestores y bloquear por intentos fallidos revoca sus sesiones en la misma transacción del cambio de cuenta. Reactivar una cuenta no recupera sesiones antiguas.
+
+**Verificación:** Pruebas de regresión con archivos temporales y consultas SQL reales en una base SQLite aislada; las comprobaciones de RLS y operación PostgreSQL siguen correspondiendo a la suite de integración.
+
+---
+
 ## 2026-10-04: Módulo de Personalización (branding por municipio)
 
 **Contexto:** Configuración → Personalización requiere colores primario/secundario, nombre del sistema y logotipo compartidos por municipio, con el logotipo visible en el Sidebar y como favicon.
@@ -118,7 +151,7 @@
 - `MFA_ALLOWED_SUFFIXES = PASSWORD_CHANGE_ALLOWED_SUFFIXES` (permite change-password, logout, me, refresh + flujo MFA)
 - `get_current_user_from_token` verifica `any(role in MFA_ENFORCED_ROLES for role in roles)`
 
-**Riesgo aceptado:** `SUPERADMIN_PLATAFORMA` sin MFA es cuenta de bootstrap/emergencia. En producción se recomienda habilitar MFA manualmente.
+**Riesgo aceptado (decisión histórica, sustituida el 2026-10-06):** Se permitía que `SUPERADMIN_PLATAFORMA` operara sin MFA como cuenta de bootstrap/emergencia. Esta excepción fue eliminada posteriormente. La política vigente exige MFA tanto para `ADMINISTRADOR_MUNICIPAL` como para `SUPERADMIN_PLATAFORMA`.
 
 ---
 

@@ -28,9 +28,9 @@ async def listar_dependencias(
     estado: str = "",
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> DependenciaListResponse:
     municipio_id = UUID(current_user["municipio_id"])
     filtros: dict[str, Any] = {"page": page, "page_size": page_size}
     if search:
@@ -44,9 +44,9 @@ async def listar_dependencias(
 @router.get("/{dependencia_id}", response_model=DependenciaResponse)
 async def obtener_dependencia(
     dependencia_id: str,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> DependenciaResponse:
     municipio_id = UUID(current_user["municipio_id"])
     result = await dependencia_service.get_dependencia(db, municipio_id, UUID(dependencia_id))
     if result is None:
@@ -57,9 +57,9 @@ async def obtener_dependencia(
 @router.post("", response_model=DependenciaResponse, status_code=201)
 async def crear_dependencia(
     body: DependenciaCreate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> DependenciaResponse:
     await require_permission(db, current_user["user"].id, "dependencia.crear")
     municipio_id = UUID(current_user["municipio_id"])
     try:
@@ -73,9 +73,9 @@ async def crear_dependencia(
 async def actualizar_dependencia(
     dependencia_id: str,
     body: DependenciaUpdate,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> DependenciaResponse:
     await require_permission(db, current_user["user"].id, "dependencia.editar")
     municipio_id = UUID(current_user["municipio_id"])
     data = {k: v for k, v in body.model_dump().items() if v is not None}
@@ -95,9 +95,9 @@ async def actualizar_dependencia(
 @router.delete("/{dependencia_id}", status_code=204)
 async def eliminar_dependencia(
     dependencia_id: str,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     await require_permission(db, current_user["user"].id, "dependencia.eliminar")
     municipio_id = UUID(current_user["municipio_id"])
     user_orm = current_user["user"]

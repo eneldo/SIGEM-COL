@@ -108,9 +108,7 @@ class TestSubirYListarEvidencias:
 
         resp = api.post(
             f"{API_PREFIX}/gestor/dashboard/avances/{avance_id}/evidencias",
-            files=[
-                ("files", (f"evidencia{i}.png", png, "image/png")) for i in range(1, 5)
-            ],
+            files=[("files", (f"evidencia{i}.png", png, "image/png")) for i in range(1, 5)],
             headers=auth_header(gestor_token),
         )
 
@@ -122,9 +120,7 @@ class TestSubirYListarEvidencias:
         png = self._png_bytes()
         primera_carga = api.post(
             f"{API_PREFIX}/gestor/dashboard/avances/{avance_id}/evidencias",
-            files=[
-                ("files", (f"evidencia{i}.png", png, "image/png")) for i in range(1, 5)
-            ],
+            files=[("files", (f"evidencia{i}.png", png, "image/png")) for i in range(1, 5)],
             headers=auth_header(gestor_token),
         )
         assert primera_carga.status_code == 201, primera_carga.text
@@ -136,10 +132,7 @@ class TestSubirYListarEvidencias:
         )
 
         assert resp.status_code == 422
-        assert (
-            resp.json()["detail"]
-            == "El avance admite máximo 4 evidencias; actualmente tiene 4."
-        )
+        assert resp.json()["detail"] == "El avance admite máximo 4 evidencias; actualmente tiene 4."
 
     def test_listar_evidencias_despues_de_subir(self, api, gestor_token):
         avance_id = self._create_avance(api, gestor_token)

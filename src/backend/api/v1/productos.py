@@ -11,6 +11,7 @@ Versión: 1.0
 Fecha: 2026-09-20
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -56,9 +57,9 @@ router = APIRouter(prefix="/productos", tags=["Productos"])
 async def crear_producto(
     producto_data: ProductoCreate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> ProductoResponse:
     await require_permission(db, current_user["user"].id, "producto.crear")
 
     municipio_id = current_user["municipio_id"]
@@ -106,9 +107,9 @@ async def listar_productos(
     estado: str | None = Query(None, description="Filtrar por estado (ACTIVO, INACTIVO)"),
     page: int = Query(1, ge=1, description="Número de página"),
     page_size: int = Query(20, ge=1, le=100, description="Elementos por página"),
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> ProductoListResponse:
     await require_permission(db, current_user["user"].id, "producto.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -152,9 +153,9 @@ async def listar_productos(
 )
 async def obtener_producto(
     producto_id: UUID,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> ProductoResponse:
     await require_permission(db, current_user["user"].id, "producto.ver")
 
     municipio_id = current_user["municipio_id"]
@@ -194,9 +195,9 @@ async def actualizar_producto(
     producto_id: UUID,
     producto_data: ProductoUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> ProductoResponse:
     await require_permission(db, current_user["user"].id, "producto.editar")
 
     municipio_id = current_user["municipio_id"]
@@ -241,9 +242,9 @@ async def actualizar_producto(
 async def eliminar_producto(
     producto_id: UUID,
     request: Request,
-    current_user: dict = Depends(get_current_user_from_token),
+    current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     await require_permission(db, current_user["user"].id, "producto.eliminar")
 
     municipio_id = current_user["municipio_id"]

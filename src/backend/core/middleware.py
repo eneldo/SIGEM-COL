@@ -7,6 +7,7 @@ from uuid import uuid4
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 from .config import settings
 from .rate_limit import InMemoryRateLimitBackend, RateLimitBackend
@@ -53,7 +54,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app,
+        app: ASGIApp,
         default_max_requests: int = 600,
         login_max_requests: int = 10,
         window_seconds: int = 60,

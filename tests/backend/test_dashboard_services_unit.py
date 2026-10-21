@@ -109,10 +109,7 @@ async def test_admin_resumen_plan_poblado():
 
 @pytest.mark.asyncio
 async def test_admin_gestores_summary_vacio_y_poblado():
-    assert (
-        await admin_service.get_gestores_summary(database(ResultFake()), uuid.uuid4())
-        == []
-    )
+    assert await admin_service.get_gestores_summary(database(ResultFake()), uuid.uuid4()) == []
 
     created_at = datetime(2026, 1, 1, tzinfo=UTC)
     ultimo_acceso = datetime(2026, 2, 1, tzinfo=UTC)
@@ -138,9 +135,7 @@ async def test_admin_gestores_summary_vacio_y_poblado():
         intentos_fallidos=1,
         mfa_activo=True,
     )
-    usuario_dos = entity(
-        id=uuid.uuid4(), ultimo_acceso=None, intentos_fallidos=0, mfa_activo=False
-    )
+    usuario_dos = entity(id=uuid.uuid4(), ultimo_acceso=None, intentos_fallidos=0, mfa_activo=False)
     db = database(
         ResultFake(rows=[(gestor_uno, usuario_uno), (gestor_dos, usuario_dos)]),
         ResultFake(scalar=4),
@@ -206,16 +201,12 @@ async def test_admin_alertas_pobladas_cubren_campos_opcionales():
 async def test_admin_estadisticas_dependencia_vacias_y_pobladas():
     municipio_id = uuid.uuid4()
     assert (
-        await admin_service.get_estadisticas_por_dependencia(
-            database(ResultFake()), municipio_id
-        )
+        await admin_service.get_estadisticas_por_dependencia(database(ResultFake()), municipio_id)
         == []
     )
 
     dependencia = entity(id=uuid.uuid4(), codigo="D-1", nombre="Hacienda", nivel=2)
-    db = database(
-        ResultFake(rows=[dependencia]), ResultFake(scalar=7), ResultFake(scalar=3)
-    )
+    db = database(ResultFake(rows=[dependencia]), ResultFake(scalar=7), ResultFake(scalar=3))
 
     result = await admin_service.get_estadisticas_por_dependencia(db, municipio_id)
 
@@ -355,9 +346,7 @@ async def test_gestor_mis_alertas_todas_las_ramas(
     if severidad:
         assert result[0]["severidad"] == severidad
     if estado == "BLOQUEADO":
-        bloqueo = next(
-            alerta for alerta in result if alerta["tipo"] == "cuenta_bloqueada"
-        )
+        bloqueo = next(alerta for alerta in result if alerta["tipo"] == "cuenta_bloqueada")
         assert bloqueo["fecha_bloqueo"] == (fecha.isoformat() if fecha else None)
         assert fragmento in bloqueo["mensaje"]
 

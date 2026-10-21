@@ -26,5 +26,5 @@ class Programa(BaseModel):
     municipio = relationship("Municipio", backref="programas")
     productos = relationship("Producto", backref="programa")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Programa {self.codigo} - {self.nombre}>"

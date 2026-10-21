@@ -24,5 +24,5 @@ class Vigencia(BaseModel):
     municipio = relationship("Municipio", backref="vigencias")
     plan_desarrollo = relationship("PlanDesarrollo", backref="vigencias_fiscales")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Vigencia {self.anio} - {self.estado}>"

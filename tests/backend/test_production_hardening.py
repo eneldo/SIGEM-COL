@@ -22,9 +22,9 @@ from src.backend.core.config import (
     settings,
 )
 from src.backend.core.logging import (
-    _AppStreamHandler,
     _FORWARDED_LOGGERS,
     JsonFormatter,
+    _AppStreamHandler,
     setup_logging,
 )
 from src.backend.core.metrics import MetricsMiddleware, normalize_path, render_metrics
@@ -102,9 +102,7 @@ def _make_request(
     headers: dict[str, str] | None = None,
     client: tuple[str, int] | None = ("203.0.113.5", 40000),
 ) -> Request:
-    raw_headers = [
-        (key.lower().encode(), value.encode()) for key, value in (headers or {}).items()
-    ]
+    raw_headers = [(key.lower().encode(), value.encode()) for key, value in (headers or {}).items()]
     scope = {
         "type": "http",
         "asgi": {"version": "3.0", "spec_version": "2.3"},
@@ -334,17 +332,9 @@ def test_metrics_endpoint_valida_token(monkeypatch):
     client = _client()
 
     assert client.get("/metrics").status_code == 401
+    assert client.get("/metrics", headers={"Authorization": "Bearer equivocado"}).status_code == 401
     assert (
-        client.get(
-            "/metrics", headers={"Authorization": "Bearer equivocado"}
-        ).status_code
-        == 401
-    )
-    assert (
-        client.get(
-            "/metrics", headers={"Authorization": "Bearer token-secreto"}
-        ).status_code
-        == 200
+        client.get("/metrics", headers={"Authorization": "Bearer token-secreto"}).status_code == 200
     )
 
 
@@ -381,9 +371,7 @@ def test_is_production_detecta_entorno():
 
 
 def test_validate_production_no_valida_en_desarrollo():
-    Settings(
-        ENVIRONMENT="development", APP_ENV="development", DEBUG=True
-    ).validate_production()
+    Settings(ENVIRONMENT="development", APP_ENV="development", DEBUG=True).validate_production()
 
 
 def test_validate_production_acepta_configuracion_de_exito():
@@ -413,9 +401,7 @@ def test_validate_production_mensaje_en_espanol():
         ({"JWT_SECRET_KEY": PROD_SECRET}, "JWT_SECRET_KEY"),
         ({"DATABASE_URL": ""}, "DATABASE_URL"),
         (
-            {
-                "DATABASE_URL": "postgresql+asyncpg://sigem:sigem_password@db:5432/sigem_db"
-            },
+            {"DATABASE_URL": "postgresql+asyncpg://sigem:sigem_password@db:5432/sigem_db"},
             "DATABASE_URL",
         ),
         ({"CORS_ORIGINS": ["*"]}, "CORS_ORIGINS"),
@@ -425,15 +411,11 @@ def test_validate_production_mensaje_en_espanol():
             "JWT_SECRET_KEY",
         ),
         (
-            {
-                "DATABASE_URL": "postgresql+asyncpg://sigem_app:CHANGE_ME@postgres:5432/sigem_db"
-            },
+            {"DATABASE_URL": "postgresql+asyncpg://sigem_app:CHANGE_ME@postgres:5432/sigem_db"},
             "DATABASE_URL",
         ),
         (
-            {
-                "DATABASE_URL": "postgresql+asyncpg://sigem:strong-password@postgres:5432/sigem_db"
-            },
+            {"DATABASE_URL": "postgresql+asyncpg://sigem:strong-password@postgres:5432/sigem_db"},
             "DATABASE_URL",
         ),
         ({"REDIS_URL": "redis://redis:6379/0"}, "REDIS_URL"),
@@ -444,11 +426,14 @@ def test_validate_production_mensaje_en_espanol():
         ({"METRICS_TOKEN": "CHANGE_ME_openssl_rand_base64_48"}, "METRICS_TOKEN"),
         ({"MFA_ENABLED": False}, "MFA_ENABLED"),
         ({"RATE_LIMIT_ENABLED": False}, "RATE_LIMIT_ENABLED"),
+        # Solo se admite firma simetrica: una clave asimetrica dejaria expuesta la
+        # libreria JWT a CVE-2026-85394 (confusion de algoritmos).
+        ({"JWT_ALGORITHM": "RS256"}, "JWT_ALGORITHM"),
+        ({"JWT_ALGORITHM": "none"}, "JWT_ALGORITHM"),
+        ({"JWT_ALGORITHM": ""}, "JWT_ALGORITHM"),
     ],
 )
-def test_validate_production_rechaza_configuracion_debil(
-    overrides: dict, campo_esperado: str
-):
+def test_validate_production_rechaza_configuracion_debil(overrides: dict, campo_esperado: str):
     with pytest.raises(RuntimeError, match=campo_esperado):
         _prod_settings(**overrides).validate_production()
 
@@ -551,18 +536,12 @@ def test_setup_logging_installa_handler_unico():
     root = logging.getLogger()
     originales = list(root.handlers)
     nivel_original = root.level
-    niveles_originales = {
-        name: logging.getLogger(name).level for name in _FORWARDED_LOGGERS
-    }
+    niveles_originales = {name: logging.getLogger(name).level for name in _FORWARDED_LOGGERS}
     try:
         setup_logging("INFO", "json")
         setup_logging("DEBUG", "json")
 
-        handlers = [
-            handler
-            for handler in root.handlers
-            if isinstance(handler, _AppStreamHandler)
-        ]
+        handlers = [handler for handler in root.handlers if isinstance(handler, _AppStreamHandler)]
         assert len(handlers) == 1
         assert root.level == logging.DEBUG
         assert isinstance(handlers[0].formatter, JsonFormatter)
@@ -607,11 +586,7 @@ def test_setup_logging_formato_texto_alternativo():
     try:
         setup_logging("WARNING", "texto")
 
-        handlers = [
-            handler
-            for handler in root.handlers
-            if isinstance(handler, _AppStreamHandler)
-        ]
+        handlers = [handler for handler in root.handlers if isinstance(handler, _AppStreamHandler)]
         assert len(handlers) == 1
         assert root.level == logging.WARNING
         assert not isinstance(handlers[0].formatter, JsonFormatter)

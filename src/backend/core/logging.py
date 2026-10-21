@@ -85,7 +85,7 @@ def _build_formatter(log_format: str) -> logging.Formatter:
     )
 
 
-class _AppStreamHandler(logging.StreamHandler):
+class _AppStreamHandler(logging.StreamHandler[Any]):
     def __init__(self) -> None:
         super().__init__(sys.stdout)
 

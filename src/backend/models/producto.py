@@ -34,5 +34,5 @@ class Producto(BaseModel):
     municipio = relationship("Municipio", backref="productos")
     dependencia_responsable = relationship("Dependencia", backref="productos_responsables")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Producto {self.codigo} - {self.nombre}>"

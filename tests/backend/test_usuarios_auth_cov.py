@@ -52,9 +52,7 @@ class TestUsuariosCRUD:
 
     def test_crear_usuario_con_rol_y_dependencia(self, api):
         admin_token = self._admin_login(api)
-        roles = api.get(
-            f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)
-        ).json()
+        roles = api.get(f"{API_PREFIX}/catalogos/roles", headers=auth_header(admin_token)).json()
         rol_id = next((r["id"] for r in roles if r["codigo"] == "GESTOR"), None)
         deps = api.get(
             f"{API_PREFIX}/catalogos/dependencias", headers=auth_header(admin_token)
@@ -74,9 +72,7 @@ class TestUsuariosCRUD:
         if dep_id:
             payload["dependencia_id"] = dep_id
 
-        resp = api.post(
-            f"{API_PREFIX}/usuarios", json=payload, headers=auth_header(admin_token)
-        )
+        resp = api.post(f"{API_PREFIX}/usuarios", json=payload, headers=auth_header(admin_token))
         assert resp.status_code == 201, resp.text
         user_id = resp.json()["id"]
 
@@ -101,9 +97,7 @@ class TestUsuariosCRUD:
             "nombre_completo": "Usuario 2",
             "password": "TestPassword2026!!",
         }
-        r1 = api.post(
-            f"{API_PREFIX}/usuarios", json=payload1, headers=auth_header(admin_token)
-        )
+        r1 = api.post(f"{API_PREFIX}/usuarios", json=payload1, headers=auth_header(admin_token))
         assert r1.status_code == 201, r1.text
         user_id = r1.json()["id"]
         try:
@@ -115,9 +109,7 @@ class TestUsuariosCRUD:
             assert r2.status_code == 422, r2.text
             assert "código" in r2.json()["detail"]
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_crear_usuario_username_duplicado(self, api):
         admin_token = self._admin_login(api)
@@ -136,9 +128,7 @@ class TestUsuariosCRUD:
             "nombre_completo": "Usuario 2",
             "password": "TestPassword2026!!",
         }
-        r1 = api.post(
-            f"{API_PREFIX}/usuarios", json=payload1, headers=auth_header(admin_token)
-        )
+        r1 = api.post(f"{API_PREFIX}/usuarios", json=payload1, headers=auth_header(admin_token))
         assert r1.status_code == 201, r1.text
         user_id = r1.json()["id"]
         try:
@@ -150,9 +140,7 @@ class TestUsuariosCRUD:
             assert r2.status_code == 422, r2.text
             assert "username" in r2.json()["detail"]
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_crear_usuario_campos_obligatorios(self, api):
         admin_token = self._admin_login(api)
@@ -221,9 +209,7 @@ class TestUsuariosCRUD:
             assert "mfa_activo" in data
             assert "ultimo_acceso" in data
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_obtener_usuario_inexistente(self, api, admin_token):
         fake_id = str(uuid.uuid4())
@@ -258,9 +244,7 @@ class TestUsuariosCRUD:
             assert resp.json()["telefono"] == "3001234567"
             assert resp.json()["cargo"] == "Nuevo Cargo"
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_actualizar_usuario_estado_activo_inactivo(self, api, admin_token):
         user_id, _, _ = create_temp_user(api, admin_token)
@@ -281,9 +265,7 @@ class TestUsuariosCRUD:
             assert resp.status_code == 200, resp.text
             assert resp.json()["activo"] == 1
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_actualizar_usuario_must_change_password(self, api, admin_token):
         user_id, _, _ = create_temp_user(api, admin_token)
@@ -304,9 +286,7 @@ class TestUsuariosCRUD:
             assert resp.status_code == 200, resp.text
             assert resp.json()["must_change_password"] is True
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_actualizar_usuario_rol(self, api, admin_token):
         user_id, _, _ = create_temp_user(api, admin_token)
@@ -327,9 +307,7 @@ class TestUsuariosCRUD:
             roles_resp = [r["codigo"] for r in resp.json()["roles"]]
             assert "GESTOR" in roles_resp
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_actualizar_usuario_inexistente(self, api, admin_token):
         fake_id = str(uuid.uuid4())
@@ -342,21 +320,15 @@ class TestUsuariosCRUD:
 
     def test_eliminar_usuario(self, api, admin_token):
         user_id, _, _ = create_temp_user(api, admin_token)
-        resp = api.delete(
-            f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-        )
+        resp = api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
         assert resp.status_code == 204, resp.text
 
-        verify = api.get(
-            f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-        )
+        verify = api.get(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
         assert verify.status_code == 404
 
     def test_eliminar_usuario_inexistente(self, api, admin_token):
         fake_id = str(uuid.uuid4())
-        resp = api.delete(
-            f"{API_PREFIX}/usuarios/{fake_id}", headers=auth_header(admin_token)
-        )
+        resp = api.delete(f"{API_PREFIX}/usuarios/{fake_id}", headers=auth_header(admin_token))
         assert resp.status_code == 404, resp.text
 
     def test_denegado_gestor_crear_usuario(self, api, gestor_token):
@@ -594,9 +566,7 @@ class TestAuthFlujos:
             assert login2.status_code == 200, login2.text
             assert login2.json()["must_change_password"] is False
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_change_password_actual_incorrecta(self, api):
         admin_token = self._admin_login(api)
@@ -617,9 +587,7 @@ class TestAuthFlujos:
             assert cp.status_code == 400, cp.text
             assert "incorrecta" in cp.json()["detail"].lower()
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_change_password_no_coinciden(self, api):
         admin_token = self._admin_login(api)
@@ -640,9 +608,7 @@ class TestAuthFlujos:
             assert cp.status_code == 400, cp.text
             assert "coinciden" in cp.json()["detail"].lower()
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_mfa_status_sin_setup(self, api):
         admin_token = self._admin_login(api)
@@ -671,9 +637,7 @@ class TestAuthFlujos:
             assert data["secret"] is None
             assert data["qr_code_url"] is None
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_mfa_setup_verify_disable_flujo(self, api):
         import pyotp
@@ -717,9 +681,7 @@ class TestAuthFlujos:
             assert ok.status_code == 200, ok.text
             assert ok.json()["mfa_activo"] is True
 
-            status = api.get(
-                f"{API_PREFIX}/auth/mfa/status", headers=auth_header(token)
-            )
+            status = api.get(f"{API_PREFIX}/auth/mfa/status", headers=auth_header(token))
             assert status.status_code == 200
             assert status.json()["mfa_activo"] is True
 
@@ -734,9 +696,7 @@ class TestAuthFlujos:
             assert dis.status_code == 200, dis.text
             assert dis.json()["mfa_activo"] is False
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_mfa_disable_password_incorrecta(self, api):
         import pyotp
@@ -778,9 +738,7 @@ class TestAuthFlujos:
             )
             assert dis_bad.status_code == 401
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_mfa_disable_codigo_incorrecto(self, api):
         import pyotp
@@ -822,9 +780,7 @@ class TestAuthFlujos:
             )
             assert dis_bad.status_code == 401
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_mfa_login_segundo_factor(self, api):
         import pyotp
@@ -861,9 +817,7 @@ class TestAuthFlujos:
             assert login3.json()["mfa_required"] is True
             mfa_token = login3.json()["mfa_token"]
 
-            not_access = api.get(
-                f"{API_PREFIX}/auth/me", headers=auth_header(mfa_token)
-            )
+            not_access = api.get(f"{API_PREFIX}/auth/me", headers=auth_header(mfa_token))
             assert not_access.status_code == 401
 
             wrong = api.post(
@@ -879,9 +833,7 @@ class TestAuthFlujos:
             assert good.status_code == 200, good.text
             assert "access_token" in good.json()
         finally:
-            api.delete(
-                f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token)
-            )
+            api.delete(f"{API_PREFIX}/usuarios/{user_id}", headers=auth_header(admin_token))
 
     def test_denegado_rutas_protegidas_sin_token(self, api):
         endpoints = [
