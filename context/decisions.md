@@ -1,5 +1,23 @@
 # Decisiones Técnicas - SIGEM Colombia
 
+## 2026-10-20: Base de pruebas local en Fedora con Postgres 18 y hardening del contexto RLS
+
+**Contexto:** La puesta a punto sobre `sigem_col_test` (PostgreSQL 18.6, host Fedora) confirmó que la cadenas 001→020 aplican limpias con el rol de migración no superusuario (dueño de la base, sin BYPASSRLS). Las 16 pruebas vivas de aislamiento entre dos municipios, ejecutadas como `sigem_app_test`, pasaron: fail-closed sin contexto, `WITH CHECK` rechaza INSERT/UPDATE con `municipio_id` ajeno, y el pool de SQLAlchemy+asyncpg limpia el GUC `app.current_municipio_id` al devolver la conexión (3/3 ciclos con el mismo `pg_backend_pid`).
+
+**Decisión RLS:** `set_current_municipio()` y `clear_current_municipio()` nacieron `SECURITY DEFINER` en la revisión 003 sin necesidad: las variables personalizadas `app.*` son seteables por cualquier rol, por lo que el modo DEFINER solo exponía la ejecución con privilegios del dueño. La revisión **021_function_invoker** las pasa a `SECURITY INVOKER` manteniendo `search_path = pg_catalog` y el REVOKE a PUBLIC. La aplicación nunca las usa: fija el GUC con SQL directo (`database.py`). La app no usa el helper.
+
+**Decisión de privilegios locales:** el modelo de grants de `infra/postgres/init/01-app-role.sh` solo es invocado diseñado para el primer arranque en Docker. Para bases ya existentes fuera de Docker se añade `scripts/setup/grant_app_role_local.py` (idempotente, sin secretos impresos, configurable con `SIGEM_APP_ROLE`). Verificado para `sigem_app_test`: DML sobre las 22 tablas, secuencias, funciones y default privileges futuros.
+
+**Estado tras la fusión `origin/master` (concluida en `1f8942b`):** suite backend 604 pasadas / 388 skipped con cobertura 100% contra `sigem_col_test` (la suite exige PostgreSQL vivo en `DATABASE_URL`, como en CI: con URL ficticia falla por conexión). Frontend 480/480, tsc y ESLint limpios, build OK. Ruff/mypy/bandit sin hallazgos en alcance CI. Correcciones aplicadas en `0bff7ae` (migración 021, script de grants, formato Ruff de 6 tests). Todo queda local: sin `git push`.
+
+**Pendientes registrados:**
+- Rotar/re-exportar `ALEMBIC_DATABASE_URL` local: la credencial exportada quedó desfasada respecto al rol `sigem_test`.
+- Redis no corre en el host (solo Docker): el rate limit queda degradado fuera de Docker.
+- Chunk principal de Vite supera 500 kB: considerar `manualChunks`/dynamic import.
+- Los avances de ejemplo de la revisión 016 solo se siembran cuando los productos tienen gestor asignado (por diseño).
+
+---
+
 ## 2026-10-05: Retiro de credenciales administrativas versionadas
 
 **Decisión:** La documentación, memoria, contexto, scripts y tests no conservan credenciales reutilizables. Las pruebas de integración que dependen de la cuenta administrativa reciben `SIGEM_TEST_ADMIN_PASSWORD` por entorno; los usuarios temporales usan contraseñas únicas generadas por fixture. Los scripts manuales reciben sus credenciales exclusivamente por entorno.
