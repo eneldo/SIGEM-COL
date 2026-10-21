@@ -11,8 +11,8 @@ from src.backend.core.security import (
     create_access_token,
     create_mfa_token,
     create_refresh_token,
-    decrypt_totp_secret,
     decode_token,
+    decrypt_totp_secret,
     encrypt_totp_secret,
     generate_temporary_password,
     get_password_hash,
@@ -66,9 +66,7 @@ class TestCifradoDeSecretosMFA:
         assert secreto not in cifrado
 
     def test_cifrado_y_descifrado_conservan_el_secreto(self) -> None:
-        assert decrypt_totp_secret(encrypt_totp_secret("JBSWY3DPEHPK3PXP")) == (
-            "JBSWY3DPEHPK3PXP"
-        )
+        assert decrypt_totp_secret(encrypt_totp_secret("JBSWY3DPEHPK3PXP")) == ("JBSWY3DPEHPK3PXP")
 
     def test_cada_cifrado_usa_un_nonce_distinto(self) -> None:
         assert encrypt_totp_secret("secreto") != encrypt_totp_secret("secreto")

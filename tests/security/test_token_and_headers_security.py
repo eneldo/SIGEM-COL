@@ -4,9 +4,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
-import jwt
 
 from src.backend.core.config import settings
 from src.backend.core.middleware import REQUEST_ID_PATTERN, RequestIDMiddleware
@@ -44,10 +44,7 @@ class TestClaimsJWTDefensivos:
         assert decode_token(_token({"type": "administrador"})) is None
 
     def test_rechaza_token_firmado_con_otra_clave(self) -> None:
-        assert (
-            decode_token(_token({}, secret="otra-clave-de-32-caracteres-minimo"))
-            is None
-        )
+        assert decode_token(_token({}, secret="otra-clave-de-32-caracteres-minimo")) is None
 
     def test_rechaza_token_sin_exp(self) -> None:
         token = jwt.encode(
@@ -64,9 +61,7 @@ class TestClaimsJWTDefensivos:
 
     def test_acepta_token_valido(self) -> None:
         payload = decode_token(
-            create_access_token(
-                {"sub": str(uuid.uuid4()), "municipio_id": str(uuid.uuid4())}
-            )
+            create_access_token({"sub": str(uuid.uuid4()), "municipio_id": str(uuid.uuid4())})
         )
 
         assert payload is not None
@@ -205,17 +200,13 @@ class TestMetricasProtegidas:
         try:
             client = TestClient(app_main.app)
             assert (
-                client.get(
-                    "/metrics", headers={"Authorization": "Bearer incorrecto"}
-                ).status_code
+                client.get("/metrics", headers={"Authorization": "Bearer incorrecto"}).status_code
                 == 401
             )
             assert (
                 client.get(
                     "/metrics",
-                    headers={
-                        "Authorization": "Bearer token-de-metricas-largo-y-secreto"
-                    },
+                    headers={"Authorization": "Bearer token-de-metricas-largo-y-secreto"},
                 ).status_code
                 == 200
             )

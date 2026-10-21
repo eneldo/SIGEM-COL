@@ -78,9 +78,7 @@ async def app_role():
                 "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
             )
         )
-        await connection.execute(
-            text(f"ALTER ROLE \"{APP_ROLE}\" PASSWORD '{APP_PASSWORD}'")
-        )
+        await connection.execute(text(f"ALTER ROLE \"{APP_ROLE}\" PASSWORD '{APP_PASSWORD}'"))
         for statement in PRIVILEGES:
             await connection.execute(text(statement.format(db=database)))
 
@@ -101,9 +99,7 @@ async def _schema_supports_rls(connection) -> bool:
             await connection.execute(text("SELECT version_num FROM alembic_version"))
         ).scalar_one()
     except Exception:
-        pytest.skip(
-            "La base de datos no tiene control de migraciones (alembic_version)"
-        )
+        pytest.skip("La base de datos no tiene control de migraciones (alembic_version)")
     if actual != "020_personalizacion":
         pytest.skip(
             f"La base de datos está en la revisión {actual}; "
@@ -210,9 +206,7 @@ async def tenant_ajeno(conexion) -> str:
     finally:
         await _set_tenant(conexion, municipio_id)
         await conexion.execute(
-            text(
-                "DELETE FROM lineas_estrategicas WHERE municipio_id = CAST(:m AS uuid)"
-            ),
+            text("DELETE FROM lineas_estrategicas WHERE municipio_id = CAST(:m AS uuid)"),
             {"m": municipio_id},
         )
         await conexion.execute(
@@ -227,9 +221,7 @@ async def tenant_ajeno(conexion) -> str:
 
 
 @pytest.mark.asyncio
-async def test_cada_tenant_solo_ve_sus_propias_lineas(
-    conexion, tenant_principal, tenant_ajeno
-):
+async def test_cada_tenant_solo_ve_sus_propias_lineas(conexion, tenant_principal, tenant_ajeno):
     await _set_tenant(conexion, tenant_ajeno["municipio_id"])
     assert await _scalar(conexion, LINEAS_VISIBLES) == 1
 
@@ -285,9 +277,7 @@ async def test_no_se_puede_actualizar_ni_borrar_una_fila_ajena(conexion, tenant_
 
     await _set_tenant(conexion, "")
     actualizadas = await conexion.execute(
-        text(
-            "UPDATE lineas_estrategicas SET nombre = 'intento' WHERE id = CAST(:id AS uuid)"
-        ),
+        text("UPDATE lineas_estrategicas SET nombre = 'intento' WHERE id = CAST(:id AS uuid)"),
         {"id": fila[0]},
     )
     borradas = await conexion.execute(

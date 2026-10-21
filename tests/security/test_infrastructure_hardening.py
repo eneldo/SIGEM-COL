@@ -14,10 +14,7 @@ def test_production_images_are_pinned_and_require_release_tag():
     assert "image: nginx:alpine" not in compose
     assert "image: postgres:17-alpine" not in compose
     assert "image: redis:7-alpine" not in compose
-    assert (
-        "sigem-backend:${SIGEM_IMAGE_TAG:?SIGEM_IMAGE_TAG must be an immutable tag}"
-        in compose
-    )
+    assert "sigem-backend:${SIGEM_IMAGE_TAG:?SIGEM_IMAGE_TAG must be an immutable tag}" in compose
 
 
 def test_runtime_database_role_has_no_schema_or_database_ownership_privileges():

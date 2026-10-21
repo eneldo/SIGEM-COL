@@ -20,12 +20,8 @@ def make_request(
 ):
     all_headers = dict(headers or {})
     if cookies:
-        all_headers["Cookie"] = "; ".join(
-            f"{key}={value}" for key, value in cookies.items()
-        )
-    raw_headers = [
-        (key.lower().encode(), value.encode()) for key, value in all_headers.items()
-    ]
+        all_headers["Cookie"] = "; ".join(f"{key}={value}" for key, value in cookies.items())
+    raw_headers = [(key.lower().encode(), value.encode()) for key, value in all_headers.items()]
     return Request(
         {
             "type": "http",
@@ -112,14 +108,10 @@ def test_cookie_se_borra_en_logout() -> None:
 
 @pytest.mark.asyncio
 async def test_refresh_usa_el_token_de_la_cookie(service) -> None:
-    request = make_request(
-        cookies={session_cookies.REFRESH_COOKIE_NAME: "cookie-token"}
-    )
+    request = make_request(cookies={session_cookies.REFRESH_COOKIE_NAME: "cookie-token"})
     response = DummyResponse()
 
-    result = await auth_routes.refresh_tokens(
-        request, response, RefreshTokenRequest(), MagicMock()
-    )
+    result = await auth_routes.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
 
     assert result["access_token"] == "a"
     service.refresh_session.assert_awaited_once()
@@ -136,9 +128,7 @@ async def test_refresh_rechaza_origin_no_autorizado(service, prod_origins) -> No
     response = DummyResponse()
 
     with pytest.raises(HTTPException) as exc_info:
-        await auth_routes.refresh_tokens(
-            request, response, RefreshTokenRequest(), MagicMock()
-        )
+        await auth_routes.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
 
     assert exc_info.value.status_code == 403
     service.refresh_session.assert_not_awaited()
@@ -152,9 +142,7 @@ async def test_refresh_acepta_origin_autorizado(service, prod_origins) -> None:
     )
     response = DummyResponse()
 
-    await auth_routes.refresh_tokens(
-        request, response, RefreshTokenRequest(), MagicMock()
-    )
+    await auth_routes.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
 
     service.refresh_session.assert_awaited_once()
 
@@ -165,9 +153,7 @@ async def test_refresh_sin_cookie_ni_cuerpo_responde_401(service) -> None:
     response = DummyResponse()
 
     with pytest.raises(HTTPException) as exc_info:
-        await auth_routes.refresh_tokens(
-            request, response, RefreshTokenRequest(), MagicMock()
-        )
+        await auth_routes.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
 
     assert exc_info.value.status_code == 401
     service.refresh_session.assert_not_awaited()
@@ -176,15 +162,11 @@ async def test_refresh_sin_cookie_ni_cuerpo_responde_401(service) -> None:
 @pytest.mark.asyncio
 async def test_refresh_invalido_limpia_la_cookie(service) -> None:
     service.refresh_session = AsyncMock(return_value=None)
-    request = make_request(
-        cookies={session_cookies.REFRESH_COOKIE_NAME: "cookie-token"}
-    )
+    request = make_request(cookies={session_cookies.REFRESH_COOKIE_NAME: "cookie-token"})
     response = DummyResponse()
 
     with pytest.raises(HTTPException) as exc_info:
-        await auth_routes.refresh_tokens(
-            request, response, RefreshTokenRequest(), MagicMock()
-        )
+        await auth_routes.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
 
     assert exc_info.value.status_code == 401
     assert response.delete_cookie_params["key"] == session_cookies.REFRESH_COOKIE_NAME

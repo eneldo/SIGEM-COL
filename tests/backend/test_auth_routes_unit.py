@@ -130,9 +130,7 @@ async def test_get_current_user_rejects_revoked_session(monkeypatch, services, i
     ],
 )
 @pytest.mark.asyncio
-async def test_get_current_user_rejects_malformed_claims(
-    monkeypatch, services, payload
-):
+async def test_get_current_user_rejects_malformed_claims(monkeypatch, services, payload):
     service, _ = services
     monkeypatch.setattr(auth, "decode_token", lambda _: payload)
 
@@ -387,8 +385,7 @@ async def test_refresh_error_and_success(services, ids):
     assert_http_error(exc_info, 401, "Refresh token inválido o expirado.")
     assert response.delete_cookie.call_count == 1
     assert (
-        await auth.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock())
-        == result
+        await auth.refresh_tokens(request, response, RefreshTokenRequest(), MagicMock()) == result
     )
     audit.log_event.assert_awaited_once()
 
