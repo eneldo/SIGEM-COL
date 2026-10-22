@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { homeRouteForRoles } from '../../lib/roles'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -17,12 +18,8 @@ export function LoginPage() {
     if (mustChangePassword) {
       return <Navigate to="/change-password" replace />
     } else {
-      const role = user?.roles?.[0]
       return (
-        <Navigate
-          to={role === 'SUPERADMIN_PLATAFORMA' || role === 'ADMINISTRADOR_MUNICIPAL' ? '/admin/dashboard' : '/gestor/dashboard'}
-          replace
-        />
+        <Navigate to={homeRouteForRoles(user?.roles)} replace />
       )
     }
   }
@@ -38,8 +35,7 @@ export function LoginPage() {
       if (store.mustChangePassword) {
         navigate('/change-password', { replace: true })
       } else {
-        const role = store.user?.roles?.[0]
-        navigate(role === 'SUPERADMIN_PLATAFORMA' || role === 'ADMINISTRADOR_MUNICIPAL' ? '/admin/dashboard' : '/gestor/dashboard', { replace: true })
+        navigate(homeRouteForRoles(store.user?.roles), { replace: true })
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }

@@ -8,7 +8,12 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -62,6 +67,7 @@ class RLSMiddleware(BaseHTTPMiddleware):
 
 
 TENANT_CONTEXT_SQL = "SELECT set_config('app.current_municipio_id', :value, false)"
+RESET_TENANT_SQL = "RESET app.current_municipio_id"
 
 
 async def set_tenant_context(session: AsyncSession, municipio_id: uuid.UUID | None) -> None:
@@ -72,8 +78,62 @@ async def set_tenant_context(session: AsyncSession, municipio_id: uuid.UUID | No
     commits performed mid-request by services. Combined with get_db's dedicated
     per-request connection, the GUC can never leak to or from another request.
     """
-    value = str(municipio_id) if municipio_id else ""
-    await session.execute(text(TENANT_CONTEXT_SQL), {"value": value})
+    if municipio_id:
+        await session.execute(text(TENANT_CONTEXT_SQL), {"value": str(municipio_id)})
+    else:
+        # Fallo cerrado: sin contexto significa cero filas visibles, y además
+        # la conexión queda limpia (ver pool hygiene en get_db).
+        await session.execute(text(RESET_TENANT_SQL))
+
+
+async def assert_restricted_db_role() -> None:
+    """
+    Verifica al arranque que la conexión usa un rol que NO puede bypasear RLS.
+
+    Un rol SUPERUSER ignora R incluso con FORCE ROW LEVEL SECURITY; un rol con
+    BYPASSRLS igual. En producción es condición de arranque; en desarrollo se
+    emite un log CRITICAL porque .env apunta habitualmente al rol de migración.
+    """
+    async with engine.connect() as connection:
+        row = (
+            await connection.execute(
+                text(
+                    "SELECT current_user AS role, "
+                    "COALESCE((SELECT rolsuper FROM pg_roles WHERE rolname = current_user), "
+                    "false) AS rolsuper, "
+                    "COALESCE((SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user), "
+                    "false) AS bypassrls"
+                )
+            )
+        ).one()
+
+    if row.rolsuper or row.bypassrls:
+        message = (
+            f"El rol de base de datos '{row.role}' bypasea RLS "
+            "(superusuario o BYPASSRLS); el aislamiento multi-municipio no es efectivo. "
+            "DATABASE_URL debe usar el rol restringido 'sigem_app'."
+        )
+        if settings.is_production:
+            raise RuntimeError(message)
+        logger.critical("db_role_bypasses_rls %s", message)
+
+
+async def release_tenant_context(connection: AsyncConnection) -> None:
+    """
+    Higiene de pool: limpia el contexto tenant ANTES de devolver la conexión.
+
+    set_config(is_local=false) sobrevive al commit del request y al RESET del
+    pool de SQLAlchemy (ROLLBACK no deshace GUCs consolidados), por lo que una
+    conexión devuelta quedaría 'marcada' con el tenant del último request.
+    Cualquier consumidor futuro del pool que no fije contexto al inicio heredaría
+    ese tenant. El RESET garantiza que la conexión regresa neutra.
+    """
+    try:
+        await connection.execute(text(RESET_TENANT_SQL))
+    except Exception:
+        # Defensa: la higiene jamás debe romper la liberación de la conexión;
+        # el próximo get_db re-fija el contexto en todo caso.
+        logger.warning("tenant_context_reset_failed", exc_info=True)
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
@@ -82,12 +142,14 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
 
     RLSMiddleware extracts municipio_id from the JWT into request.state;
     this dependency applies it to the session before any query runs.
-    Sessions without a token are explicitly scoped to the empty tenant,
+    Sessions without a token are explicitly scoped to no tenant (RESET),
     which makes every RLS-protected query fail closed.
 
     The session is bound to a connection held for the whole request: services
     that commit mid-request keep the same physical connection, so the tenant
     GUC (set once below) stays valid for every later statement of the request.
+    Before the connection returns to the pool, release_tenant_context clears
+    the GUC so nothing is inherited by a future checkout.
     """
     async with engine.connect() as connection:
         session = AsyncSession(bind=connection, expire_on_commit=False)
@@ -100,21 +162,10 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
             raise
         finally:
             await session.close()
+            await release_tenant_context(connection)
 
 
-async def get_db_with_rls(request: Request) -> AsyncIterator[AsyncSession]:
-    """
-    Backward-compatible alias of get_db: both dependencies apply the same
-    tenant context, so endpoints can no longer obtain an unscoped session.
-    """
-    async with engine.connect() as connection:
-        session = AsyncSession(bind=connection, expire_on_commit=False)
-        try:
-            await set_tenant_context(session, getattr(request.state, "municipio_id", None))
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+# Alias intencional (mismo objeto de función, no una copia): ambas dependencias
+# aplican el mismo contexto tenant y FastAPI comparte la sesión cacheada cuando
+# un endpoint declara las dos, evitando una segunda conexión física por request.
+get_db_with_rls = get_db

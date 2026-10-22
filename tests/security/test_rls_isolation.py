@@ -16,12 +16,16 @@ transacción abortada y, por tanto, no envenena el pool para el resto de la sesi
 import uuid
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import text, pool
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.backend.core.config import settings
-from src.backend.core.database import TENANT_CONTEXT_SQL, engine
+from src.backend.core.database import (
+    TENANT_CONTEXT_SQL,
+    engine,
+    release_tenant_context,
+)
 
 APP_ROLE = "sigem_rls_test_app"
 APP_PASSWORD = "sigem-rls-test-password"
@@ -63,34 +67,74 @@ async def _drop_test_role(connection) -> None:
 
 @pytest.fixture(scope="module")
 async def app_role():
+    # Engine dedicado con NullPool: cada conexión es física y vive en el loop
+    # del fixture. Reutilizar el singleton del app a través de event-loops
+    # distintos de pytest-asyncio provoca InterfaceError (asyncpg no permite
+    # compartir una conexión entre loops).
+    setup_engine = create_async_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
+    setup_ok = True
     try:
-        async with engine.connect() as connection:
-            await connection.execute(text("SELECT 1"))
-    except Exception:
-        pytest.skip("PostgreSQL no está disponible para las pruebas de RLS")
+        try:
+            async with setup_engine.connect() as connection:
+                await connection.execute(text("SELECT 1"))
+        except Exception:
+            setup_ok = False
+            pytest.skip("PostgreSQL no está disponible para las pruebas de RLS")
 
-    database = engine.url.database
-    async with engine.begin() as connection:
-        await _drop_test_role(connection)
-        await connection.execute(
-            text(
-                f'CREATE ROLE "{APP_ROLE}" LOGIN NOSUPERUSER NOCREATEDB '
-                "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
-            )
-        )
-        await connection.execute(text(f"ALTER ROLE \"{APP_ROLE}\" PASSWORD '{APP_PASSWORD}'"))
-        for statement in PRIVILEGES:
-            await connection.execute(text(statement.format(db=database)))
+        database = setup_engine.url.database
+        try:
+            async with setup_engine.begin() as connection:
+                await _drop_test_role(connection)
+                await connection.execute(
+                    text(
+                        f'CREATE ROLE "{APP_ROLE}" LOGIN NOSUPERUSER NOCREATEDB '
+                        "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+                    )
+                )
+                await connection.execute(
+                    text(f"ALTER ROLE \"{APP_ROLE}\" PASSWORD '{APP_PASSWORD}'")
+                )
+                for statement in PRIVILEGES:
+                    await connection.execute(text(statement.format(db=database)))
+        except Exception as exc:
+            if "permission denied" in str(exc) or "InsufficientPrivilege" in type(exc).__name__:
+                pytest.skip(
+                    "las pruebas de aislamiento requieren SUPERUSER_DATABASE_URL "
+                    "(rol con CREATE ROLE); la conexión de la suite es un rol de aplicación"
+                )
+            raise
+    finally:
+        await setup_engine.dispose()
+    assert setup_ok
 
     try:
         yield APP_ROLE
     finally:
-        async with engine.begin() as connection:
-            await _drop_test_role(connection)
-        await engine.dispose()
+        cleanup_engine = create_async_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
+        try:
+            async with cleanup_engine.begin() as connection:
+                await _drop_test_role(connection)
+        except Exception:
+            # Si la BD dejó de estar disponible durante la suite, el rol se
+            # limpiará en la próxima corrida (el setup dropea antes de crear).
+            pass
+        finally:
+            await cleanup_engine.dispose()
 
 
 MINIMUM_REVISION = "017_enforce_rls"
+
+# Revisiones conocidas desde las cuales el esquema garantiza RLS forzado y
+# políticas fail-closed. Se actualiza al añadir migraciones (021 acotó las
+# funciones helper a SECURITY INVOKER).
+KNOWN_REVISIONS = (
+    "017_enforce_rls",
+    "018_seed_dependencia_permissions",
+    "019_decimal_progress_values",
+    "020_personalizacion",
+    "021_function_invoker",
+    "022_auditoria_plataforma",
+)
 
 
 async def _schema_supports_rls(connection) -> bool:
@@ -100,10 +144,10 @@ async def _schema_supports_rls(connection) -> bool:
         ).scalar_one()
     except Exception:
         pytest.skip("La base de datos no tiene control de migraciones (alembic_version)")
-    if actual != "020_personalizacion":
+    if actual not in KNOWN_REVISIONS:
         pytest.skip(
             f"La base de datos está en la revisión {actual}; "
-            f"las pruebas de RLS requieren el esquema en head (RLS forzado desde {MINIMUM_REVISION})"
+            f"las pruebas de RLS requieren un esquema >= {MINIMUM_REVISION}"
         )
     return True
 
@@ -293,3 +337,75 @@ async def test_no_se_puede_actualizar_ni_borrar_una_fila_ajena(conexion, tenant_
 async def test_el_rol_de_aplicacion_no_puede_crear_tablas(conexion, tenant_ajeno):
     with pytest.raises(DBAPIError):
         await conexion.execute(text("CREATE TABLE prueba_rls (id uuid)"))
+
+
+@pytest.mark.asyncio
+async def test_funciones_helper_no_son_security_definer(conexion, tenant_ajeno):
+    """Las funciones set_current_municipio/clear_current_municipio nacieron
+    SECURITY DEFINER (revisión 003, propiedad del rol de migración) y una
+    ejecución desde el rol de aplicación habría corrido con los privilegios
+    del dueño de las tablas. La revisión 021 las Fixed a INVOKER."""
+    rows = (
+        await conexion.execute(
+            text(
+                "SELECT proname, prosecdef FROM pg_proc p "
+                "JOIN pg_namespace n ON n.oid = p.pronamespace "
+                "WHERE n.nspname = 'public' "
+                "AND proname IN ('set_current_municipio', 'clear_current_municipio')"
+            )
+        )
+    ).all()
+    assert {r[0] for r in rows} == {"set_current_municipio", "clear_current_municipio"}
+    assert all(r[1] is False for r in rows), "funciones helper deben ser SECURITY INVOKER"
+
+
+@pytest.mark.asyncio
+async def test_rol_de_conexion_no_puede_bypasear_rls(conexion, tenant_ajeno):
+    """El rol de la conexión de prueba debe ser estrictamente restringido:
+    sin SUPERUSER ni BYPASSRLS el aislamiento medido en los demás tests es
+    el mismo que tendrá `sigem_app` en producción."""
+    row = (
+        await conexion.execute(
+            text("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user")
+        )
+    ).one()
+    assert row[0] is False, "la conexión no debe ser superusuario"
+    assert row[1] is False, "la conexión no debe tener BYPASSRLS"
+
+
+@pytest.mark.asyncio
+async def test_el_contexto_de_tenant_no_sobrevive_a_la_conexion_del_pool():
+    """Regresión de pool hygiene: set_config(is_local=false) sobrevive al
+    commit y al reset del pool de SQLAlchemy, por lo que una conexión sin
+    RESET regresaría al pool 'marcada' con el tenant del último request y
+    heredaría su contexto a consumidores que no reparen contexto."""
+    host_ok = True
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except Exception:
+        host_ok = False
+    if not host_ok:
+        pytest.skip("PostgreSQL no está disponible para las pruebas de RLS")
+
+    # Engine local al test: reproduce el pooling por defecto del app
+    # (QueuePool + reset_on_return) sin compartir conexiones entre los
+    # event-loops de pytest-asyncio.
+    local_pool_engine = create_async_engine(settings.DATABASE_URL)
+    try:
+        async with local_pool_engine.connect() as connection:
+            await connection.execute(text(TENANT_CONTEXT_SQL), {"value": str(uuid.uuid4())})
+            await release_tenant_context(connection)
+
+        async with local_pool_engine.connect() as connection:
+            valor = (
+                await connection.execute(
+                    text("SELECT current_setting('app.current_municipio_id', true)")
+                )
+            ).scalar_one_or_none()
+    finally:
+        await local_pool_engine.dispose()
+
+    assert valor in (None, ""), (
+        "el contexto tenant debe limpiarse antes de devolver la conexión al pool"
+    )

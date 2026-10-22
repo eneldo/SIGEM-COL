@@ -29,7 +29,7 @@ El job `deploy` tiene `if: github.event_name == 'workflow_dispatch'`, por lo que
 | `docker-build` | ubuntu-latest | construye `infra/docker/backend/Dockerfile` e `infra/docker/frontend/Dockerfile` con contexto en la raíz, etiquetas `sigem-backend:sha-<commit>` / `sigem-frontend:sha-<commit>`, **sin push**, caché GHA (`type=gha`) |
 | `deploy` | ubuntu-latest | solo `workflow_dispatch`; valida secretos y ejecuta `scripts/setup/deploy.sh <tag>` por SSH en el host de producción |
 
-Dependencias: `deploy` → `needs: [backend-quality, backend-tests, frontend-quality, security]`.
+Dependencias: `deploy` → `needs: [backend-quality, backend-tests, frontend-quality, security, docker-build]`. El workflow declara `permissions: contents: read` top-level (mínimo privilegio) y el job `deploy` usa `environment: production` (protección/approvals a configurar en GitHub antes del primer deploy) + `concurrency: deploy-production` (sin cancelación).
 
 ### Comando único de pruebas backend
 

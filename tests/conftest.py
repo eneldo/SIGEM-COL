@@ -12,10 +12,24 @@ import asyncio
 import os
 import tempfile
 import uuid
+from pathlib import Path
 
 # tests/manual/ contiene scripts funcionales con código a nivel de módulo
 # que se conectan a backend Docker; no deben coleccionarse por pytest.
 collect_ignore = ["manual"]
+
+# BD compartida del entorno: si el repositorio tiene `.env` con DATABASE_URL
+# (p. ej. el rol de aplicación local), los tests la usan; solo si no existe
+# se cae al stack Docker por defecto. Se aplica ANTES de los defaults de prueba.
+_REPO_ENV = Path(__file__).resolve().parents[1] / ".env"
+if _REPO_ENV.exists():
+    for _line in _REPO_ENV.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line.startswith("DATABASE_URL="):
+            _value = _line.split("=", 1)[1].strip().strip('"').strip("'")
+            if _value:
+                os.environ.setdefault("DATABASE_URL", _value)
+            break
 
 _TEST_ENV_DEFAULTS = {
     "ENVIRONMENT": "development",

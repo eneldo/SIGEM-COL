@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useBrandingStore } from '../../lib/branding'
+import { isAdminRole, isGestorLiderRole } from '../../lib/roles'
 import { clsx } from 'clsx'
 
 interface SidebarProps {
@@ -45,10 +46,8 @@ const gestorLinks = [
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuthStore()
   const logoDataUrl = useBrandingStore((state) => state.config.logo_data_url)
-  const isAdmin = user?.roles?.some((role) =>
-    ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL'].includes(role),
-  )
-  const isGestorLider = user?.roles?.includes('GESTOR_LIDER')
+  const isAdmin = isAdminRole(user?.roles)
+  const isGestorLider = isGestorLiderRole(user?.roles)
   const links = isAdmin ? adminLinks : isGestorLider ? gestorLiderLinks : gestorLinks
 
   return (

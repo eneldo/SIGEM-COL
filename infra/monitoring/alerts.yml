@@ -33,31 +33,3 @@ groups:
         annotations:
           summary: "Backend p95 latency above 1s"
           description: "p95 request latency has been above 1 second for 10 minutes."
-
-  - name: sigem_capacity
-    rules:
-      - alert: PostgresConnectionsSaturation
-        expr: |
-          sum(pg_stat_activity_count)
-          /
-          sum(pg_settings_max_connections)
-          > 0.8
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "PostgreSQL connections above 80%"
-          description: "Database connection usage exceeds 80% of max_connections for 5 minutes. Requires a postgres_exporter scrape target."
-
-      - alert: DiskSpaceLow
-        expr: |
-          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint!~"/var/lib/docker/.*"}
-          /
-          node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint!~"/var/lib/docker/.*"}
-          < 0.1
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Filesystem below 10% free"
-          description: "Less than 10% free space on a monitored filesystem for 10 minutes. Requires a node_exporter scrape target."

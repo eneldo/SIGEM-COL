@@ -166,11 +166,12 @@ async def login(
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
 
-    # Usar un municipio por defecto (ej. '00000') para compatibilidad
+    # El municipio se resuelve del cuerpo de la petición (o por proceso de
+    # resolución único activo en authenticate_user), no hardcodeado.
     result = await auth_service.authenticate_user(
         username=login_data.username,
         password=login_data.password,
-        municipio_codigo="00000",
+        municipio_codigo=login_data.municipio_codigo,
         ip_address=ip_address,
         user_agent=user_agent,
     )

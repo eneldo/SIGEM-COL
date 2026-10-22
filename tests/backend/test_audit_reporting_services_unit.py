@@ -184,6 +184,45 @@ async def test_audit_service_accepts_empty_optional_values():
 
 
 @pytest.mark.unit
+async def test_audit_service_registra_evento_de_plataforma():
+    db = FakeDB()
+    service = AuditService(db)
+    usuario_id = uuid.uuid4()
+
+    event = await service.log_platform_event(
+        "BOOTSTRAP_ADMIN",
+        "EXITOSO",
+        usuario_id=usuario_id,
+        actor_id=usuario_id,
+        recurso_tipo="USUARIO",
+        recurso_id=usuario_id,
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        metadata={"source": "scripts/setup/bootstrap_admin.py"},
+    )
+
+    assert db.added == [event]
+    assert db.commit.await_count == 1
+    assert event.evento_tipo == "BOOTSTRAP_ADMIN"
+    assert event.resultado == "EXITOSO"
+    assert event.usuario_id == usuario_id
+    assert event.metadata_json == '{"source": "scripts/setup/bootstrap_admin.py"}'
+
+
+@pytest.mark.unit
+async def test_audit_service_registra_evento_de_plataforma_minimo():
+    db = FakeDB()
+    service = AuditService(db)
+
+    event = await service.log_platform_event("JOB_RUN", "EXITOSO")
+
+    assert db.added == [event]
+    assert event.usuario_id is None
+    assert event.metadata_json is None
+    assert event.fecha_evento is not None
+
+
+@pytest.mark.unit
 async def test_reporte_resumen_general():
     db = FakeDB([Result(value=value) for value in (2, 3, 7, 5, 4)])
 

@@ -1,6 +1,7 @@
 """Models package - Modelos de base de datos SQLAlchemy"""
 
 from .auditoria_evento import AuditoriaEvento
+from .auditoria_plataforma import AuditoriaPlataforma
 from .avance_producto import AvanceProducto
 from .base import Base, BaseModel
 from .dependencia import Dependencia
@@ -42,6 +43,7 @@ __all__ = [
     "IntentoLogin",
     "MFAFactor",
     "AuditoriaEvento",
+    "AuditoriaPlataforma",
     "AvanceProducto",
     "Evidencia",
     "Personalizacion",

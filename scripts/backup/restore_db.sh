@@ -53,6 +53,34 @@ if [ ! -s "$DUMP_FILE" ]; then
     exit 1
 fi
 
+# Los dumps cifrados (.dump.enc, ver backup_db.sh) se descifran a un temporal
+# con la passphrase del entorno; NUNCA aceptamos passphrase por argv.
+DECRYPTED_FILE=""
+cleanup() {
+    if [ -n "$DECRYPTED_FILE" ] && [ -f "$DECRYPTED_FILE" ]; then
+        rm -f "$DECRYPTED_FILE"
+    fi
+}
+trap cleanup EXIT
+
+case "$DUMP_FILE" in
+    *.enc)
+        if [ -z "${BACKUP_ENCRYPTION_PASSPHRASE:-}" ]; then
+            echo "error: dump is encrypted; set BACKUP_ENCRYPTION_PASSPHRASE in the environment" >&2
+            exit 1
+        fi
+        DECRYPTED_FILE="$(mktemp "${TMPDIR:-/tmp}/sigem_restore_XXXXXX.dump")"
+        echo "decrypting dump to a temporary file"
+        if ! openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -pass env:BACKUP_ENCRYPTION_PASSPHRASE \
+            -in "$DUMP_FILE" -out "$DECRYPTED_FILE"; then
+            echo "error: decryption failed (wrong passphrase or corrupted backup)" >&2
+            exit 1
+        fi
+        DUMP_FILE="$DECRYPTED_FILE"
+        ;;
+esac
+
 if [ "$ASSUME_YES" -ne 1 ]; then
     echo "error: refusing to restore without explicit --yes" >&2
     exit 1

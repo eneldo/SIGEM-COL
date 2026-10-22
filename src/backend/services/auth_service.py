@@ -42,20 +42,50 @@ class AuthService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> dict[str, Any] | None:
-        # Municipality is mandatory: it scopes the login lookup under RLS.
-        if not municipio_codigo:
-            return None
+        """Resuelve el municipio y autentica dentro de su tenant.
 
-        # municipios is a global table (no RLS), safe to query unscoped.
-        # Use populate_existing=True to avoid stale ORM cache.
-        result = await self.db.execute(
-            select(Municipio)
-            .where(Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO")
-            .execution_options(populate_existing=True)
-        )
-        municipio = result.scalar_one_or_none()
-        if not municipio:
-            return None
+        Resolución del tenant (nunca hardcodeada):
+        - Con `municipio_codigo`, se valida que exista y esté ACTIVO; si no,
+          el login falla sin registrar intento (no colabora con enumeración).
+        - Sin código, se resuelve el municipio si el despliegue tiene
+          exactamente uno ACTIVO; con más de uno se exige selección desde el
+          cliente con el error MUNICIPIO_REQUERIDO.
+
+        municipios es global (sin RLS), seguro de consultar sin contexto.
+        """
+        municipio: Municipio | None = None
+        if municipio_codigo:
+            result = await self.db.execute(
+                select(Municipio)
+                .where(
+                    Municipio.codigo == municipio_codigo,
+                    Municipio.estado == "ACTIVO",
+                )
+                .execution_options(populate_existing=True)
+            )
+            municipio = result.scalar_one_or_none()
+            if not municipio:
+                return None
+        else:
+            activos = (
+                (
+                    await self.db.execute(
+                        select(Municipio).where(
+                            Municipio.estado == "ACTIVO",
+                            Municipio.deleted_at.is_(None),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if len(activos) == 1:
+                municipio = activos[0]
+            else:
+                raise ValueError(
+                    "MUNICIPIO_REQUERIDO: este despliegue tiene varios "
+                    "municipios activos; indique municipio_codigo en el login."
+                )
 
         # Scope this session to the municipality before touching any
         # RLS-protected table (usuarios, intentos_login, sesiones, ...).

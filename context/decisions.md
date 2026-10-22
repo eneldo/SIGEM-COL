@@ -249,3 +249,104 @@
 **Decision:** Los secretos se cifran con AES-GCM usando una clave derivada de `ENCRYPTION_KEY`, con nonce aleatorio y versionado del formato (`enc:v1:`). `decrypt_totp_secret` acepta el formato heredado en claro, lo que permite migrar de forma oportunista; `ENCRYPTION_KEY` se valida en produccion y debe ser distinta de `SECRET_KEY` y `JWT_SECRET_KEY`.
 
 **Consecuencia:** Rotar `ENCRYPTION_KEY` exige reenrolar a los usuarios con MFA activo, o conservar la clave anterior durante la transicion.
+---
+
+## 2026-10-21: Higiene del pool: el contexto tenant se limpia antes de devolver la conexión
+
+**Contexto:** La auditoría RLS del 2026-10-21 confirmó que `set_config(is_local=false)` sobrevive al commit del request y al reset por devolución del pool (ROLLBACK no deshace GUCs consolidados), por lo que cada conexión del pool quedaba "marcada" con el tenant del último request. Cualquier consumidor futuro que no fijara contexto al inicio (worker, tarea programada, script) heredaría ese tenant silenciosamente.
+
+**Decision:** `core/database.py` obtiene `release_tenant_context()` que ejecuta `RESET app.current_municipio_id` antes de devolver la conexión al pool; `get_db` la invoca en su `finally` y `set_tenant_context(None)` ahora emite RESET en lugar de `set_config('','')`. `scripts/setup/bootstrap_admin.py` hace lo mismo al terminar. Todos los consumidores deben seguir fijando contexto antes de leer; el RESET es defensa en profundidad, no sustituto.
+
+---
+
+## 2026-10-21: Guardia de arranque contra roles que bypasean RLS
+
+**Contexto:** El `.env` de desarrollo apunta `DATABASE_URL` al rol de migración `sigem` (SUPERUSER), que ignora RLS incluso con FORCE. La validación previa solo exigía `sigem_app` en producción, de modo que el desarrollo ejecutaba el aislamiento sin efecto.
+
+**Decision:** `core/database.assert_restricted_db_role()` consulta `pg_roles` al arrancar: si el rol de conexión es SUPERUSER o tiene BYPASSRLS, en producción impide el arranque (RuntimeError) y en desarrollo emite un log CRITICAL. La conmutación del entorno local a `sigem_app` queda pendiente de que el rol reciba LOGIN/contraseña en la BD restaurada del host; se transforma en bloqueo en cuanto se despliegue con `APP_ENV=production`.
+
+---
+
+## 2026-10-21: `get_db_with_rls` es alias de `get_db`
+
+**Contexto:** Ambos dependency providers eran implementaciones duplicadas idénticas. Al ser objetos distintos, FastAPI cacheaba cada uno por separado: un endpoint que declaraba `get_current_user_from_token` (que resuelve `get_db_with_rls`) más `db: Depends(get_db)` abría dos conexiones físicas por request con transacciones no atómicas.
+
+**Decision:** `get_db_with_rls = get_db` (mismo objeto). Ambos nombres siguen exportados para no romper imports, el pipeline aplica el mismo contexto tenant, y FastAPI comparte la sesión/cache del provider si un endpoint referencia ambos.
+
+---
+
+## 2026-10-21: Validación cross-tenant de FKs expuestas al cliente
+
+**Contexto:** `create_usuario` aceptaba `dependencia_id` del cliente y escribía `usuario_dependencias` con el `municipio_id` local. El INSERT pasaba `WITH CHECK` (la fila lleva el tenant local) y el FK cruzado hacia otra municipalidad se satisfacía porque las FK no evalúan políticas RLS: asociación rota y vector de fuga lógica según quién JOIN-ee la relación.
+
+**Decision:** Toda referencia de un recurso con `municipio_id` que llegue en el cuerpo de la petición debe validar su pertenencia al municipio del contexto mediante un SELECT bajo RLS antes de insertar la asociación (implementado en `usuario_service.create_usuario` con mensaje 4 "La dependencia no existe o no pertenece a este municipio"). Los demás servicios ya validaban por lookup (linea, programa, producto, dependencia_padre). Se añadió el test unitario de rechazo y de aceptación.
+---
+
+## 2026-10-21: Tabla `auditoria_plataforma` para eventos sin municipio (append-only)
+
+**Contexto:** `auditoria_eventos.municipio_id` es nullable pero su política RLS es fail-closed, de modo que un evento global (municipio NULL) no podía escribirse ni leerse con el rol de aplicación `sigem_app`: la auditoría de nivel plataforma quedaba indefinible.
+
+**Decision:** La migración `022_auditoria_plataforma` crea `auditoria_plataforma` (sin `municipio_id`, sin RLS) con la misma forma de evento. Es **append-only** para el rol de aplicación: `REVOKE ALL` + `GRANT INSERT` únicamente (el grants es idempotente si el rol aún no existe; `grant_app_role_local.py` lo cubre al crearlo; los default privileges ya otorgan INSERT). `AuditService.log_platform_event()` registra en la nueva tabla; `log_event` queda reservado a eventos de tenant. No hay lector de API todavía: al construir un dashboard de plataforma se añadirá `SELECT` de forma explícita.
+
+---
+
+## 2026-10-21: El login resuelve el municipio; se elimina el `00000` en duro
+
+**Contexto:** `POST /auth/login` llamaba a `authenticate_user(municipio_codigo="00000")` — hardcodeo prohibido por PROJECT_RULES 1.2 y bloqueante para municipios reales con códigos propios.
+
+**Decision:** `LoginRequest` acepta `municipio_codigo` opcional (validate que exista y esté ACTIVO; si no existe el login falla sin registrar intento). Si se omite, se resuelve el municipio cuando el despliegue tiene **exactamente uno** ACTIVO; con varios se responde `ValueError("MUNICIO_REQUERIDO: ...")` (la vista global de errores devuelve 422 con ese código en `detail`, que el SPA debe reconocer para pedir la selección). El comportamiento actual del SPA sigue funcionando sin cambio: la suite de CI/entorno tiene un solo municipio activo (`00000`), así que la resolución única lo elige. En el primer despliegue multi-municipio real el frontend debe implementar la selección.
+---
+
+## 2026-10-21: Reportes y cumplimiento quedan authentication-only (por diseño)
+
+**Contexto:** auditoría integral — `api/v1/reportes.py` y `api/v1/cumplimiento.py` no llaman `require_permission`; cualquier usuario autenticado del tenant ve resúmenes e informes PDF.
+
+**Decision:** se mantiene acceso por autenticación únicamente, igual que GET de catálogos (ver migración `018`): el dato es agregado/no sensible y ya filtrado por RLS por `municipio_id`; el flujo de UI (gestores y coordinadores consultan cumplimiento) lo requiere. La.attribución de incidencia esfera 403 en módulos de ESCRITURA y en auditoría, que sí requieren permiso explícito. Si un municipio necesita restringir visibilidad de reportes, se añadirá el permiso `REPORTES_VER` con seed + asignación de roles en una migración futura (rompería el flujo actual, requiere coordinación con frontend).
+
+---
+
+## 2026-10-21: Nginx prod con allowlist de dominio (SIGEM_DOMAIN) y vhost de descarte
+
+**Contexto:** auditoría (N-2/N-3) — `server_name _` + redirect `301 https://$host$uri` permitía host-header poisoning y el vhost default atendía cualquier SNI.
+
+**Decision:** `nginx.prod.conf` ahora es **plantilla**: el compose prod la monta en `/etc/nginx/templates/nginx.conf.template` y la imagen sustituye `${SIGEM_DOMAIN}` al arrancar (NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx). Se añaden vhosts `default_server` que cortan sin respuesta (HTTP 444) cualquier Host inesperado y `ssl_reject_handshake on` para SNI desconocido. `deploy.sh` rechaza el despliegue si `SIGEM_DOMAIN` no incluye el host de `FRONTEND_URL`; `.env.prod.example` documenta la variable. `NGIN_VERSION` fija alerta residual N-1: `set_real_ip_from`/`real_ip_header` quedan pendientes de topología (CDN/LB real).
+
+---
+
+## 2026-10-21: Backups con cifrado en reposo opcional y off-site exigible
+
+**Contexto:** auditoría (BK-1/BK-2) — dumps y evidencias sin cifrado y copia off-site opcional en la práctica por defecto vacía.
+
+**Decision:** con `BACKUP_ENCRYPTION_PASSPHRASE` configurada, `backup_db.sh`/`backup_evidencias.sh` cifran a `.enc` (AES-256-CBC + PBKDF2/200k, passphrase SOLO por env, nunca argv) y eliminan el plaintext salvo `BACKUP_KEEP_PLAINTEXT=true`. `verify_backup.sh` salta `pg_restore --list` en dumps cifrados (checksum sigue valiendo); `restore_db.sh` descifra a temporal al restaurar. `run_backup.sh` advierte siempre si no hay `BACKUP_RSYNC_TARGET` y FALLA con `BACKUP_REQUIRE_OFFSITE=true`. Variables documentadas en `.env.prod.example`.
+
+---
+
+## 2026-10-21: Prometheus scrape autenticado, Alertmanager y retirada de alertas muertas
+
+**Contexto:** auditoría (M-1/M-2/M-3) — alertas con métricas de exporters inexistentes (`pg_stat_activity_count`, `node_filesystem_avail_bytes`), scrape sin token contra `/metrics` con `METRICS_TOKEN` (falsas `BackendTargetDown`), y sin Alertmanager (nadie recibe notificaciones).
+
+**Decision:** `prometheus.yml` añade `bearer_token_file` (el compose escribe el token a `/etc/prometheus/metrics_token` en el entrypoint desde `METRICS_TOKEN`; en despliegues sin token la cabecera es ignorada por el backend) y bloque `alerting:` → `alertmanager:9093` (servicio nuevo perfil `monitoring` en compose local/prod; `alertmanager.yml` con placeholders SMTP a sustituir antes de producción). Se retiraron las dos alertas muertas (documentadas en comentario para reactivarlas junto con sus exporters); se conservan las 3 alertas con métricas reales del backend.
+
+---
+
+## 2026-10-21: CI con mínimo privilegio, deploy con environment y dependiente del build
+
+**Contexto:** auditoría (C-1/C-2/C-3) — GITHUB_TOKEN sin `permissions:` top-level, `deploy` por SSH sin GitHub `environment`/`concurrency` y sin conexión con `docker-build`.
+
+**Decision:** `permissions: contents: read` top-level en `ci.yml`; job `deploy` con `environment: production` (protección/required reviewers que se configurará en GitHub antes del primer deploy, documentado), `concurrency: deploy-production` (cancel-in-progress: false) y `needs` que incluye `docker-build` (las imágenes del SHA pasan gates antes de SSH). Deuda aceptada: el deploy aún no consume imágenes de registry (no hay push en CI; imágenes pre-cargadas en el host). C-4 (`SIGEM_BOOTSTRAP_PASSWORD` literal CI-only) queda aceptado: debe coincidir con el `ADMIN_PASSWORD` de `tests/conftest.py` y vive solo en job efímero.
+
+---
+
+## 2026-10-21: Frontend: guardas de ruta con requiredRole y lista de roles centralizada
+
+**Contexto:** auditoría (F4.1 Alta) — rutas `/admin/*` y `/gestor/*` solo exigían "autenticado"; listas de roles duplicadas en ≥5 archivos.
+
+**Decision:** nuevo módulo `src/frontend/src/lib/roles.ts` (fuente única: `ADMIN_ROLES`, `GESTOR_LIDER_ROLES`, `GESTOR_ROLES`, `GESTOR_ROUTE_ROLES`, helpers). `App.tsx` aplica `requiredRole` en `/admin` (admins) y `/gestor` (admins+gestores+coordinador); Sidebar/Header/LoginPage/ChangePassword/GestorEquipo consumen el módulo. El backend sigue siendo la autoridad final (403 exigidos).
+
+---
+
+## 2026-10-21: Compose dev/local con puertos de gestión en loopback
+
+**Contexto:** auditoría (D-1) — Postgres 5433, backend 8001 y frontend 3001 (y nginx 8080/8443 en local) publicados en 0.0.0.0 con credenciales débiles.
+
+**Decision:** todos los bindings de esos servicios ahora son `127.0.0.1:<host>:<container>`; en el host con bcrypt en LAN nunca se alcanza Postgres/backend directo. Producción (compose prod) no expone Postgres/Redis en absoluto.

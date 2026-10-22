@@ -1,84 +1,97 @@
 # SIGEM Colombia - Session Memory
 
-## Project State (2026-10-06) - Hardening de seguridad previo a producción
+## Project State (2026-10-21) - Auditoría integral + remediación completa
 
-Full-stack municipal development plan tracking system. Se cerró la auditoría de
-preparación de producción: **575 tests backend (100 % cobertura) + 480 frontend**,
-gates ruff/mypy/bandit/pytest/eslint/tsc/build en verde y **0 vulnerabilidades**
-en dependencias de producción (backend y frontend).
+Tres fases cerradas: **(1)** auditoría RLS/multi-municipio con remediación P0/P1,
+**(2)** tabla `auditoria_plataforma` + login multi-municipio sin `00000`,
+**(3)** auditoría integral (backend/frontend/BD/infra/CI/QA/docs) con remediación completa
+aplicada. Gates en verde: backend `525 passed / 0 failed` (+475 ERROR ambientales de BD),
+ruff/format/mypy(87)/bandit limpios; frontend `477 passed`/build/lint; gitleaks **no leaks**
+(allowlist por commit del hallazgo histórico); 3 compose validados; scripts shell `bash -n` OK.
 
-**Estado: NO LISTO aún** por dos bloqueantes identificados en la reauditoría (ver abajo).
+**Estado: NO LISTO aún** — bloqueantes restantes: B-1 (flujo MFA en el SPA, sin pantalla de
+setup/challenge) y operativos fuera del repo (aplicar migración 022, activar `sigem_app`,
+rotar credencial BD si salió del entorno controlado). Todo el trabajo SIN COMITEAR (~57 archivos).
+
+## Environment Facts (2026-10-21, Linux)
+
+- **Ruta de trabajo**: `/mnt/DATOS/Proyectos/SIGEM-COL` (Linux/WSL mount; las rutas `F:\SIGEM-COL`
+  de abajo son históricas de Windows).
+- **BD host**: PostgreSQL 18.6 en `127.0.0.1:5432`; las credenciales `sigem`/`sigem_app` del
+  `.env` NO funcionan contra esa BD (desconocidas) → 475 errores pytest ambientales; no se pudieron
+  ejecutar checks contra BD viva ni `alembic upgrade` (regla del usuario: no ejecutar migraciones).
+- **Docker**: socket con permission denied (sin sudo) → no se puede `docker compose up`; validar
+  configs con `docker compose config` sí funciona.
+- `.env` raíz contiene credenciales de dev (rol `sigem` superuser ⇒ RLS bypassado en dev actual);
+  guardar "guardia con warning en dev" ya implementada en `core/database.py`.
+- Gitleaks instalado localmente (`/usr/bin/gitleaks`); con `.gitleaks.toml` actual → 0 leaks.
 
 ## Key Facts
 
 - **Stack**: Python 3.12 / FastAPI / SQLAlchemy 2.x async / PostgreSQL 17 / PyJWT / React 18 / TypeScript / Vite / Tailwind
-- **Docker ports (dev)**: Backend 8001, Frontend 3001, PostgreSQL 5433, Redis 6379
-- Las credenciales administrativas y de gestores no se documentan; se aprovisionan y suministran mediante secretos de entorno (`SIGEM_TEST_ADMIN_PASSWORD`).
+- **Docker ports (dev)**: Backend 8001↔8000, Frontend 3001↔3000, PostgreSQL 5433, Redis 6379; desde
+  2026-10-21 todos los puertos de gestión van enlazados a `127.0.0.1` (dev y local)
+- Las credenciales administrativas no se documentan; se aprovisionan con secretos de entorno (`SIGEM_TEST_ADMIN_PASSWORD`/`SIGEM_BOOTSTRAP_PASSWORD`).
 - **Tests API base**: `SIGEM_API_URL` opcional para tests in-process vs live
 - **GitHub**: `https://github.com/eneldo/SIGEM-COL.git`, branch `master`
-- **Local PG**: service `postgresql-x64-17` on port 5432 cannot be stopped
-- **Local processes**: ports 8000/3000 occupied; Docker uses 8001/3001
-- **Puerto 443**: ocupado por HTTP.sys (PID 4) en Windows → nginx prod no puede bindear 443 local
 - **Rol de migración `sigem` en el PG local es SUPERUSER con BYPASSRLS**: ignora RLS. Cualquier
   prueba de aislamiento debe ejecutarse con un rol restringido (`tests/security/test_rls_isolation.py`
-  crea `sigem_rls_test_app` equivalente a `sigem_app`).
+  crea `sigem_rls_test_app` equivalente a `sigem_app`; incluye `KNOWN_REVISIONS` hasta
+  `022_auditoria_plataforma`).
 
 ## Critical Code Patterns
 
 - `get_current_user_from_token` returns `{user, municipio_id, roles, permissions, sid}`. Access roles via `current_user["roles"]`, NOT `user.roles`
-- RLS: `RLSMiddleware` extracts municipio_id from JWT; `get_db`/`get_db_with_rls` call `set_config('app.current_municipio_id', ...)` con conexión dedicada por request
-- RBAC: `await require_permission(db, user.id, "permission.code")`
-- Rate limiting: backend compartido (`core/rate_limit.py`), Redis en producción y memoria en dev; dos ventanas (general `RATE_LIMIT_WINDOW`, login `RATE_LIMIT_LOGIN_WINDOW_MINUTES*60`); el bucket de login **falla cerrado** si Redis no responde (`RATE_LIMIT_FAIL_CLOSED_LOGIN`)
-- **Sesión**: access token solo en memoria; refresh token en cookie `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`; `POST /auth/refresh` valida `Origin` contra `CORS_ORIGINS`; el refresh token ya **no** viaja en el cuerpo
-- **JWT**: `TokenClaims` (Pydantic) valida `sub`/`municipio_id`/`type`/`exp` en `decode_token`; claims inválidos → 401 (nunca 500)
-- **MFA enforcement**: `MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL", "SUPERADMIN_PLATAFORMA")`
-- **MFA en reposo**: secretos TOTP cifrados con AES-GCM (`enc:v1:`) usando `ENCRYPTION_KEY`; formato legado en claro aún aceptado (migración oportunista)
-- Frontend: NO `@/*` alias working - use relative imports in components
+- RLS: la sesión de request es **una sola** (`get_db_with_rls = get_db`); `release_tenant_context()`
+  hace RESET del GUC al devolver la conexión al pool; `assert_restricted_db_role()` falla en producción
+  si el rol de conexión es superuser (CRITICAL log en dev)
+- RBAC: `await require_permission(db, user.id, "permission.code")` — códigos normalizados a
+  UPPER_SNAKE (`rbac._normalize_permission`); `reportes.py`/`cumplimiento.py` son authentication-only
+  POR DISEÑO (ver decisions.md)
+- **Login**: `LoginRequest.municipio_codigo` opcional; si falta y hay exactamente 1 municipio ACTIVO
+  se resuelve; si hay varios → `ValueError("MUNICIPIO_REQUERIDO...")` → 422; nunca hardcodear
+  `00000` ( nationale regla 1.2 de PROJECT_RULES)
+- **Auditoría de plataforma**: eventos sin municipio → `AuditService.log_platform_event()` → tabla
+  `auditoria_plataforma` (INSERT-only para `sigem_app`); eventos de tenant → `log_event()`
+- Rate limiting: backend compartido (`core/rate_limit.py`), Redis en producción y memoria en dev; el bucket de login **falla cerrado** si Redis no responde (`RATE_LIMIT_FAIL_CLOSED_LOGIN`)
+- **Sesión**: access token solo en memoria; refresh en cookie `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`; el refresh token nunca viaja en el cuerpo
+- **JWT**: `TokenClaims` (Pydantic) valida `sub`/`municipio_id`/`type`/`exp`; claims inválidos → 401
+- **MFA enforcement**: `MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL", "SUPERADMIN_PLATAFORMA")`; secretos TOTP cifrados AES-GCM (`enc:v1:`)
+- Frontend: alias `@/*` **YA FUNCIONA** (corregido 2026-10-21 en vite.config.ts/tsconfig.json); lista
+  de roles única en `src/lib/roles.ts` (`ADMIN_ROLES`, `GESTOR_ROUTE_ROLES`, …); routes `/admin`
+  y `/gestor` con `requiredRole`
+- **Evidencias**: firma magic bytes (`_valid_evidence_signature`), 10MB max, `resolve()`+contención
+  del storage root, `municipio_id` siempre del token
 - `datetime.now(UTC)` used in services (timezone-aware) para compatibilidad DB
 
 ## How to Run
 
 ```bash
-# Backend (local)
-cd F:\SIGEM-COL && python -m uvicorn src.backend.main:app --host 0.0.0.0 --port 8000 --reload
+# Tests backend (cambiar BD activa con credenciales válidas para los 475)
+cd /mnt/DATOS/Proyectos/SIGEM-COL && src/backend/.venv/bin/pytest tests -c src/backend/pyproject.toml -q --no-cov
 
-# Frontend (local)
-cd F:\SIGEM-COL\src\frontend && npm run dev
+# Tests RLS (requieren BD migrada a head con rol sin BYPASSRLS)
+python -m alembic upgrade head && python -m pytest tests/security/test_rls_isolation.py -q --no-cov
 
-# Docker stack dev
-cd F:\SIGEM-COL && docker-compose -f infra/docker/docker-compose.yml up -d
+# Gates backend
+cd /mnt/DATOS/Proyectos/SIGEM-COL && src/backend/.venv/bin/ruff check --config src/backend/pyproject.toml src/backend tests
+cd src/backend && .venv/bin/mypy --config-file pyproject.toml .
 
-# Tests backend (gate de CI: 100 % cobertura)
-cd F:\SIGEM-COL && python -m pytest tests -c src/backend/pyproject.toml -q --no-cov
+# Tests frontend + gates
+cd /mnt/DATOS/Proyectos/SIGEM-COL/src/frontend && npm run test && npm run build && npm run lint
 
-# Cobertura exacta como en CI
-cd F:\SIGEM-COL && python -m pytest tests --cov=src/backend --cov-report=xml --cov-fail-under=100
+# Gitleaks (como CI)
+gitleaks detect --config .gitleaks.toml --redact
 
-# Tests que necesitan BD migrada a head
-cd F:\SIGEM-COL && python -m alembic upgrade head
-cd F:\SIGEM-COL && python -m pytest tests/security/test_rls_isolation.py -q --no-cov
+# Validar composés sin daemon
+docker compose -f infra/docker/docker-compose.yml -p t config -q
+SIGEM_IMAGE_TAG=sha-x SIGEM_DOMAIN=d.example docker compose -f infra/docker/docker-compose.prod.yml -p t config -q
 
-# Tests frontend
-cd F:\SIGEM-COL\src\frontend && npm run test:coverage
-
-# Lint/typecheck backend
-cd F:\SIGEM-COL && python -m ruff check src/backend tests && python -m mypy src/backend
-
-# Lint/typecheck frontend
-cd F:\SIGEM-COL\src\frontend && npm run lint && npx tsc --noEmit
-
-# Auditoría reproducible de dependencias de producción (backend)
-cd F:\SIGEM-COL && uv export --format requirements-txt --no-dev --no-emit-project --directory src/backend --output-file /tmp/sigem-req.txt
-cd F:\SIGEM-COL && python -m pip_audit -r /tmp/sigem-req.txt --strict
-
-# Gitleaks (historial completo, como CI)
-docker run --rm -v "${PWD}:/repo" -w /repo zricethezav/gitleaks:latest detect --source . --config .gitleaks.toml
-
-# Prod stack (requiere certs en infra/tls/ y puerto 443 libre)
-docker-compose -f infra/docker/docker-compose.prod.yml --env-file infra/docker/.env.prod up -d
+# Prod (genera nginx.conf desde template con SIGEM_DOMAIN; requiere certs y 443 libre)
+docker compose -f infra/docker/docker-compose.prod.yml --env-file infra/docker/.env.prod up -d
 ```
 
-## Completed Work (Hardening de seguridad - 2026-10-06)
+## Completed Work - Histórico (Hardening 2026-10-06; fases 1-3 ya completas en PROJECT_MEMORY.md)
 
 ### Credenciales expuestas
 - Credencial administrativa que estaba versionada en `PROJECT_MEMORY.md`, `context/project_context.md`,
@@ -118,24 +131,27 @@ docker-compose -f infra/docker/docker-compose.prod.yml --env-file infra/docker/.
 - `tests/security/test_rls_isolation.py` (aislamiento real con rol sin BYPASSRLS)
 - `src/frontend/src/lib/api.cookie.test.ts` (refresh por cookie)
 
-## BLOQUEANTES PENDIENTES (2026-10-06)
+## Bloqueantes vigentes
 
 1. **B-1 · El frontend no tiene flujo de MFA**: el backend devuelve `mfa_required` + `mfa_token` en
    `/auth/login` y responde 403 `MFA_SETUP_REQUIRED`, pero no existe pantalla de setup/verify ni
    challenge de segundo factor, y el interceptor no maneja ese 403. Con MFA obligatorio para ambos
    roles privilegiados, una cuenta recién bootstrapeada queda sin forma de enrolarse y una con MFA
    activo entra en bucle 401 → refresh → login. **Hay que implementar la UI de MFA antes de desplegar.**
-2. **B-2 · Gate de gitleaks**: corregido `regexTarget = "secret"` y el literal `ClaveSegura123` del
-   test; quedan 2 avisos en el **historial** (commit `abde3f3`) que requieren allowlist o purga.
+2. **B-2 · Gate de gitleaks: RESUELTO (2026-10-21)** — `.gitleaks.toml` ahora allowliste el commit
+   histórico `abde3f3b…` (credencial de test ausente en HEAD); `gitleaks detect` local: no leaks.
 
 ## Acciones operativas fuera del repositorio
 
 - Rotar la credencial que estuvo versionada y **purgar el historial Git** si el repositorio salió de
   un entorno controlado.
-- Limpiar artefactos locales no versionados que contienen credenciales: `.playwright-mcp/*.yml` y
-  scripts raíz `check_*.py` con contraseñas de `sigem`/`sigem_app`.
+- Limpiar artefactos locales con credenciales: `.playwright-mcp/*.yml` y scripts raíz
+  `check_*.py`/`test_backend.py`/`test_create_direct.py` — **HECHO 2026-10-21** (eliminados del
+  disco; nunca estuvieron trackeados). Falta rotar la contraseña de BD expuesta si el repo de ellos
+  salió de un entorno controlado.
 - Recrear/reparar la base de datos de desarrollo si vuelve a desincronizarse (estuvo en 009 con
-  columnas de 008; ya está en `020_personalizacion`).
+  columnas de 008; estaba en `020_personalizacion`; el head del código es `022_auditoria_plataforma`,
+  migración aún NO aplicada) y luego activar `sigem_app` según el bloque SQL entregado.
 - `infra/postgres/init/01-app-role.sh` solo corre con volumen nuevo: cambiar `SIGEM_APP_PASSWORD` en un
   entorno existente requiere actualizar el rol manualmente.
 - Enrrolar MFA del administrador inicial tras el primer despliegue (no hay herramienta CLI; hoy solo

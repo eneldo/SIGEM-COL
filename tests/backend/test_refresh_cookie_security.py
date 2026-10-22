@@ -185,7 +185,7 @@ async def test_login_emite_cookie_de_refresco_y_lo_retira_del_cuerpo(service) ->
     response = DummyResponse()
 
     result = await auth_routes.login(
-        SimpleNamespace(username="admin", password="secreto"),
+        SimpleNamespace(username="admin", password="secreto", municipio_codigo="00000"),
         request,
         response,
         MagicMock(),

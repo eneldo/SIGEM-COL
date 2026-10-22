@@ -6,7 +6,16 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Security
+- **Higiene del pool de conexiones:** `core/database.py` ejecuta `RESET app.current_municipio_id` antes de devolver cada conexión al pool (`release_tenant_context`); una conexión ya no queda "marcada" con el tenant del último request. `set_tenant_context(None)` ahora emite RESET real en vez de fijar cadena vacía
+- **Guardia de rol de base de datos al arranque** (`assert_restricted_db_role`): en producción impide arrancar si la conexión usa un rol SUPERUSER o con BYPASSRLS; en desarrollo emite log CRITICAL (el `.env` local aún usa el rol de migración `sigem`)
+- **Validación cross-tenant en `create_usuario`:** `dependencia_id` del cliente debe existir bajo el contexto tenant; antes era posible asociar un usuario a una dependencia de otro municipio (FK que no evalúa RLS)
+- Prueba de regresión de herencia de contexto en el pool, verificación de que las funciones helper no son `SECURITY DEFINER` y de los atributos del rol de conexión (`tests/security/test_rls_isolation.py`)
+- Purga de 8 scripts desechables `check_*.py` de la raíz del repositorio que contenían credenciales Incrustadas (rotación de la credencial filtrada pendiente, operativa)
+
 ### Added
+- **Auditoría de plataforma append-only** (`auditoria_plataforma`, migración `022`): eventos sin municipio para bootstrap/jobs/plataforma, con `AuditService.log_platform_event()`; el rol de aplicación solo puede `INSERT` (`REVOKE ALL` + `GRANT INSERT`, idempotente)
+- **Login multi-municipio**: `LoginRequest` acepta `municipio_codigo` opcional; si se omite se resuelve el único municipio activo del despliegue y, con varios activos, se responde `MUNICIPIO_REQUERIDO` (422). Se eliminó el `"00000"` en duro de `POST /auth/login`
 - Rate limiting distribuido con Redis (`core/rate_limit.py`): contadores compartidos entre réplicas, ventana propia para el bucket de login (`RATE_LIMIT_LOGIN_WINDOW_MINUTES`) y política explícita de degradación (`RATE_LIMIT_FAIL_CLOSED_LOGIN`)
 - Refresh token en cookie `HttpOnly; Secure; SameSite=Strict` con `Path=/api/v1/auth` (`core/session_cookies.py`), protección CSRF por validación de `Origin` en `POST /auth/refresh` y rotación de la cookie en cada renovación
 - Cifrado autenticado (AES-GCM) de los secretos TOTP en reposo, con clave derivada de `ENCRYPTION_KEY` y versionado del formato (`enc:v1:`)
@@ -38,7 +47,21 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
 
 ### Fixed
-- CI: `backend-tests` aplica migraciones y crea el administrador de pruebas antes de pytest (fallaba con `relation "municipios" does not exist`)
+- **Frontend (Alta):** guardas de ruta — `/admin/*` exige rol admin y `/gestor/*` roles de operación (`requiredRole` en `ProtectedRoute`); roles centralizados en `src/lib/roles.ts` (elimina duplicación en App/Sidebar/Header/Login/ChangePassword/GestorEquipo); dependencias runtime muertas fuera del tree (`react-hook-form`, `@hookform/resolvers`, `zod`, `date-fns`, `react-router`); alias `@` corregido; duplicado `EvidencePreview.test.(ts|tsx)` unificado
+- **Nginx prod:** `SIGEM_DOMAIN` como plantilla del compose + vhost `default_server` con `return 444` y `ssl_reject_handshake on` — host-header poisoning y SNI desconocido ya no atienden tráfico; `deploy.sh` valida `SIGEM_DOMAIN` contra `FRONTEND_URL`
+- **Backups:** soporte de cifrado en reposo (`BACKUP_ENCRYPTION_PASSPHRASE`, AES-256-CBC+PBKDF2, passphrase solo por env) y copia off-site exigible (`BACKUP_REQUIRE_OFFSITE=true` falla sin `BACKUP_RSYNC_TARGET`); descubrimiento temporal en `restore_db.sh`
+- **CI:** `permissions: contents: read` top-level; `deploy` con `environment: production` + `concurrency: deploy-production` + `needs: docker-build`
+- **Monitoring:** scrape autenticado (`bearer_token_file` escrito desde `METRICS_TOKEN`), Alertmanager en el stack (perfil monitoring local/prod) y eliminadas las 2 alertas que nunca podían dispararse (exporters inexistentes)
+- **Compose dev/local:** puertos de gestión (Postgres 5433, backend 8001, frontend 3001, nginx 8080/8443) enlazados a `127.0.0.1`; `version` obsoleto retirado del compose local; rotación de credenciales de los scripts locales `check_*`/`test_*` pendiente de aplicar en disco y eliminación de artefactos con credenciales en la raíz
+
+### Security
+- **Frontend:** CSP básica en `index.html` (`default-src 'self'`, `img-src data: blob:`, `frame-ancestors 'self'`); `npm audit --omit=dev --audit-level=high` va en CI y gitleaks/pip-audit continúan
+- **TLS local:** `privkey.pem`/`fullchain.pem` en `600`; `generate_dev_cert.sh` verifica el modo en runtime y advierte si el mount no lo preserva
+
+### Fixed (security test coverage)
+- `tests/security/test_infrastructure_hardening.py`: +5 pruebas que fijan los nuevos comportamientos (descarte de Host/SNI, loopback composes, token de métricas + alertas vivas, alertmanager en compose, pipeline de backups con cifrado/offsite)
+- Prueba de aislamiento RLS corregida: la guardia de revisión exigía literalmente `020_personalizacion`, por lo que con el head `021_function_invoker` los 5 pruebas de aislamiento se omitían en silencio; ahora acepta la cadena de revisiones desde `017_enforce_rls`
+- Prueba unitaria de contexto tenant actualizada al comportamiento RESET de `set_tenant_context(None)`- CI: `backend-tests` aplica migraciones y crea el administrador de pruebas antes de pytest (fallaba con `relation "municipios" does not exist`)
 - CI: `ruff` y `mypy` se ejecutan con la configuración de `src/backend/pyproject.toml`; `tests/` ya no se analiza con los valores por defecto de ruff
 - CI: `npm ci` y `npm audit` se ejecutan en `src/frontend` (antes fallaban por no encontrar el lockfile)
 - `JWT_ALGORITHM` se restringe a HS256/HS384/HS512 en producción. La referencia a CVE-2026-85394 corresponde a la biblioteca `python-jose` utilizada anteriormente; el backend fue migrado a PyJWT.

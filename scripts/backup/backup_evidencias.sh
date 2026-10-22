@@ -21,4 +21,19 @@ if [ ! -s "$OUTPUT" ]; then
     exit 1
 fi
 
+# Cifrado opcional en reposo (mismo esquema que backup_db.sh): AES-256-CBC con
+# PBKDF2, passphrase solo por entorno, salida evidencias_<ts>.tar.gz.enc.
+if [ -n "${BACKUP_ENCRYPTION_PASSPHRASE:-}" ]; then
+    openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+        -pass env:BACKUP_ENCRYPTION_PASSPHRASE \
+        -in "$OUTPUT" -out "$OUTPUT.enc"
+    if [ "${BACKUP_KEEP_PLAINTEXT:-false}" != "true" ]; then
+        rm -f "$OUTPUT"
+        OUTPUT="$OUTPUT.enc"
+    else
+        OUTPUT="$OUTPUT.enc"
+        echo "warning: BACKUP_KEEP_PLAINTEXT=true keeps an unencrypted archive on disk" >&2
+    fi
+fi
+
 echo "$OUTPUT"

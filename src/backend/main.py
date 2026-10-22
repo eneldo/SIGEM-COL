@@ -13,7 +13,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from .api.v1.router import api_router
 from .core.config import settings
-from .core.database import AsyncSessionLocal, RLSMiddleware, engine
+from .core.database import AsyncSessionLocal, RLSMiddleware, assert_restricted_db_role, engine
 from .core.logging import setup_logging
 from .core.metrics import MetricsMiddleware, render_metrics
 from .core.middleware import AuditMiddleware, RateLimitMiddleware, RequestIDMiddleware
@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings.validate_production()
+    # Verifica que la conexión no bypasea RLS (hard-fail en producción,
+    # CRITICAL en desarrollo mientras el runtime local use el rol de migración).
+    await assert_restricted_db_role()
     yield
     await engine.dispose()
 

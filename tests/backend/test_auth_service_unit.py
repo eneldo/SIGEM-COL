@@ -80,9 +80,43 @@ def municipio(ids):
 
 
 @pytest.mark.asyncio
-async def test_authenticate_requires_municipio(service, db):
-    assert await service.authenticate_user("alice", "password") is None
-    db.execute.assert_not_awaited()
+async def test_authenticate_requiere_seleccion_cuando_hay_varios_municipios(service, db):
+    multi = SimpleNamespace(
+        scalars=lambda: SimpleNamespace(
+            all=lambda: [SimpleNamespace(id=uuid.uuid4()), SimpleNamespace(id=uuid.uuid4())]
+        )
+    )
+    db.execute.return_value = multi
+
+    with pytest.raises(ValueError, match="MUNICIPIO_REQUERIDO"):
+        await service.authenticate_user("alice", "password")
+
+    assert db.commit.await_count == 0
+    assert db.add.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_authenticate_resuelve_municipio_unico_sin_codigo(
+    service, db, ids, municipio, user, monkeypatch
+):
+    single = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [municipio]))
+    db.execute.side_effect = [single, ScalarResult(user)]
+    tenant = AsyncMock()
+    monkeypatch.setattr(auth_module, "set_tenant_context", tenant)
+    monkeypatch.setattr(auth_module, "verify_password", lambda *_: True)
+    user.mfa_activo = False
+
+    service.get_user_roles = AsyncMock(return_value=["GESTOR"])
+    service._issue_tokens = AsyncMock(
+        return_value={"user": {"municipio_id": municipio.id, "id": user.id}}
+    )
+
+    result = await service.authenticate_user("alice", "password", None, "127.0.0.1", "agent")
+
+    assert result is not None
+    tenant.assert_awaited_once_with(db, municipio.id)
+    tokens_payload = service._issue_tokens.call_args
+    assert str(tokens_payload.args[1]) == str(municipio.id)
 
 
 @pytest.mark.asyncio

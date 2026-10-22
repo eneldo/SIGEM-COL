@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
 
 COPY --from=builder /app/.venv /app/.venv
+COPY src /app/src
 COPY migrations /app/migrations
 COPY alembic.ini /app/alembic.ini
 

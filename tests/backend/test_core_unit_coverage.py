@@ -69,7 +69,64 @@ async def test_set_tenant_context_sets_and_clears_values():
     await database.set_tenant_context(session, None)
 
     assert session.execute.await_count == 2
-    assert session.execute.await_args_list[1].args[1] == {"value": ""}
+    # Sin tenant: RESET completo, no set_config con cadena vacía.
+    assert "current_setting" not in str(session.execute.await_args_list[0].args[0])
+    assert "RESET app.current_municipio_id" in str(session.execute.await_args_list[1].args[0])
+
+
+@pytest.mark.asyncio
+async def test_release_tenant_context_resets_and_tolerates_failures():
+    connection = AsyncMock()
+    await database.release_tenant_context(connection)
+    assert "RESET app.current_municipio_id" in str(connection.execute.await_args_list[0].args[0])
+
+    failing = AsyncMock()
+    failing.execute.side_effect = RuntimeError("boom")
+    # La higiene es defensiva: nunca debe romper la liberación de la conexión.
+    await database.release_tenant_context(failing)
+
+
+@pytest.mark.asyncio
+async def _run_role_check(monkeypatch, row):
+    connection = AsyncMock()
+    connection.execute = AsyncMock(return_value=SimpleNamespace(one=Mock(return_value=row)))
+
+    @asynccontextmanager
+    async def connect():
+        yield connection
+
+    monkeypatch.setattr(database, "engine", SimpleNamespace(connect=connect))
+
+
+@pytest.mark.asyncio
+async def test_restricted_role_check_allows_restricted_role(monkeypatch):
+    row = SimpleNamespace(role="sigem_app", rolsuper=False, bypassrls=False)
+    await _run_role_check(monkeypatch, row)
+
+    await database.assert_restricted_db_role()  # no levanta
+
+
+@pytest.mark.asyncio
+async def test_restricted_role_check_warns_in_development(monkeypatch, caplog):
+    row = SimpleNamespace(role="sigem", rolsuper=True, bypassrls=False)
+    await _run_role_check(monkeypatch, row)
+
+    with caplog.at_level("CRITICAL", logger="src.backend.core.database"):
+        await database.assert_restricted_db_role()
+
+    assert any("db_role_bypasses_rls" in message.message for message in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_restricted_role_check_raises_in_production(monkeypatch):
+    row = SimpleNamespace(role="sigem", rolsuper=True, bypassrls=False)
+    await _run_role_check(monkeypatch, row)
+    monkeypatch.setattr(
+        database, "settings", SimpleNamespace(is_production=True, DATABASE_URL="dev")
+    )
+
+    with pytest.raises(RuntimeError, match="bypasea RLS"):
+        await database.assert_restricted_db_role()
 
 
 @pytest.mark.asyncio
@@ -273,14 +330,17 @@ async def test_rbac_normalizes_permissions_and_rejects_missing(monkeypatch):
 async def test_main_lifespan_validates_and_disposes(monkeypatch):
     validate = Mock()
     dispose = AsyncMock()
+    role_check = AsyncMock()
     fake_settings = SimpleNamespace(validate_production=validate)
     fake_engine = SimpleNamespace(dispose=dispose)
     monkeypatch.setattr(main, "settings", fake_settings)
     monkeypatch.setattr(main, "engine", fake_engine)
+    monkeypatch.setattr(main, "assert_restricted_db_role", role_check)
 
     async with main.lifespan(main.app):
         validate.assert_called_once()
 
+    role_check.assert_awaited_once()
     dispose.assert_awaited_once()
 
 

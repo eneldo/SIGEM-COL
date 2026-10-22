@@ -12,6 +12,11 @@ on:
         required: true
         type: string
 
+# Minimo privilegio por defecto; cada job solo solicita lo que usa. El deploy
+# es manual (workflow_dispatch) y queda ademas protegido del concurrency.
+permissions:
+  contents: read
+
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
@@ -211,8 +216,14 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [backend-quality, backend-tests, frontend-quality, security]
+    needs: [backend-quality, backend-tests, frontend-quality, security, docker-build]
     if: github.event_name == 'workflow_dispatch'
+    # Produccion requiere aprobacion: crear el environment "production" en
+    # GitHub con protection rules (required reviewers) antes del primer deploy.
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       - name: Verify deploy secrets
         env:
