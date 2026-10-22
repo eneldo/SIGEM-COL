@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { auth } from '../../lib/api'
+import { isAdminRole } from '../../lib/roles'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { clsx } from 'clsx'
@@ -30,7 +31,7 @@ const requirements = [
 
 export function ChangePasswordPage() {
   const navigate = useNavigate()
-  const { setUser, setToken } = useAuthStore()
+  const { setUser } = useAuthStore()
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -61,12 +62,9 @@ export function ChangePasswordPage() {
       const meRes = await auth.getMe()
       const user = meRes.data
       setUser(user)
-      setToken(localStorage.getItem('token') || '')
       useAuthStore.setState({ mustChangePassword: false })
 
-      const isAdmin = user.roles.some((role) =>
-        ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL'].includes(role),
-      )
+      const isAdmin = isAdminRole(user.roles)
       navigate(isAdmin ? '/admin/dashboard' : '/gestor/dashboard', { replace: true })
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }

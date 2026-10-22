@@ -6,7 +6,7 @@ import uuid
 
 from sqlalchemy import select, text
 
-from src.backend.core.database import AsyncSessionLocal
+from src.backend.core.database import AsyncSessionLocal, release_tenant_context
 from src.backend.core.security import get_password_hash
 from src.backend.models.municipio import Municipio
 from src.backend.models.rol import Rol
@@ -89,6 +89,8 @@ async def bootstrap_admin() -> None:
             )
 
         await session.commit()
+        # Higiene de pool: la conexión vuelve con el contexto tenant limpio.
+        await release_tenant_context(session.connection())
         print(f"Administrator ready: {username} ({municipio_codigo})")
 
 

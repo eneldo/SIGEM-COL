@@ -1,4 +1,3 @@
-version: '3.8'
 
 name: sigem-local-test
 
@@ -50,7 +49,7 @@ services:
     logging: *logging-json
 
   migrate:
-    image: sigem-backend:latest
+    image: sigem-backend:local
     restart: "no"
     env_file:
       - ./.env.local
@@ -65,7 +64,7 @@ services:
     logging: *logging-json
 
   backend:
-    image: sigem-backend:latest
+    image: sigem-backend:local
     build:
       context: ../..
       dockerfile: infra/docker/backend/Dockerfile
@@ -94,7 +93,7 @@ services:
     logging: *logging-json
 
   frontend:
-    image: sigem-frontend:latest
+    image: sigem-frontend:local
     build:
       context: ../..
       dockerfile: infra/docker/frontend/Dockerfile
@@ -119,8 +118,8 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "8080:8080"
-      - "8443:8443"
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8443:8443"
     volumes:
       - ../nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
       - ../tls:/etc/nginx/tls:ro
@@ -143,7 +142,7 @@ services:
     logging: *logging-json
 
   backup:
-    image: sigem-backup:latest
+    image: sigem-backup:local
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.backup
@@ -163,15 +162,24 @@ services:
     logging: *logging-json
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     profiles:
       - monitoring
     restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
+    # Escribe el bearer token de /metrics antes de arrancar Prometheus; el
+    # scrape config lo lee desde bearer_token_file (ver prometheus.yml).
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        printf '%s' "$$METRICS_TOKEN" > /etc/prometheus/metrics_token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --web.console.libraries=/usr/share/prometheus/console_libraries \
+          --web.console.templates=/usr/share/prometheus/consoles
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -182,6 +190,21 @@ services:
       - sigem_internal
     mem_limit: 1g
     cpus: 1.0
+    logging: *logging-json
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles:
+      - monitoring
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - sigem_internal
+    mem_limit: 256m
+    cpus: 0.5
     logging: *logging-json
 
 volumes:

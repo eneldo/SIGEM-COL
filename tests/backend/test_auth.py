@@ -2,7 +2,13 @@
 
 import uuid
 
-from tests.conftest import API_PREFIX, auth_header, create_temp_user, login_as
+from tests.conftest import (
+    API_PREFIX,
+    auth_header,
+    create_temp_user,
+    credential_from_env,
+    login_as,
+)
 
 
 class TestLogin:
@@ -13,7 +19,7 @@ class TestLogin:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -67,7 +73,7 @@ class TestLogin:
             f"{API_PREFIX}/auth/login",
             json={
                 "username": "admin",
-                "password": "SigemAdmin2026!",
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
             },
         )
         assert resp.status_code == 200, resp.text
@@ -134,7 +140,10 @@ class TestPasswordChange:
     """Pruebas de cambio de contraseña."""
 
     def test_change_password_ok(self, api, admin_token):
-        orig, alt = "SigemAdmin2026!", "NewSigemAdmin2026!!"
+        orig, alt = (
+            credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
+            "NewSigemAdmin2026!!",
+        )
 
         def _try_change(current, new):
             return api.post(
@@ -162,7 +171,7 @@ class TestPasswordChange:
         resp = api.post(
             f"{API_PREFIX}/auth/change-password",
             json={
-                "current_password": "SigemAdmin2026!",
+                "current_password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "new_password": "NewPassword2026!!",
                 "confirm_password": "DifferentPassword2026!!",
             },
@@ -188,7 +197,7 @@ class TestPasswordChange:
         resp = api.post(
             f"{API_PREFIX}/auth/change-password",
             json={
-                "current_password": "SigemAdmin2026!",
+                "current_password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "new_password": "NewSigemAdmin2026!!",
                 "confirm_password": "NewSigemAdmin2026!!",
             },

@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.security import get_password_hash
+from ..models.dependencia import Dependencia
 from ..models.rol import Rol
 from ..models.usuario import Usuario
 from ..models.usuario_dependencia import UsuarioDependencia
@@ -45,6 +46,22 @@ async def create_usuario(
         raise ValueError("El nombre completo es obligatorio.")
     if not password:
         raise ValueError("La contraseña es obligatoria.")
+
+    if dependencia_id:
+        # Validación cross-tenant: el cliente propone dependencia_id; RLS oculta
+        # la fila ajena al leerla, pero un INSERT directo de usuario_dependencias
+        # lleva el municipio local y pasaría WITH CHECK dejando una FK hacia
+        # otro municipio (FK no evalúa políticas). Confirmar existencia bajo el
+        # contexto tenant actual antes de insertar la asociación.
+        dependencia_result = await db.execute(
+            select(Dependencia).where(
+                Dependencia.id == dependencia_id,
+                Dependencia.municipio_id == municipio_id,
+                Dependencia.deleted_at.is_(None),
+            )
+        )
+        if dependencia_result.scalar_one_or_none() is None:
+            raise ValueError("La dependencia no existe o no pertenece a este municipio.")
 
     exists_stmt = select(Usuario.id).where(
         and_(

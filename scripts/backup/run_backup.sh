@@ -40,6 +40,12 @@ cp "$MANIFEST" "$BACKUP_DIR/manifest.json"
 
 if [ -n "$BACKUP_RSYNC_TARGET" ]; then
     rsync -a "$DB_FILE" "$EV_FILE" "$MANIFEST" "$BACKUP_RSYNC_TARGET"
+elif [ "${BACKUP_REQUIRE_OFFSITE:-false}" != "false" ]; then
+    echo "error: BACKUP_REQUIRE_OFFSITE is set but BACKUP_RSYNC_TARGET is empty; no off-site copy was made" >&2
+    exit 1
+else
+    echo "warning: BACKUP_RSYNC_TARGET is empty; backups exist only on this host" >&2
+    echo "warning: set BACKUP_RSYNC_TARGET (and BACKUP_REQUIRE_OFFSITE=true to enforce) for off-site copies" >&2
 fi
 
 echo "backup completed"

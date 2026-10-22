@@ -69,7 +69,64 @@ async def test_set_tenant_context_sets_and_clears_values():
     await database.set_tenant_context(session, None)
 
     assert session.execute.await_count == 2
-    assert session.execute.await_args_list[1].args[1] == {"value": ""}
+    # Sin tenant: RESET completo, no set_config con cadena vacía.
+    assert "current_setting" not in str(session.execute.await_args_list[0].args[0])
+    assert "RESET app.current_municipio_id" in str(session.execute.await_args_list[1].args[0])
+
+
+@pytest.mark.asyncio
+async def test_release_tenant_context_resets_and_tolerates_failures():
+    connection = AsyncMock()
+    await database.release_tenant_context(connection)
+    assert "RESET app.current_municipio_id" in str(connection.execute.await_args_list[0].args[0])
+
+    failing = AsyncMock()
+    failing.execute.side_effect = RuntimeError("boom")
+    # La higiene es defensiva: nunca debe romper la liberación de la conexión.
+    await database.release_tenant_context(failing)
+
+
+@pytest.mark.asyncio
+async def _run_role_check(monkeypatch, row):
+    connection = AsyncMock()
+    connection.execute = AsyncMock(return_value=SimpleNamespace(one=Mock(return_value=row)))
+
+    @asynccontextmanager
+    async def connect():
+        yield connection
+
+    monkeypatch.setattr(database, "engine", SimpleNamespace(connect=connect))
+
+
+@pytest.mark.asyncio
+async def test_restricted_role_check_allows_restricted_role(monkeypatch):
+    row = SimpleNamespace(role="sigem_app", rolsuper=False, bypassrls=False)
+    await _run_role_check(monkeypatch, row)
+
+    await database.assert_restricted_db_role()  # no levanta
+
+
+@pytest.mark.asyncio
+async def test_restricted_role_check_warns_in_development(monkeypatch, caplog):
+    row = SimpleNamespace(role="sigem", rolsuper=True, bypassrls=False)
+    await _run_role_check(monkeypatch, row)
+
+    with caplog.at_level("CRITICAL", logger="src.backend.core.database"):
+        await database.assert_restricted_db_role()
+
+    assert any("db_role_bypasses_rls" in message.message for message in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_restricted_role_check_raises_in_production(monkeypatch):
+    row = SimpleNamespace(role="sigem", rolsuper=True, bypassrls=False)
+    await _run_role_check(monkeypatch, row)
+    monkeypatch.setattr(
+        database, "settings", SimpleNamespace(is_production=True, DATABASE_URL="dev")
+    )
+
+    with pytest.raises(RuntimeError, match="bypasea RLS"):
+        await database.assert_restricted_db_role()
 
 
 @pytest.mark.asyncio
@@ -157,31 +214,48 @@ def test_metrics_falls_back_to_normalized_request_path():
 
 @pytest.mark.asyncio
 async def test_request_id_middleware_uses_supplied_and_generated_ids():
-    call_next = AsyncMock(side_effect=[Response(), Response()])
-    supplied = make_request(headers={"X-Request-ID": "known"})
+    call_next = AsyncMock(side_effect=[Response(), Response(), Response()])
+    supplied = make_request(headers={"X-Request-ID": "known-request_123"})
+    invalid = make_request(headers={"X-Request-ID": "bad\r\nvalue"})
     generated = make_request()
     layer = middleware.RequestIDMiddleware(Mock())
 
     first = await layer.dispatch(supplied, call_next)
-    second = await layer.dispatch(generated, call_next)
+    second = await layer.dispatch(invalid, call_next)
+    third = await layer.dispatch(generated, call_next)
 
-    assert first.headers["X-Request-ID"] == "known"
-    assert second.headers["X-Request-ID"] == generated.state.request_id
-    assert second.headers["X-Request-ID"]
+    assert first.headers["X-Request-ID"] == "known-request_123"
+    assert second.headers["X-Request-ID"] == invalid.state.request_id
+    assert second.headers["X-Request-ID"] != "bad\r\nvalue"
+    assert third.headers["X-Request-ID"] == generated.state.request_id
+    assert len(third.headers["X-Request-ID"]) == 36
 
 
-def test_rate_limiter_cleanup_removes_expired_and_preserves_recent(monkeypatch):
-    limiter = middleware.RateLimitMiddleware(Mock(), window_seconds=10)
-    limiter._last_cleanup = 0
-    limiter.counters["expired"] = [1]
-    limiter.counters["recent"] = [95]
-    monkeypatch.setattr(middleware.time, "time", Mock(return_value=100))
+def test_rate_limiter_cleanup_removes_expired_and_preserves_recent():
+    from src.backend.core.rate_limit import InMemoryRateLimitBackend
 
-    limiter._cleanup()
-    limiter._cleanup()
+    backend = InMemoryRateLimitBackend()
+    backend._last_cleanup = 0
+    backend.counters["expired"] = [1]
+    backend.counters["recent"] = [95]
 
-    assert "expired" not in limiter.counters
-    assert limiter.counters["recent"] == [95]
+    class _FixedTime:
+        @staticmethod
+        def time() -> int:
+            return 100
+
+    import time as time_module
+
+    original = time_module.time
+    time_module.time = _FixedTime.time
+    try:
+        backend._cleanup(10)
+        backend._cleanup(10)
+    finally:
+        time_module.time = original
+
+    assert "expired" not in backend.counters
+    assert backend.counters["recent"] == [95]
 
 
 @pytest.mark.asyncio
@@ -256,14 +330,17 @@ async def test_rbac_normalizes_permissions_and_rejects_missing(monkeypatch):
 async def test_main_lifespan_validates_and_disposes(monkeypatch):
     validate = Mock()
     dispose = AsyncMock()
+    role_check = AsyncMock()
     fake_settings = SimpleNamespace(validate_production=validate)
     fake_engine = SimpleNamespace(dispose=dispose)
     monkeypatch.setattr(main, "settings", fake_settings)
     monkeypatch.setattr(main, "engine", fake_engine)
+    monkeypatch.setattr(main, "assert_restricted_db_role", role_check)
 
     async with main.lifespan(main.app):
         validate.assert_called_once()
 
+    role_check.assert_awaited_once()
     dispose.assert_awaited_once()
 
 

@@ -308,7 +308,8 @@ async def test_create_usuario_translates_integrity_error():
 
 async def test_create_usuario_with_valid_role_and_dependency():
     mid, rol_id, dependencia_id = uuid4(), uuid4(), uuid4()
-    db = database(Result(None), Result(None), Result(role(id=rol_id)))
+    dependencia = SimpleNamespace(id=dependencia_id, municipio_id=mid)
+    db = database(Result(dependencia), Result(None), Result(None), Result(role(id=rol_id)))
 
     with patch.object(us, "get_password_hash", return_value="hashed") as hasher:
         result = await us.create_usuario(
@@ -328,6 +329,17 @@ async def test_create_usuario_with_valid_role_and_dependency():
     assert db.add.call_count == 3
     assert db.flush.await_count == 2
     hasher.assert_called_once_with("Secret123!")
+
+
+async def test_create_usuario_rejects_dependencia_de_otro_municipio():
+    mid, dependencia_id = uuid4(), uuid4()
+    db = database(Result(None))
+
+    with pytest.raises(ValueError, match="La dependencia no existe"):
+        await us.create_usuario(db, mid, valid_user_payload(dependencia_id=dependencia_id))
+
+    # Rechazo antes de tocar qualquer usuario/rol: solo la verificación consultó.
+    db.flush.assert_not_awaited()
 
 
 async def test_create_usuario_ignores_missing_role_and_uses_defaults():

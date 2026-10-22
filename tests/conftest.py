@@ -12,10 +12,24 @@ import asyncio
 import os
 import tempfile
 import uuid
+from pathlib import Path
 
 # tests/manual/ contiene scripts funcionales con código a nivel de módulo
 # que se conectan a backend Docker; no deben coleccionarse por pytest.
 collect_ignore = ["manual"]
+
+# BD compartida del entorno: si el repositorio tiene `.env` con DATABASE_URL
+# (p. ej. el rol de aplicación local), los tests la usan; solo si no existe
+# se cae al stack Docker por defecto. Se aplica ANTES de los defaults de prueba.
+_REPO_ENV = Path(__file__).resolve().parents[1] / ".env"
+if _REPO_ENV.exists():
+    for _line in _REPO_ENV.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line.startswith("DATABASE_URL="):
+            _value = _line.split("=", 1)[1].strip().strip('"').strip("'")
+            if _value:
+                os.environ.setdefault("DATABASE_URL", _value)
+            break
 
 _TEST_ENV_DEFAULTS = {
     "ENVIRONMENT": "development",
@@ -44,7 +58,12 @@ LIVE_URL = os.getenv("SIGEM_API_URL")
 BASE_URL = LIVE_URL or "http://testserver"
 API_PREFIX = f"{BASE_URL}/api/v1"
 
-ADMIN_PASSWORD = "SigemAdmin2026!"
+
+def credential_from_env(label: str) -> str:
+    value = os.getenv(label)
+    if not value:
+        pytest.skip(f"{label} is required for credential-dependent integration tests")
+    return value
 
 
 def _totp(secret: str) -> str:
@@ -63,7 +82,7 @@ def auth_header(token: str) -> dict:
 def create_temp_user(api, admin_token, *, rol_id=None, username=None, password=None):
     """Create an isolated temporary user (soft-deleted afterwards)."""
     username = username or unique_username()
-    password = password or "TempMfaPassword2026!!"
+    password = password or f"T3st-{uuid.uuid4().hex}-Aa!"
     payload = {
         "codigo": uuid.uuid4().hex[:10].upper(),
         "username": username,
@@ -166,7 +185,7 @@ def admin_token(api):
         "/api/v1/auth/login",
         json={
             "username": "admin",
-            "password": ADMIN_PASSWORD,
+            "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
             "municipio_codigo": "00000",
         },
     )
@@ -182,7 +201,7 @@ def admin_token(api):
             "/api/v1/auth/login",
             json={
                 "username": "admin",
-                "password": ADMIN_PASSWORD,
+                "password": credential_from_env("SIGEM_TEST_ADMIN_PASSWORD"),
                 "municipio_codigo": "00000",
             },
         )
@@ -218,7 +237,7 @@ def gestor_credentials(api, admin_token):
     dependencia_id = _first_item(deps, "catalogos/dependencias")["id"]
 
     username = unique_username("tges")
-    password = "GestorTestPassword2026!!"
+    password = f"T3st-{uuid.uuid4().hex}-Aa!"
     created = api.post(
         f"{API_PREFIX}/gestores",
         json={

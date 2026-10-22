@@ -8,6 +8,10 @@ from pydantic import BaseModel, Field
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=1, max_length=128)
+    # Tenant del login. Opcional: cuando se omite, el backend resuelve el
+    # municipio si el despliegue tiene exactamente uno activo; con varios
+    # activos responde 400 MUNICIPIO_REQUERIDO (el SPA debe enviarlo).
+    municipio_codigo: str | None = Field(None, min_length=1, max_length=10)
 
 
 class TokenResponse(BaseModel):
@@ -20,7 +24,7 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):

@@ -1,5 +1,5 @@
 # Frontend Dockerfile
-FROM node:20-alpine AS builder
+FROM node:20.19.5-alpine3.22 AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY src/frontend .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:1.29.1-alpine3.22
 
 # Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html

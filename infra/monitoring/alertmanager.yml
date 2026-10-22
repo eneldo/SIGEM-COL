@@ -1,0 +1,39 @@
+global:
+  resolve_timeout: 5m
+
+# Ruta de notificaciones para SIGEM-COL. Este archivo es un punto de partida:
+# ANTES del primer despliegue en produccion, sustituye los placeholders
+# (direcciones de correo y SMTP) por los del municipio u operador responsable.
+# Alertmanager no hace sustitucion de variables, por lo que los valores se
+# editan aqui o se gestiona el archivo como plantilla del despliegue.
+route:
+  receiver: ops-default
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: ops-critical
+      repeat_interval: 1h
+
+receivers:
+  - name: "ops-default"
+    email_configs:
+      - to: "ops@your-domain.example"
+        from: "alertmanager@your-domain.example"
+        smarthost: "smtp.your-domain.example:587"
+        auth_username: "alertmanager@your-domain.example"
+        auth_password: "CHANGE_ME_SMTP_PASSWORD"
+        headers:
+          Subject: '[SIGEM] {{ .GroupLabels.alertname }} ({{ .CommonLabels.severity }})'
+  - name: "ops-critical"
+    email_configs:
+      - to: "ops@your-domain.example"
+        from: "alertmanager@your-domain.example"
+        smarthost: "smtp.your-domain.example:587"
+        auth_username: "alertmanager@your-domain.example"
+        auth_password: "CHANGE_ME_SMTP_PASSWORD"
+        headers:
+          Subject: '[SIGEM CRÍTICO] {{ .GroupLabels.alertname }}'

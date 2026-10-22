@@ -1,8 +1,8 @@
 import asyncio
+import hmac
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from urllib.parse import quote, urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,10 +13,12 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from .api.v1.router import api_router
 from .core.config import settings
-from .core.database import AsyncSessionLocal, RLSMiddleware, engine
+from .core.database import AsyncSessionLocal, RLSMiddleware, assert_restricted_db_role, engine
 from .core.logging import setup_logging
 from .core.metrics import MetricsMiddleware, render_metrics
 from .core.middleware import AuditMiddleware, RateLimitMiddleware, RequestIDMiddleware
+from .core.rate_limit import build_rate_limit_backend
+from .core.redis_client import redis_url_with_auth
 
 HEALTH_CHECK_TIMEOUT_SECONDS = 2.0
 
@@ -27,6 +29,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings.validate_production()
+    # Verifica que la conexión no bypasea RLS (hard-fail en producción,
+    # CRITICAL en desarrollo mientras el runtime local use el rol de migración).
+    await assert_restricted_db_role()
     yield
     await engine.dispose()
 
@@ -52,6 +57,9 @@ if settings.RATE_LIMIT_ENABLED:
         default_max_requests=settings.RATE_LIMIT_DEFAULT_REQUESTS,
         login_max_requests=settings.RATE_LIMIT_LOGIN_ATTEMPTS,
         window_seconds=settings.RATE_LIMIT_WINDOW,
+        login_window_seconds=settings.RATE_LIMIT_LOGIN_WINDOW_MINUTES * 60,
+        fail_closed_login=settings.RATE_LIMIT_FAIL_CLOSED_LOGIN,
+        backend=build_rate_limit_backend(settings.is_production, settings.REDIS_URL),
     )
 app.add_middleware(
     CORSMiddleware,
@@ -75,8 +83,16 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = (
+        "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
+    if "X-XSS-Protection" in response.headers:
+        del response.headers["X-XSS-Protection"]
     if not settings.DEBUG:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
@@ -97,13 +113,7 @@ async def _check_database() -> str:
 
 
 def _redis_url_with_auth() -> str:
-    url = settings.REDIS_URL
-    password = settings.REDIS_PASSWORD
-    if password and not urlparse(url).password:
-        scheme, sep, rest = url.partition("://")
-        if sep:
-            return f"{scheme}://:{quote(password, safe='')}@{rest}"
-    return url
+    return redis_url_with_auth()
 
 
 async def _check_redis() -> str:
@@ -178,7 +188,8 @@ async def metrics_endpoint(request: Request) -> Response:
     token = settings.METRICS_TOKEN
     if token:
         authorization = request.headers.get("Authorization", "")
-        if authorization != f"Bearer {token}":
+        expected = f"Bearer {token}"
+        if not hmac.compare_digest(authorization, expected):
             raise HTTPException(
                 status_code=401,
                 detail="Token de métricas inválido o ausente",

@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pyotp
 from sqlalchemy import and_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
@@ -15,6 +16,8 @@ from ..core.security import (
     create_mfa_token,
     create_refresh_token,
     decode_token,
+    decrypt_totp_secret,
+    encrypt_totp_secret,
     generate_temporary_password,
     get_password_hash,
     verify_password,
@@ -39,20 +42,50 @@ class AuthService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> dict[str, Any] | None:
-        # Municipality is mandatory: it scopes the login lookup under RLS.
-        if not municipio_codigo:
-            return None
+        """Resuelve el municipio y autentica dentro de su tenant.
 
-        # municipios is a global table (no RLS), safe to query unscoped.
-        # Use populate_existing=True to avoid stale ORM cache.
-        result = await self.db.execute(
-            select(Municipio)
-            .where(Municipio.codigo == municipio_codigo, Municipio.estado == "ACTIVO")
-            .execution_options(populate_existing=True)
-        )
-        municipio = result.scalar_one_or_none()
-        if not municipio:
-            return None
+        Resolución del tenant (nunca hardcodeada):
+        - Con `municipio_codigo`, se valida que exista y esté ACTIVO; si no,
+          el login falla sin registrar intento (no colabora con enumeración).
+        - Sin código, se resuelve el municipio si el despliegue tiene
+          exactamente uno ACTIVO; con más de uno se exige selección desde el
+          cliente con el error MUNICIPIO_REQUERIDO.
+
+        municipios es global (sin RLS), seguro de consultar sin contexto.
+        """
+        municipio: Municipio | None = None
+        if municipio_codigo:
+            result = await self.db.execute(
+                select(Municipio)
+                .where(
+                    Municipio.codigo == municipio_codigo,
+                    Municipio.estado == "ACTIVO",
+                )
+                .execution_options(populate_existing=True)
+            )
+            municipio = result.scalar_one_or_none()
+            if not municipio:
+                return None
+        else:
+            activos = (
+                (
+                    await self.db.execute(
+                        select(Municipio).where(
+                            Municipio.estado == "ACTIVO",
+                            Municipio.deleted_at.is_(None),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if len(activos) == 1:
+                municipio = activos[0]
+            else:
+                raise ValueError(
+                    "MUNICIPIO_REQUERIDO: este despliegue tiene varios "
+                    "municipios activos; indique municipio_codigo en el login."
+                )
 
         # Scope this session to the municipality before touching any
         # RLS-protected table (usuarios, intentos_login, sesiones, ...).
@@ -331,8 +364,11 @@ class AuthService:
         if not user or not user.mfa_activo or not user.mfa_secret:
             return None
 
-        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+        secret = decrypt_totp_secret(str(user.mfa_secret))
+        if not pyotp.TOTP(secret).verify(code, valid_window=1):
             return None
+        if not str(user.mfa_secret).startswith("enc:v1:"):
+            user.mfa_secret = encrypt_totp_secret(secret)  # type: ignore[assignment]
 
         roles = await self.get_user_roles(uuid.UUID(str(user.id)))
         token_data = {
@@ -352,22 +388,14 @@ class AuthService:
         if user.mfa_activo:
             return {"mfa_activo": True, "pending": False}
         if user.mfa_secret:
-            totp = pyotp.TOTP(str(user.mfa_secret))
-            return {
-                "mfa_activo": False,
-                "pending": True,
-                "secret": user.mfa_secret,
-                "qr_code_url": totp.provisioning_uri(
-                    name=str(user.username), issuer_name=settings.MFA_ISSUER
-                ),
-            }
+            return {"mfa_activo": False, "pending": True}
         return {"mfa_activo": False, "pending": False}
 
     async def mfa_setup(self, user: Usuario) -> dict[str, Any]:
         if user.mfa_activo:
             raise ValueError("MFA ya está activo; desactívelo antes de volver a configurarlo.")
         secret = pyotp.random_base32()
-        user.mfa_secret = secret  # type: ignore[assignment]
+        user.mfa_secret = encrypt_totp_secret(secret)  # type: ignore[assignment]
         user.mfa_activo = False  # type: ignore[assignment]
         await self.db.commit()
         totp = pyotp.TOTP(secret)
@@ -381,8 +409,11 @@ class AuthService:
     async def mfa_verify(self, user: Usuario, code: str) -> bool:
         if not user.mfa_secret:
             raise ValueError("No hay un secreto MFA pendiente; ejecute setup primero.")
-        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+        secret = decrypt_totp_secret(str(user.mfa_secret))
+        if not pyotp.TOTP(secret).verify(code, valid_window=1):
             return False
+        if not str(user.mfa_secret).startswith("enc:v1:"):
+            user.mfa_secret = encrypt_totp_secret(secret)  # type: ignore[assignment]
         user.mfa_activo = True  # type: ignore[assignment]
         await self.db.commit()
         return True
@@ -392,7 +423,8 @@ class AuthService:
             raise ValueError("MFA no está activo en esta cuenta.")
         if not verify_password(password, str(user.password_hash)):
             return False
-        if not pyotp.TOTP(str(user.mfa_secret)).verify(code, valid_window=1):
+        secret = decrypt_totp_secret(str(user.mfa_secret))
+        if not pyotp.TOTP(secret).verify(code, valid_window=1):
             return False
         user.mfa_activo = False  # type: ignore[assignment]
         user.mfa_secret = None  # type: ignore[assignment]
@@ -475,4 +507,4 @@ class AuthService:
         )
         if commit:
             await self.db.commit()
-        return result.rowcount
+        return cast(CursorResult[Any], result).rowcount

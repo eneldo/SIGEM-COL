@@ -3,11 +3,17 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.config import settings
 from ...core.database import get_db, get_db_with_rls
 from ...core.security import decode_token
+from ...core.session_cookies import (
+    clear_refresh_cookie,
+    read_refresh_cookie,
+    set_refresh_cookie,
+)
 from ...schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -48,10 +54,26 @@ PASSWORD_CHANGE_ALLOWED_SUFFIXES = (
 # complete ambos pasos (password y MFA) sin quedarse sin salida.
 MFA_ALLOWED_SUFFIXES = PASSWORD_CHANGE_ALLOWED_SUFFIXES
 
-# Roles que deben operar con MFA activo. SUPERADMIN_PLATAFORMA queda exento:
-# es la cuenta de plataforma de arranque y el estado dev documentado trabaja
-# sin MFA (ver context/decisions.md).
-MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL",)
+MFA_ENFORCED_ROLES = ("ADMINISTRADOR_MUNICIPAL", "SUPERADMIN_PLATAFORMA")
+
+
+def _issue_session(response: Response, result: dict[str, Any]) -> None:
+    """Entrega el refresh token en cookie HttpOnly y lo retira del cuerpo."""
+    refresh_token = result.pop("refresh_token", None)
+    if refresh_token:
+        set_refresh_cookie(response, refresh_token)
+
+
+def _validate_refresh_origin(request: Request) -> None:
+    """Defensa CSRF: la cookie de refresh solo se acepta desde origenes permitidos."""
+    origin = request.headers.get("Origin")
+    if origin is None:
+        return
+    if origin not in settings.CORS_ORIGINS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Origen no permitido para renovar la sesión",
+        )
 
 
 async def get_current_user_from_token(
@@ -72,18 +94,27 @@ async def get_current_user_from_token(
             detail="Token inválido o expirado",
         )
 
+    try:
+        user_id = str(uuid.UUID(payload["sub"]))
+        municipio_id = str(uuid.UUID(payload["municipio_id"]))
+        sid = str(uuid.UUID(payload["sid"])) if payload.get("sid") else None
+    except (AttributeError, KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+        ) from None
+
     auth_service = AuthService(db)
 
     # A revoked or expired session invalidates its access token immediately,
     # even when the JWT itself is still signature-valid.
-    sid = payload.get("sid")
     if sid is not None and not await auth_service.get_active_session(sid):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Sesión revocada o expirada",
         )
 
-    user = await auth_service.get_current_user(payload["sub"], payload["municipio_id"])
+    user = await auth_service.get_current_user(user_id, municipio_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -117,7 +148,7 @@ async def get_current_user_from_token(
     permissions = await auth_service.get_user_permissions(user.id)  # type: ignore[arg-type]
     return {
         "user": user,
-        "municipio_id": payload["municipio_id"],
+        "municipio_id": municipio_id,
         "roles": roles,
         "permissions": permissions,
         "sid": payload.get("sid"),
@@ -128,17 +159,19 @@ async def get_current_user_from_token(
 async def login(
     login_data: LoginRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     auth_service = AuthService(db)
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
 
-    # Usar un municipio por defecto (ej. '00000') para compatibilidad
+    # El municipio se resuelve del cuerpo de la petición (o por proceso de
+    # resolución único activo en authenticate_user), no hardcodeado.
     result = await auth_service.authenticate_user(
         username=login_data.username,
         password=login_data.password,
-        municipio_codigo="00000",
+        municipio_codigo=login_data.municipio_codigo,
         ip_address=ip_address,
         user_agent=user_agent,
     )
@@ -160,6 +193,7 @@ async def login(
         user_agent=user_agent,
     )
 
+    _issue_session(response, result)
     return result
 
 
@@ -283,6 +317,7 @@ async def mfa_verify(
 async def mfa_login(
     data: MFALoginRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     auth_service = AuthService(db)
@@ -310,6 +345,7 @@ async def mfa_login(
         ip_address=ip_address,
         user_agent=user_agent,
     )
+    _issue_session(response, result)
     return result
 
 
@@ -343,16 +379,27 @@ async def mfa_disable(
 
 @router.post("/refresh")
 async def refresh_tokens(
-    data: RefreshTokenRequest,
     request: Request,
+    response: Response,
+    data: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    _validate_refresh_origin(request)
+
+    refresh_token = read_refresh_cookie(request) or data.refresh_token
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesión no disponible. Inicie sesión nuevamente.",
+        )
+
     auth_service = AuthService(db)
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent", "")
 
-    result = await auth_service.refresh_session(data.refresh_token, ip_address, user_agent)
+    result = await auth_service.refresh_session(refresh_token, ip_address, user_agent)
     if not result:
+        clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token inválido o expirado.",
@@ -367,11 +414,13 @@ async def refresh_tokens(
         ip_address=ip_address,
         user_agent=user_agent,
     )
+    _issue_session(response, result)
     return result
 
 
 @router.post("/logout")
 async def logout(
+    response: Response,
     current_user: dict[str, Any] = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -383,6 +432,8 @@ async def logout(
         await auth_service.revoke_session(uuid.UUID(sid), user.id)
     else:
         await auth_service.revoke_all_sessions(user.id)
+
+    clear_refresh_cookie(response)
 
     # Log logout
     audit_service = AuditService(db)

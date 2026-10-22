@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from src.backend.core import security
 from src.backend.services import auth_service as auth_module
 from src.backend.services.auth_service import AuthService
 
@@ -79,9 +80,43 @@ def municipio(ids):
 
 
 @pytest.mark.asyncio
-async def test_authenticate_requires_municipio(service, db):
-    assert await service.authenticate_user("alice", "password") is None
-    db.execute.assert_not_awaited()
+async def test_authenticate_requiere_seleccion_cuando_hay_varios_municipios(service, db):
+    multi = SimpleNamespace(
+        scalars=lambda: SimpleNamespace(
+            all=lambda: [SimpleNamespace(id=uuid.uuid4()), SimpleNamespace(id=uuid.uuid4())]
+        )
+    )
+    db.execute.return_value = multi
+
+    with pytest.raises(ValueError, match="MUNICIPIO_REQUERIDO"):
+        await service.authenticate_user("alice", "password")
+
+    assert db.commit.await_count == 0
+    assert db.add.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_authenticate_resuelve_municipio_unico_sin_codigo(
+    service, db, ids, municipio, user, monkeypatch
+):
+    single = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [municipio]))
+    db.execute.side_effect = [single, ScalarResult(user)]
+    tenant = AsyncMock()
+    monkeypatch.setattr(auth_module, "set_tenant_context", tenant)
+    monkeypatch.setattr(auth_module, "verify_password", lambda *_: True)
+    user.mfa_activo = False
+
+    service.get_user_roles = AsyncMock(return_value=["GESTOR"])
+    service._issue_tokens = AsyncMock(
+        return_value={"user": {"municipio_id": municipio.id, "id": user.id}}
+    )
+
+    result = await service.authenticate_user("alice", "password", None, "127.0.0.1", "agent")
+
+    assert result is not None
+    tenant.assert_awaited_once_with(db, municipio.id)
+    tokens_payload = service._issue_tokens.call_args
+    assert str(tokens_payload.args[1]) == str(municipio.id)
 
 
 @pytest.mark.asyncio
@@ -450,6 +485,32 @@ async def test_mfa_login_issues_tokens(service, user, ids, monkeypatch):
     service._issue_tokens.assert_awaited_once()
 
 
+def test_totp_secret_encryption_is_authenticated_and_supports_legacy(monkeypatch):
+    monkeypatch.setattr(
+        security.settings,
+        "ENCRYPTION_KEY",
+        "test-encryption-key-with-at-least-32-bytes",
+    )
+    encrypted = security.encrypt_totp_secret("LEGACYSECRET")
+
+    assert encrypted.startswith("enc:v1:")
+    assert "LEGACYSECRET" not in encrypted
+    assert security.decrypt_totp_secret(encrypted) == "LEGACYSECRET"
+    assert security.decrypt_totp_secret("LEGACYSECRET") == "LEGACYSECRET"
+
+    tampered = encrypted[:-1] + ("A" if encrypted[-1] != "A" else "B")
+    with pytest.raises(ValueError, match="secreto MFA"):
+        security.decrypt_totp_secret(tampered)
+
+
+@pytest.mark.asyncio
+async def test_mfa_status_never_returns_pending_secret(service, user):
+    user.mfa_activo = False
+    user.mfa_secret = "legacy-secret"
+
+    assert await service.mfa_status(user) == {"mfa_activo": False, "pending": True}
+
+
 @pytest.mark.asyncio
 async def test_mfa_status_variants(service, user, monkeypatch):
     user.mfa_activo = True
@@ -461,12 +522,7 @@ async def test_mfa_status_variants(service, user, monkeypatch):
     user.mfa_activo = False
     user.mfa_secret = "secret"
     pending = await service.mfa_status(user)
-    assert pending == {
-        "mfa_activo": False,
-        "pending": True,
-        "secret": "secret",
-        "qr_code_url": "otpauth://test",
-    }
+    assert pending == {"mfa_activo": False, "pending": True}
 
     user.mfa_secret = None
     assert await service.mfa_status(user) == {"mfa_activo": False, "pending": False}
@@ -490,7 +546,8 @@ async def test_mfa_setup_creates_pending_secret(service, db, user, monkeypatch):
         "secret": "NEWSECRET",
         "qr_code_url": "otpauth://setup",
     }
-    assert user.mfa_secret == "NEWSECRET"
+    assert user.mfa_secret != "NEWSECRET"
+    assert auth_module.decrypt_totp_secret(user.mfa_secret) == "NEWSECRET"
     assert user.mfa_activo is False
     db.commit.assert_awaited_once()
 

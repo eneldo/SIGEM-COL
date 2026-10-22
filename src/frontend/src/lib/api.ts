@@ -52,18 +52,39 @@ import type {
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '',
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
+let accessToken: string | null = null
 let redirectingToLogin = false
+
+export function setAccessToken(token: string | null) {
+  accessToken = token
+}
+
+export async function refreshAccessToken(): Promise<string | null> {
+  const response = await api.post<LoginResponse>('/api/v1/auth/refresh', {})
+  const token = response.data?.access_token ?? null
+  setAccessToken(token)
+  return token
+}
+
+export function clearAccessToken() {
+  accessToken = null
+  redirectingToLogin = false
+  localStorage.removeItem('token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user')
+  localStorage.removeItem('sigem-auth')
+}
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
     }
     return config
   },
@@ -72,14 +93,32 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const isLoginRequest = error.config?.url === '/api/v1/auth/login'
+  async (error) => {
+    const config = error.config as (typeof error.config & { _retry?: boolean }) | undefined
+    const isLoginRequest = config?.url === '/api/v1/auth/login'
+    const isRefreshRequest = config?.url === '/api/v1/auth/refresh'
 
-    if (error.response?.status === 401 && !isLoginRequest && !redirectingToLogin) {
+    if (error.response?.status === 401 && !isLoginRequest && !isRefreshRequest && config && !config._retry) {
+      config._retry = true
+      try {
+        const token = await refreshAccessToken()
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
+          return api(config)
+        }
+      } catch {
+        clearAccessToken()
+      }
+    }
+
+    if (
+      error.response?.status === 401 &&
+      !isLoginRequest &&
+      !isRefreshRequest &&
+      !redirectingToLogin
+    ) {
+      clearAccessToken()
       redirectingToLogin = true
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('sigem-auth')
       window.location.replace('/login')
     }
 

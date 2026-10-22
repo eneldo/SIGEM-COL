@@ -4,8 +4,16 @@ title = "SIGEM Colombia"
 useDefault = true
 
 [allowlist]
-description = "Known development and test placeholder credentials committed deliberately in fixtures, docs and example configuration; none grants access to any real system"
+description = "Non-secret negative-test inputs"
+regexTarget = "secret"
 regexes = [
-  '''manything_12345''',
-  '''anything_12345''',
+  '''^(manything|anything)_12345$''',
+  '''^clave-de-prueba-local$''',
+]
+
+# Hallazgos HISTORICOS: credencial de test (password de fixture) en un commit
+# anterior; el archivo ya no la contiene en HEAD. Allowlist por commit para que
+# gitleaks-action no falle sobre el escaneo con fetch-depth: 0.
+commits = [
+  "abde3f3b21c1c9d5897c9e1ee7d1331c27a54e59",
 ]

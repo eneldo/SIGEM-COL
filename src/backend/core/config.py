@@ -28,7 +28,11 @@ _DEV_DATABASE_PASSWORD_MARKERS = (
 
 _PRODUCTION_ENVIRONMENTS = frozenset({"production", "prod"})
 _PLACEHOLDER_MARKERS = ("change_me", "changeme", ".example", "example.com")
-_ALGORITMOS_JWT_PERMITIDOS = frozenset({"HS256", "HS384", "HS512"})
+_ALLOWED_JWT_ALGORITHMS = frozenset({"HS256", "HS384", "HS512"})
+_ALLOWED_COOKIE_SAMESITE = frozenset({"strict", "lax"})
+_MIN_ACCESS_TOKEN_MINUTES = 5
+_MAX_ACCESS_TOKEN_MINUTES = 60
+_MAX_REFRESH_TOKEN_DAYS = 30
 
 
 def _contains_placeholder(value: str) -> bool:
@@ -56,6 +60,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = Field(default="sigem", alias="POSTGRES_USER")
     POSTGRES_PASSWORD: str = Field(default="sigem_password", alias="POSTGRES_PASSWORD")
     POSTGRES_DB: str = Field(default="sigem_db", alias="POSTGRES_DB")
+    SIGEM_APP_PASSWORD: str = Field(default="", alias="SIGEM_APP_PASSWORD")
 
     # Redis
     REDIS_URL: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
@@ -65,6 +70,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(default=DEV_SECRET_KEY_PLACEHOLDER, alias="SECRET_KEY")
     JWT_SECRET_KEY: str = Field(default=DEV_JWT_SECRET_PLACEHOLDER, alias="JWT_SECRET_KEY")
     JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    ENCRYPTION_KEY: str = Field(default=DEV_SECRET_KEY_PLACEHOLDER, alias="ENCRYPTION_KEY")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
 
@@ -87,7 +93,12 @@ class Settings(BaseSettings):
         default=15, alias="RATE_LIMIT_LOGIN_WINDOW_MINUTES"
     )
     RATE_LIMIT_WINDOW: int = Field(default=60, alias="RATE_LIMIT_WINDOW")
+    RATE_LIMIT_FAIL_CLOSED_LOGIN: bool = Field(default=True, alias="RATE_LIMIT_FAIL_CLOSED_LOGIN")
     TRUST_PROXY_HEADERS: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")
+
+    # Refresh token delivery (HttpOnly cookie)
+    REFRESH_COOKIE_SECURE: bool = Field(default=True, alias="REFRESH_COOKIE_SECURE")
+    REFRESH_COOKIE_SAMESITE: str = Field(default="strict", alias="REFRESH_COOKIE_SAMESITE")
 
     # Storage
     STORAGE_PATH: str = Field(default="/data/evidencias", alias="STORAGE_PATH")
@@ -136,7 +147,7 @@ class Settings(BaseSettings):
         if self.DEBUG:
             problems.append("DEBUG debe ser 'false' en producción")
 
-        for field_name in ("SECRET_KEY", "JWT_SECRET_KEY"):
+        for field_name in ("SECRET_KEY", "JWT_SECRET_KEY", "ENCRYPTION_KEY"):
             value = str(getattr(self, field_name) or "")
             if (
                 len(value) < 32
@@ -150,15 +161,46 @@ class Settings(BaseSettings):
 
         if self.SECRET_KEY == self.JWT_SECRET_KEY:
             problems.append("SECRET_KEY y JWT_SECRET_KEY deben ser diferentes")
+        if str(self.ENCRYPTION_KEY) in {self.SECRET_KEY, self.JWT_SECRET_KEY}:
+            problems.append("ENCRYPTION_KEY debe ser distinta de SECRET_KEY y JWT_SECRET_KEY")
 
-        # La libreria JWT solo se admite con firma simetrica HS*. Con una clave
-        # asimetrica (RSA/EC) queda expuesta a CVE-2026-85394: una clave publica
-        # DER sin armadura se aceptaria como secreto HMAC y permitiria falsificar
-        # tokens. Restringir el algoritmo hace la vulnerabilidad inaplicable.
-        if (self.JWT_ALGORITHM or "").strip().upper() not in _ALGORITMOS_JWT_PERMITIDOS:
+        if self.JWT_ALGORITHM not in _ALLOWED_JWT_ALGORITHMS:
+            problems.append("JWT_ALGORITHM debe pertenecer a la lista de algoritmos permitidos")
+
+        if not (
+            _MIN_ACCESS_TOKEN_MINUTES
+            <= self.ACCESS_TOKEN_EXPIRE_MINUTES
+            <= _MAX_ACCESS_TOKEN_MINUTES
+        ):
             problems.append(
-                "JWT_ALGORITHM debe ser uno de "
-                f"{sorted(_ALGORITMOS_JWT_PERMITIDOS)} (firma simetrica)"
+                "ACCESS_TOKEN_EXPIRE_MINUTES debe estar entre "
+                f"{_MIN_ACCESS_TOKEN_MINUTES} y {_MAX_ACCESS_TOKEN_MINUTES}"
+            )
+
+        if not 1 <= self.REFRESH_TOKEN_EXPIRE_DAYS <= _MAX_REFRESH_TOKEN_DAYS:
+            problems.append(
+                f"REFRESH_TOKEN_EXPIRE_DAYS debe estar entre 1 y {_MAX_REFRESH_TOKEN_DAYS}"
+            )
+
+        if (
+            min(
+                self.RATE_LIMIT_DEFAULT_REQUESTS,
+                self.RATE_LIMIT_LOGIN_ATTEMPTS,
+                self.RATE_LIMIT_WINDOW,
+                self.RATE_LIMIT_LOGIN_WINDOW_MINUTES,
+            )
+            < 1
+        ):
+            problems.append("Los limites de rate limiting deben ser valores positivos")
+
+        if not self.REFRESH_COOKIE_SECURE:
+            problems.append("REFRESH_COOKIE_SECURE debe estar activo en producción")
+        if self.REFRESH_COOKIE_SAMESITE not in _ALLOWED_COOKIE_SAMESITE:
+            problems.append("REFRESH_COOKIE_SAMESITE debe ser 'strict' o 'lax'")
+
+        if not self.TRUST_PROXY_HEADERS:
+            problems.append(
+                "TRUST_PROXY_HEADERS debe estar activo en producción (el tráfico llega por nginx)"
             )
 
         database_url = (self.DATABASE_URL or "").strip()
@@ -171,6 +213,8 @@ class Settings(BaseSettings):
             problems.append("DATABASE_URL contiene una contraseña de desarrollo")
         elif parsed_database.username != "sigem_app":
             problems.append("DATABASE_URL debe usar el rol restringido sigem_app")
+        elif self.SIGEM_APP_PASSWORD and parsed_database.password != self.SIGEM_APP_PASSWORD:
+            problems.append("SIGEM_APP_PASSWORD debe coincidir con la contraseña de DATABASE_URL")
 
         redis_url = (self.REDIS_URL or "").strip()
         if not self.REDIS_PASSWORD or _contains_placeholder(self.REDIS_PASSWORD):

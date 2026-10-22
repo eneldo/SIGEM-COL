@@ -177,7 +177,7 @@ describe('UsuariosPage', () => {
     await user.type(campos[5], 'Analista')
     const password = modal.querySelector('input[type="password"]') as HTMLInputElement
     expect(password).not.toBeNull()
-    await user.type(password, 'ClaveSegura123')
+    await user.type(password, 'clave-de-prueba-local')
     await user.selectOptions(within(modal).getByRole('combobox'), 'ur1')
 
     expect(within(modal).getByRole('button', { name: 'Crear usuario' })).toBeEnabled()
@@ -191,7 +191,7 @@ describe('UsuariosPage', () => {
         nombre_completo: 'Ana López',
         telefono: '3009876543',
         cargo: 'Analista',
-        password: 'ClaveSegura123',
+        password: 'clave-de-prueba-local',
         rol_id: 'ur1',
         dependencia_id: '',
       })

@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../stores/authStore'
+import { isAdminRole, isGestorLiderRole } from '../../lib/roles'
 
 interface HeaderProps {
   onMenuToggle: () => void
@@ -6,10 +7,8 @@ interface HeaderProps {
 
 export function Header({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuthStore()
-  const isAdmin = user?.roles?.some((role) =>
-    ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL'].includes(role),
-  )
-  const isGestorLider = user?.roles?.includes('GESTOR_LIDER')
+  const isAdmin = isAdminRole(user?.roles)
+  const isGestorLider = isGestorLiderRole(user?.roles)
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 w-full items-center justify-between border-b border-line/80 bg-paper-raised/95 px-4 shadow-[0_1px_0_rgba(15,61,59,0.03)] backdrop-blur sm:px-6 xl:px-10">

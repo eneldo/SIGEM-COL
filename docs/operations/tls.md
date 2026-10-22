@@ -1,6 +1,6 @@
 # TLS — Certificados HTTPS en producción
 
-**Propósito:** el bloque auditado B-02 (sin TLS) se resuelve con `infra/nginx/nginx.prod.conf`, que escucha 443 con certificados montados desde `infra/tls/` (solo lectura: `../tls:/etc/nginx/tls:ro`).
+**Propósito:** el bloque auditado B-02 (sin TLS) se resuelve con `infra/nginx/nginx.prod.conf`, que escucha 443 con certificados montados desde `infra/tls/` (solo lectura). Desde la auditoría 2026-10-21, esa configuración es una **plantilla**: el compose prod la monta en `/etc/nginx/templates/nginx.conf.template` y la imagen sustituye `${SIGEM_DOMAIN}` (variable `SIGEM_DOMAIN` de `infra/docker/.env.prod`, validada por `deploy.sh` contra `FRONTEND_URL`). Cualquier Host/SNI distinto del dominio declarado recibe 444 o rechazo TLS (`ssl_reject_handshake`).
 
 Archivos requeridos en `infra/tls/`:
 

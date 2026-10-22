@@ -51,6 +51,12 @@ verify_entry() {
     fi
     echo "checksum ok: $name"
     case "$name" in
+        *.dump.enc)
+            # Dumps cifrados: pg_restore no puede leerlos directamente; su
+            # integridad ya quedó validada por checksum y la validación
+            # estructural ocurre al restaurar (descifrado temporal).
+            echo "pg_restore --list skipped (encrypted dump): $name"
+            ;;
         *.dump)
             if pg_restore --list "$file" >/dev/null 2>&1; then
                 echo "pg_restore --list ok: $name"

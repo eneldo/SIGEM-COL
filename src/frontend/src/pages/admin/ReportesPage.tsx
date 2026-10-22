@@ -59,18 +59,8 @@ export default function ReportesPage() {
   const downloadPdf = async () => {
     setDownloadingPdf(true)
     try {
-      const authData = JSON.parse(localStorage.getItem('sigem-auth') || '{}')
-      const token = authData?.state?.token
-      if (!token) {
-        setError('No hay sesión activa')
-        return
-      }
-      const response = await fetch('/api/v1/reportes/informe-pdf', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      })
-      if (!response.ok) throw new Error('Error al descargar')
-      const blob = await response.blob()
-      saveAs(blob, 'informe_gestion_sigem.pdf')
+      const response = await reportes.informePdf()
+      saveAs(response.data, 'informe_gestion_sigem.pdf')
     } catch (e) {
       console.error('Error downloading PDF:', e)
       setError('Error al descargar el PDF')

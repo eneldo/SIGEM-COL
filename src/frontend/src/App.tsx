@@ -3,6 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { useAuthStore } from './stores/authStore'
 import { useBrandingStore } from './lib/branding'
 import { personalizacion } from './lib/api'
+import {
+  ADMIN_ROLES,
+  GESTOR_LIDER_ROLES,
+  GESTOR_ROUTE_ROLES,
+  isAdminRole,
+} from './lib/roles'
 import { Layout } from './components/layout/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { ChangePasswordPage } from './pages/auth/ChangePasswordPage'
@@ -27,18 +33,15 @@ import GestorAsignarPage from './pages/gestor/GestorAsignarPage'
 import RegistroAvancePage from './pages/gestor/RegistroAvancePage'
 import RevisionAvancesPage from './pages/gestor/RevisionAvancesPage'
 
-const adminRoles = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
-const isAdmin = (roles: string[]) => roles.some((role) => adminRoles.includes(role))
-
-const adminRequired = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
-const revisionRequired = [...adminRequired, 'GESTOR_LIDER']
+const adminRequired = ADMIN_ROLES
+const revisionRequired = [...ADMIN_ROLES, ...GESTOR_LIDER_ROLES]
 
 function ProtectedRoute({
   children,
   requiredRole,
 }: {
   children: React.ReactNode
-  requiredRole?: string | string[]
+  requiredRole?: string | readonly string[]
 }) {
   const { isAuthenticated, user, mustChangePassword } = useAuthStore()
   const location = useLocation()
@@ -52,9 +55,11 @@ function ProtectedRoute({
   }
 
   if (requiredRole && user) {
-    const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+    const requiredRoles = Array.isArray(requiredRole)
+      ? requiredRole
+      : [requiredRole]
     if (!user.roles.some((role) => requiredRoles.includes(role))) {
-      const fallback = isAdmin(user.roles) ? '/admin/dashboard' : '/gestor/dashboard'
+      const fallback = isAdminRole(user.roles) ? '/admin/dashboard' : '/gestor/dashboard'
       return <Navigate to={fallback} replace />
     }
   }
@@ -70,7 +75,7 @@ function RootRedirect() {
   if (mustChangePassword) return <Navigate to="/change-password" replace />
 
   const role = user?.roles?.[0]
-  if (role && adminRoles.includes(role)) return <Navigate to="/admin/dashboard" replace />
+  if (role && isAdminRole([role])) return <Navigate to="/admin/dashboard" replace />
   return <Navigate to="/gestor/dashboard" replace />
 }
 
@@ -95,7 +100,7 @@ export default function App() {
   }, [isAuthenticated, setBranding])
 
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
@@ -111,7 +116,7 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole={adminRequired}>
               <Layout />
             </ProtectedRoute>
           }
@@ -135,7 +140,7 @@ export default function App() {
         <Route
           path="/gestor"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole={GESTOR_ROUTE_ROLES}>
               <Layout />
             </ProtectedRoute>
           }

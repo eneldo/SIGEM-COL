@@ -80,14 +80,34 @@ El rollback **es redeplegar el tag anterior de imagen**. El script NO ejecuta `a
 ## 5. Checklist post-despliegue
 
 - [ ] `docker compose ... ps` → todos `healthy` (nginx, backend, frontend, postgres, redis) y `migrate` `Exited (0)`.
-- [ ] `logs migrate` sin errores y con la revisión esperada.
+- [ ] `logs migrate` sin errores y con la revisión esperada (`alembic current` == `020_personalizacion (head)`).
 - [ ] `https://<dominio>/` devuelve la SPA (200, sin errores de CSP en consola).
 - [ ] `https://<dominio>/health` → `"status": "healthy"`.
+- [ ] La respuesta de login incluye `Set-Cookie: sigem_refresh=...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth` y **no** incluye `refresh_token` en el cuerpo.
+- [ ] La sesión sobrevive a una recarga del navegador (renovación por cookie) y el `access_token` no aparece en `localStorage`.
 - [ ] Login funcional y una consulta de listado con datos de dos municipios distintos (aislamiento RLS).
 - [ ] Cabeceras: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`, sin `X-XSS-Protection` (ver `curl -k -I https://.../`).
 - [ ] `docker compose ... exec backup /backup/verify_backup.sh` → `verification passed`.
 - [ ] Logs sin errores 5xx sostenidos: `docker compose ... logs --tail=100 backend`.
 - [ ] Con perfil `monitoring`: `up{job="sigem-backend"} == 1` en la UI de Prometheus.
+
+### 5.1 Verificación del aislamiento entre municipios
+
+El backend **no** debe conectarse nunca con el rol de migración: ese rol es superusuario y
+ignora RLS. Compruébalo desde el contenedor:
+
+```bash
+# Debe mostrar sigem_app (no superusuario)
+docker compose -f infra/docker/docker-compose.prod.yml -p sigem-prod exec postgres \
+  psql -U sigem -d sigem_db -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname='sigem_app';"
+# Debe listar relforcerowsecurity = true para las tablas multi-municipio
+docker compose -f infra/docker/docker-compose.prod.yml -p sigem-prod exec postgres \
+  psql -U sigem -d sigem_db -c "SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname IN ('lineas_estrategicas','programas','productos','usuarios');"
+```
+
+La suite `tests/security/test_rls_isolation.py` automatiza estas comprobaciones creando un rol
+restringido equivalente a `sigem_app`; ejecútala contra una base migrada a `head` antes de
+promocionar un cambio que toque migraciones o políticas.
 
 ## 6. Operación frecuente
 
@@ -103,7 +123,12 @@ Windows (PowerShell): los scripts son bash; ejecute `bash scripts/setup/deploy.s
 
 - `infra/docker/.env.prod` está en `.gitignore`; nunca se commitea ni se copia a imágenes.
 - Backend, postgres y redis no publican puertos; solo nginx recibe tráfico externo.
-- El rol de la aplicación es `sigem_app` (no superuser) para que RLS aplique; las migraciones corren como `sigem` mediante `ALEMBIC_DATABASE_URL`.
+- El rol de la aplicación es `sigem_app` (no superuser, sin `BYPASSRLS`, sin `CREATE` sobre el
+  esquema) para que RLS aplique; las migraciones corren como `sigem` mediante `ALEMBIC_DATABASE_URL`.
+- El refresh token solo viaja en cookie `HttpOnly`; si un despliegue anterior lo exponía en el
+  cuerpo, rotar las sesiones existentes es parte del cambio.
+- `ENCRYPTION_KEY` cifra los secretos MFA: no debe compartirse con el respaldo de la base ni
+  rotarse sin reenrolar a los usuarios con MFA activo.
 
 ## 8. Despliegue desde CI/CD
 

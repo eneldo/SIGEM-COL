@@ -6,7 +6,22 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Security
+- **Higiene del pool de conexiones:** `core/database.py` ejecuta `RESET app.current_municipio_id` antes de devolver cada conexión al pool (`release_tenant_context`); una conexión ya no queda "marcada" con el tenant del último request. `set_tenant_context(None)` ahora emite RESET real en vez de fijar cadena vacía
+- **Guardia de rol de base de datos al arranque** (`assert_restricted_db_role`): en producción impide arrancar si la conexión usa un rol SUPERUSER o con BYPASSRLS; en desarrollo emite log CRITICAL (el `.env` local aún usa el rol de migración `sigem`)
+- **Validación cross-tenant en `create_usuario`:** `dependencia_id` del cliente debe existir bajo el contexto tenant; antes era posible asociar un usuario a una dependencia de otro municipio (FK que no evalúa RLS)
+- Prueba de regresión de herencia de contexto en el pool, verificación de que las funciones helper no son `SECURITY DEFINER` y de los atributos del rol de conexión (`tests/security/test_rls_isolation.py`)
+- Purga de 8 scripts desechables `check_*.py` de la raíz del repositorio que contenían credenciales Incrustadas (rotación de la credencial filtrada pendiente, operativa)
+
 ### Added
+- **Auditoría de plataforma append-only** (`auditoria_plataforma`, migración `022`): eventos sin municipio para bootstrap/jobs/plataforma, con `AuditService.log_platform_event()`; el rol de aplicación solo puede `INSERT` (`REVOKE ALL` + `GRANT INSERT`, idempotente)
+- **Login multi-municipio**: `LoginRequest` acepta `municipio_codigo` opcional; si se omite se resuelve el único municipio activo del despliegue y, con varios activos, se responde `MUNICIPIO_REQUERIDO` (422). Se eliminó el `"00000"` en duro de `POST /auth/login`
+- Rate limiting distribuido con Redis (`core/rate_limit.py`): contadores compartidos entre réplicas, ventana propia para el bucket de login (`RATE_LIMIT_LOGIN_WINDOW_MINUTES`) y política explícita de degradación (`RATE_LIMIT_FAIL_CLOSED_LOGIN`)
+- Refresh token en cookie `HttpOnly; Secure; SameSite=Strict` con `Path=/api/v1/auth` (`core/session_cookies.py`), protección CSRF por validación de `Origin` en `POST /auth/refresh` y rotación de la cookie en cada renovación
+- Cifrado autenticado (AES-GCM) de los secretos TOTP en reposo, con clave derivada de `ENCRYPTION_KEY` y versionado del formato (`enc:v1:`)
+- Pruebas de aislamiento RLS que se ejecutan con un rol de mínimo privilegio equivalente a producción (`tests/security/test_rls_isolation.py`)
+- Pruebas de validación de claims JWT, CORS efectivo, cabeceras de trazabilidad y métricas protegidas (`tests/security/test_token_and_headers_security.py`)
+- Validaciones de producción para `JWT_ALGORITHM`, expiraciones de tokens, límites de rate limiting, `TRUST_PROXY_HEADERS`, cookie de sesión y coincidencia entre `SIGEM_APP_PASSWORD` y `DATABASE_URL`
 - Módulo Configuración → Personalización: colores de marca, nombre del sistema y logotipo por municipio (`GET`/`PUT /api/v1/personalizacion` con RLS y permiso `CONFIGURACION_EDITAR`), theming en vivo vía variables CSS RGB, logo en Sidebar/favicon y página con preview (logo ≤ 2MB)
 - Endpoints operativos: `GET /health` (503 cuando la base de datos no responde), `GET /health/live`, `GET /health/ready` y `GET /metrics` (Prometheus, con bearer opcional vía `METRICS_TOKEN`)
 - Pipeline de CI/CD en `.github/workflows/ci.yml`: `backend-quality` (ruff, ruff format, mypy, bandit), `backend-tests` (PostgreSQL 17 + Redis 7, cobertura 80 %), `frontend-quality` (tsc, eslint con cero warnings, vitest con umbrales, build), `security` (gitleaks, pip-audit, npm audit), `docker-build` (imágenes sin push, caché GHA) y `deploy` manual por SSH con validación de secretos
@@ -19,15 +34,37 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Documentación de CI/CD en `docs/operations/ci-cd.md`
 
 ### Changed
+- `python-jose` sustituido por **PyJWT** (`pyjwt[crypto]`): elimina `GHSA-3qf3-8w2g-rqmx` y la dependencia transitiva vulnerable `ecdsa`; el job de CI ya no necesita `--ignore-vuln`
+- MFA obligatorio también para `SUPERADMIN_PLATAFORMA` (antes solo `ADMINISTRADOR_MUNICIPAL`)
+- Sesión del frontend: el access token vive únicamente en memoria y el refresh token en cookie HttpOnly; se eliminó la persistencia en `localStorage`
+- Dependencias backend reproducibles con `uv.lock` y `uv sync --frozen --no-dev` en la imagen
 - Anotaciones de tipo completas en el backend para `mypy --strict`: los `dict` y `list` sin parametrizar pasan a `dict[str, Any]` / `list[Any]`, y todas las firmas de funciones y rutas quedan anotadas
 - Rate limiting configurable: `RATE_LIMIT_DEFAULT_REQUESTS`, `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_WINDOW` y `TRUST_PROXY_HEADERS`
+- Privilegios del rol de PostgreSQL en runtime reducidos a DML sobre tablas y secuencias, sin `CREATE` sobre el esquema
+- Claims JWT validados con modelo tipado (`TokenClaims`); los tokens malformados responden 401 en lugar de provocar errores 500
+- Cabeceras de seguridad del backend: se añadió CSP, `Permissions-Policy` y `Cross-Origin-Opener-Policy`, y se eliminó la cabecera obsoleta `X-XSS-Protection`
+- Comparación del token de métricas mediante `hmac.compare_digest`
 - README actualizado con los puertos reales de desarrollo (frontend 3001, backend 8001, PostgreSQL 5433) y la sección de producción
 
 ### Fixed
-- CI: `backend-tests` aplica migraciones y crea el administrador de pruebas antes de pytest (fallaba con `relation "municipios" does not exist`)
+- **Frontend (Alta):** guardas de ruta — `/admin/*` exige rol admin y `/gestor/*` roles de operación (`requiredRole` en `ProtectedRoute`); roles centralizados en `src/lib/roles.ts` (elimina duplicación en App/Sidebar/Header/Login/ChangePassword/GestorEquipo); dependencias runtime muertas fuera del tree (`react-hook-form`, `@hookform/resolvers`, `zod`, `date-fns`, `react-router`); alias `@` corregido; duplicado `EvidencePreview.test.(ts|tsx)` unificado
+- **Nginx prod:** `SIGEM_DOMAIN` como plantilla del compose + vhost `default_server` con `return 444` y `ssl_reject_handshake on` — host-header poisoning y SNI desconocido ya no atienden tráfico; `deploy.sh` valida `SIGEM_DOMAIN` contra `FRONTEND_URL`
+- **Backups:** soporte de cifrado en reposo (`BACKUP_ENCRYPTION_PASSPHRASE`, AES-256-CBC+PBKDF2, passphrase solo por env) y copia off-site exigible (`BACKUP_REQUIRE_OFFSITE=true` falla sin `BACKUP_RSYNC_TARGET`); descubrimiento temporal en `restore_db.sh`
+- **CI:** `permissions: contents: read` top-level; `deploy` con `environment: production` + `concurrency: deploy-production` + `needs: docker-build`
+- **Monitoring:** scrape autenticado (`bearer_token_file` escrito desde `METRICS_TOKEN`), Alertmanager en el stack (perfil monitoring local/prod) y eliminadas las 2 alertas que nunca podían dispararse (exporters inexistentes)
+- **Compose dev/local:** puertos de gestión (Postgres 5433, backend 8001, frontend 3001, nginx 8080/8443) enlazados a `127.0.0.1`; `version` obsoleto retirado del compose local; rotación de credenciales de los scripts locales `check_*`/`test_*` pendiente de aplicar en disco y eliminación de artefactos con credenciales en la raíz
+
+### Security
+- **Frontend:** CSP básica en `index.html` (`default-src 'self'`, `img-src data: blob:`, `frame-ancestors 'self'`); `npm audit --omit=dev --audit-level=high` va en CI y gitleaks/pip-audit continúan
+- **TLS local:** `privkey.pem`/`fullchain.pem` en `600`; `generate_dev_cert.sh` verifica el modo en runtime y advierte si el mount no lo preserva
+
+### Fixed (security test coverage)
+- `tests/security/test_infrastructure_hardening.py`: +5 pruebas que fijan los nuevos comportamientos (descarte de Host/SNI, loopback composes, token de métricas + alertas vivas, alertmanager en compose, pipeline de backups con cifrado/offsite)
+- Prueba de aislamiento RLS corregida: la guardia de revisión exigía literalmente `020_personalizacion`, por lo que con el head `021_function_invoker` los 5 pruebas de aislamiento se omitían en silencio; ahora acepta la cadena de revisiones desde `017_enforce_rls`
+- Prueba unitaria de contexto tenant actualizada al comportamiento RESET de `set_tenant_context(None)`- CI: `backend-tests` aplica migraciones y crea el administrador de pruebas antes de pytest (fallaba con `relation "municipios" does not exist`)
 - CI: `ruff` y `mypy` se ejecutan con la configuración de `src/backend/pyproject.toml`; `tests/` ya no se analiza con los valores por defecto de ruff
 - CI: `npm ci` y `npm audit` se ejecutan en `src/frontend` (antes fallaban por no encontrar el lockfile)
-- `JWT_ALGORITHM` fuera de HS256/HS384/HS512 se rechaza en producción, dejando inaplicable CVE-2026-85394 (python-jose)
+- `JWT_ALGORITHM` se restringe a HS256/HS384/HS512 en producción. La referencia a CVE-2026-85394 corresponde a la biblioteca `python-jose` utilizada anteriormente; el backend fue migrado a PyJWT.
 - Dependencia de SQLAlchemy acotada a `<2.1`: la 2.1 rompía `mypy --strict` con 35 errores ajenos al código
 - `DependenciasPage` consultaba `page_size=200` y el backend limita a 100 → 422 silencioso que dejaba vacío el selector de dependencia padre
 - Favicon: se referenciaba `/vite.svg` inexistente (404 en cada carga); ahora `/favicon.svg` con la marca SIGEM
@@ -36,15 +73,21 @@ El formato de este archivo se basa en [Keep a Changelog](https://keepachangelog.
 - Tests de avances (`test_crud_avances`, `test_ejemplos_avances`, `test_avance_flujo`) recalculan el porcentaje esperado desde el acumulado reservado y la meta, eliminando la dependencia del orden de ejecución
 
 ### Security
+- Credenciales administrativas que estaban versionadas en documentación, memoria y pruebas: retiradas del repositorio y sustituidas por valores generados en el entorno de pruebas
+- MFA obligatorio para los roles con mayor privilegio: `ADMINISTRADOR_MUNICIPAL` y `SUPERADMIN_PLATAFORMA`
+- Secretos TOTP cifrados en reposo; el secreto pendiente ya no se devuelve de forma indefinida
+- Refresh token entregado en cookie `HttpOnly; Secure; SameSite=Strict` en lugar del cuerpo de la respuesta, con validación de `Origin` en la renovación
+- Contadores de rate limiting compartidos mediante Redis, con ventana propia para autenticación y fallo cerrado en el bucket de login
+- `X-Request-ID` validado contra un patrón estricto antes de usarse en logs y respuesta
 - Evidencias: el alta de avances rechaza rutas físicas del cliente y ambas descargas validan contención en `STORAGE_PATH`, incluidas rutas absolutas, traversal y enlaces simbólicos externos; el formulario dirige al usuario a la carga de archivos en lugar de solicitar una URL
 - Sesiones: access token, refresh y segundo paso MFA rechazan cuentas inactivas o bloqueadas; desactivaciones y bloqueos revocan sesiones junto al cambio de cuenta
 - Salud del servicio reportada con 503 en `GET /health` cuando la base de datos está caída
 - Endpoints de métricas protegidos con `METRICS_TOKEN` (bearer) cuando está definido
 - Escaneo de secretos (gitleaks), de dependencias Python (pip-audit) y de dependencias Node (npm audit) como gates obligatorios de CI
-- Validación de configuración de producción (secretos y CORS) en `core/config.py`
+- Validación de configuración de producción (secretos, CORS, algoritmos, expiraciones y cookies) en `core/config.py`
 
 ### Pending
-- Tests de seguridad (aislamiento, autorización)
+- Rotación operativa de la credencial que estuvo versionada y purga del historial Git (requiere acción fuera del repositorio)
 - Tests E2E
 - MFA WebAuthn
 - Notifications system

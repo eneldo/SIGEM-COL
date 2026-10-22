@@ -1,22 +1,26 @@
-# Backend Dockerfile
-FROM python:3.12-slim
+FROM python:3.12.12-slim-bookworm AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
+COPY src/backend/pyproject.toml src/backend/uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project --no-editable
+
+COPY src/backend /app/src/backend
+RUN uv sync --frozen --no-dev --no-editable
+
+FROM python:3.12.12-slim-bookworm
+
+WORKDIR /app
 
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
 
-COPY src/backend/pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]" || pip install --no-cache-dir -e .
-
-COPY src/backend /app/src/backend
+COPY --from=builder /app/.venv /app/.venv
+COPY src /app/src
 COPY migrations /app/migrations
 COPY alembic.ini /app/alembic.ini
 

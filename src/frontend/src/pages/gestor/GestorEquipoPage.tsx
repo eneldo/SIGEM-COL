@@ -3,11 +3,11 @@ import { gestores, catalogos, productos } from '../../lib/api'
 import { useAuthStore } from '../../stores/authStore'
 import type { Gestor, Dependencia, Rol, GestorCreatePayload, CredencialTemporal, Producto } from '../../lib/types'
 import { Icon, formatDate, ModalShell } from '../../components/ui/icons'
+import { isAdminRole } from '../../lib/roles'
 import { clsx } from 'clsx'
 
 type Tab = 'lista' | 'crear'
 const PASSWORD_MIN = 15
-const ADMIN_ROLES = ['SUPERADMIN_PLATAFORMA', 'ADMINISTRADOR_MUNICIPAL']
 const COORDINATOR_CREATE_ROLES = ['GESTOR']
 
 export default function GestorEquipoPage() {
@@ -357,7 +357,7 @@ export default function GestorEquipoPage() {
 
 function CrearGestorForm({ onSubmit, onCancel }: { onSubmit: (d: GestorCreatePayload) => Promise<void>; onCancel: () => void }) {
   const { user } = useAuthStore()
-  const isAdmin = user?.roles?.some((r) => ADMIN_ROLES.includes(r)) ?? false
+  const isAdmin = isAdminRole(user?.roles)
   const [form, setForm] = useState<GestorCreatePayload>({
     nombre_completo: '', email: '', telefono: '', cargo: '',
     dependencias_adicionales: [], username: '', password: '', rol_id: '',

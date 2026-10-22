@@ -8,7 +8,7 @@ x-logging: &logging-json
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.6-alpine3.22
     restart: unless-stopped
     env_file:
       - ./.env.prod
@@ -28,7 +28,7 @@ services:
     logging: *logging-json
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.5-alpine3.21
     restart: unless-stopped
     env_file:
       - ./.env.prod
@@ -48,11 +48,11 @@ services:
     logging: *logging-json
 
   migrate:
-    image: sigem-backend:${SIGEM_IMAGE_TAG:-latest}
+    image: sigem-backend:${SIGEM_IMAGE_TAG:?SIGEM_IMAGE_TAG must be an immutable tag}
     restart: "no"
     env_file:
       - ./.env.prod
-    command: ["alembic", "upgrade", "head"]
+    command: ["sh", "-ec", "test -n \"$$ALEMBIC_DATABASE_URL\"; export DATABASE_URL=\"$$ALEMBIC_DATABASE_URL\"; exec alembic upgrade head"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,13 +63,15 @@ services:
     logging: *logging-json
 
   backend:
-    image: sigem-backend:${SIGEM_IMAGE_TAG:-latest}
+    image: sigem-backend:${SIGEM_IMAGE_TAG:?SIGEM_IMAGE_TAG must be an immutable tag}
     build:
       context: ../..
       dockerfile: infra/docker/backend/Dockerfile
     restart: unless-stopped
     env_file:
       - ./.env.prod
+    environment:
+      ALEMBIC_DATABASE_URL: ""
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -92,7 +94,7 @@ services:
     logging: *logging-json
 
   frontend:
-    image: sigem-frontend:${SIGEM_IMAGE_TAG:-latest}
+    image: sigem-frontend:${SIGEM_IMAGE_TAG:?SIGEM_IMAGE_TAG must be an immutable tag}
     build:
       context: ../..
       dockerfile: infra/docker/frontend/Dockerfile
@@ -110,13 +112,19 @@ services:
     logging: *logging-json
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.29.1-alpine3.22
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+    # La config es una plantilla: la imagen oficial sustituye ${SIGEM_DOMAIN}
+    # al arrancar y escribe /etc/nginx/nginx.conf (vhosts por dominio + vhost
+    # default de descarte 444; ver nginx.prod.conf).
+    environment:
+      SIGEM_DOMAIN: ${SIGEM_DOMAIN:?SIGEM_DOMAIN must be the public hostname (e.g. sigem.municipio.gov.co)}
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx
     volumes:
-      - ../nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/nginx.prod.conf:/etc/nginx/templates/nginx.conf.template:ro
       - ../tls:/etc/nginx/tls:ro
     depends_on:
       backend:
@@ -129,7 +137,7 @@ services:
     mem_limit: 256m
     cpus: 0.5
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --no-check-certificate -O /dev/null https://127.0.0.1/ || exit 1"]
+      test: ["CMD-SHELL", "host=$${FRONTEND_URL#https://}; host=$${host%%/*}; test -n \"$$host\" && wget -q --ca-certificate=/etc/nginx/tls/fullchain.pem -O /dev/null \"https://$$host/health/live\" || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -137,7 +145,7 @@ services:
     logging: *logging-json
 
   backup:
-    image: sigem-backup:${SIGEM_IMAGE_TAG:-latest}
+    image: sigem-backup:${SIGEM_IMAGE_TAG:?SIGEM_IMAGE_TAG must be an immutable tag}
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.backup
@@ -157,15 +165,24 @@ services:
     logging: *logging-json
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     profiles:
       - monitoring
     restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
+    # Escribe el bearer token de /metrics antes de arrancar Prometheus; el
+    # scrape config lo lee desde bearer_token_file (ver prometheus.yml).
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        printf '%s' "$$METRICS_TOKEN" > /etc/prometheus/metrics_token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --web.console.libraries=/usr/share/prometheus/console_libraries \
+          --web.console.templates=/usr/share/prometheus/consoles
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -176,6 +193,21 @@ services:
       - sigem_internal
     mem_limit: 1g
     cpus: 1.0
+    logging: *logging-json
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles:
+      - monitoring
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - sigem_internal
+    mem_limit: 256m
+    cpus: 0.5
     logging: *logging-json
 
 volumes:

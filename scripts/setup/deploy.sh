@@ -61,6 +61,17 @@ if grep -Eqi 'CHANGE_ME|CHANGEME|\.example' "$ENV_FILE"; then
     fail "production environment still contains placeholder values"
 fi
 
+SIGEM_DOMAIN="$(grep -E '^SIGEM_DOMAIN=' "$ENV_FILE" | tail -n 1 | cut -d= -f2- | head -c 255)"
+FRONTEND_URL_VALUE="$(grep -E '^FRONTEND_URL=' "$ENV_FILE" | tail -n 1 | cut -d= -f2-)"
+FRONTEND_HOST="$(printf '%s' "$FRONTEND_URL_VALUE" | sed -E 's#https?://([^/:]+).*#\1#')"
+if [ -z "$SIGEM_DOMAIN" ] || [ -z "$FRONTEND_HOST" ]; then
+    fail "SIGEM_DOMAIN and FRONTEND_URL must be set in $ENV_FILE"
+fi
+case ",$SIGEM_DOMAIN," in
+    *",$FRONTEND_HOST,"*) ;;
+    *) fail "SIGEM_DOMAIN must include the host of FRONTEND_URL ($FRONTEND_HOST); got '$SIGEM_DOMAIN'" ;;
+esac
+
 if ! openssl x509 -in "$TLS_DIR/fullchain.pem" -noout -checkend 2592000 >/dev/null 2>&1; then
     fail "TLS certificate is invalid or expires in less than 30 days"
 fi

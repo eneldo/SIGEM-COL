@@ -248,7 +248,7 @@ describe('formulario de cambio', () => {
     expect(mockedAuth.getMe).toHaveBeenCalledTimes(1)
     expect(useAuthStore.getState().mustChangePassword).toBe(false)
     expect(useAuthStore.getState().user).toEqual(usuario)
-    expect(localStorage.getItem('user')).toBe(JSON.stringify(usuario))
+    expect(localStorage.getItem('user')).toBeNull()
   })
 
   it('muestra el detalle del error devuelto por el API', async () => {

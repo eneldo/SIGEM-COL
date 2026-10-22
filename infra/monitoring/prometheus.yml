@@ -2,6 +2,14 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# Notificaciones via Alertmanager (servicio del compose, perfil "monitoring").
+# Los canales reales (email/webhook) se configuran en alertmanager.yml.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
 rule_files:
   - /etc/prometheus/alerts.yml
 
@@ -9,6 +17,11 @@ scrape_configs:
   - job_name: sigem-backend
     metrics_path: /metrics
     scrape_interval: 15s
+    # El endpoint /metrics exige Bearer cuando METRICS_TOKEN esta configurado.
+    # El archivo lo escribe el entrypoint del contenedor a partir del env
+    # (ver docker-compose*.yml); en despliegues sin token, la cabecera extra
+    # es ignorada por el backend y no afecta el scrape.
+    bearer_token_file: /etc/prometheus/metrics_token
     static_configs:
       - targets:
           - backend:8000
@@ -17,3 +30,9 @@ scrape_configs:
     static_configs:
       - targets:
           - localhost:9090
+
+# NOTA (capacidad): las alertas de saturacion de conexiones de PostgreSQL y de
+# espacio en disco (pg_stat_*, node_filesystem_*) exigen postgres_exporter y
+# node_exporter como targets de scrape. No se incluyen hasta que esos agentes
+# se desplieguen con sus credenciales; reactivarlas sin exporters produce
+# alertas que nunca puede disparar (falsas de "state ok" silencioso).

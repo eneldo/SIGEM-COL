@@ -62,11 +62,13 @@ Si el dump es anterior a una migración aplicada, el estado de `alembic_version`
 
 `restore_db.sh` consulta `pg_stat_activity` (excluyendo su propio PID). Si el stack sigue corriendo, falle a propósito; no intente `-f` sobre producción con usuarios conectados sin haber confirmado el mantenimiento.
 
-## 6. Off-site (pendiente — obligatorio antes de producción real)
+## 6. Off-site y cifrado (obligatorio antes de producción real)
 
-**Hoy el destino de respaldo es únicamente el volumen local `backups` en el mismo host.** Si el disco o el host mueren, se pierden BD y evidencias. Configurar antes de poner en producción:
+**Hoy el destino de respaldo por defecto es únicamente el volumen local `backups` en el mismo host.** Si el disco o el host mueren, se pierden BD y evidencias. Configurar antes de poner en producción:
 
 - Hook incluido: defina `BACKUP_RSYNC_TARGET=user@host:/ruta/respaldos` en `.env.prod`; `run_backup.sh` ejecuta `rsync -a` de los archivos nuevos después de cada corrida (falla la corrida si rsync falla, para que el fallo sea visible).
+- **Exigible:** con `BACKUP_REQUIRE_OFFSITE=true`, `run_backup.sh` FALLA cuando no hay `BACKUP_RSYNC_TARGET` — recomendado en producción (auditoría 2026-10-21, BK-2).
+- **Cifrado en reposo** (auditoría 2026-10-21, BK-1): defina `BACKUP_ENCRYPTION_PASSPHRASE` (`openssl rand -base64 32`) y los dumps/archivos se guardan como `.enc` (AES-256-CBC + PBKDF2, 200k iteraciones; passphrase SOLO por entorno). El plaintext se elimina salvo `BACKUP_KEEP_PLAINTEXT=true`. `verify_backup.sh` valida checksum de los `.enc` (sin `pg_restore --list`) y `restore_db.sh` descifra automáticamente a un temporal con la misma variable. **La passphrase debe custodiarse aparte: sin ella los backups son irrecuperables.**
 - Alternativas a evaluar: `rclone` a object storage, réplica a otro host, o copia del volumen con `docker run --rm -v sigem-prod_backups:/b alpine tar ... | ssh`. Ninguna está implementada aún.
 
 ## 7. Retención

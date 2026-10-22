@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { InternalAxiosRequestConfig } from 'axios'
 import api, {
   auth,
+  clearAccessToken,
+  setAccessToken,
   catalogos,
   configAuditoria,
   configDependencias,
@@ -79,6 +81,7 @@ function stubLocation(pathname: string) {
 
 beforeEach(() => {
   localStorage.clear()
+  clearAccessToken()
   stubLocation('/')
   api.defaults.adapter = okAdapter
 })
@@ -101,8 +104,9 @@ describe('configuración base', () => {
 })
 
 describe('interceptor de peticiones', () => {
-  it('adjunta el token de localStorage como Authorization', async () => {
-    localStorage.setItem('token', 'token-123')
+  it('adjunta el access token mantenido en memoria como Authorization', async () => {
+    localStorage.setItem('token', 'token-inseguro')
+    setAccessToken('token-123')
     await gestores.list()
     expect(header('Authorization')).toBe('Bearer token-123')
   })
@@ -140,14 +144,14 @@ describe('interceptor de respuestas 401', () => {
     expect(replaceMock).toHaveBeenCalledWith('/login')
   })
 
-  it('solo redirige una vez ante 401 consecutivos', async () => {
+  it('redirige a login ante un 401 sin refresh disponible', async () => {
     api.defaults.adapter = failAdapter(401)
     localStorage.setItem('token', 'token-123')
 
     await expect(lineas.list()).rejects.toThrow()
 
-    expect(replaceMock).not.toHaveBeenCalled()
-    expect(localStorage.getItem('token')).toBe('token-123')
+    expect(replaceMock).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('token')).toBeNull()
   })
 })
 

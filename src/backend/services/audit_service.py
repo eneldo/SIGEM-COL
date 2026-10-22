@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.auditoria_evento import AuditoriaEvento
+from ..models.auditoria_plataforma import AuditoriaPlataforma
 
 
 class AuditService:
@@ -30,6 +31,39 @@ class AuditService:
     ) -> AuditoriaEvento:
         event = AuditoriaEvento(
             municipio_id=municipio_id,
+            usuario_id=usuario_id,
+            actor_id=actor_id,
+            evento_tipo=evento_tipo,
+            recurso_tipo=recurso_tipo,
+            recurso_id=recurso_id,
+            resultado=resultado,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata_json=json.dumps(metadata) if metadata else None,
+            fecha_evento=datetime.now(UTC),
+        )
+        self.db.add(event)
+        await self.db.commit()
+        return event
+
+    async def log_platform_event(
+        self,
+        evento_tipo: str,
+        resultado: str,
+        usuario_id: UUID | None = None,
+        actor_id: UUID | None = None,
+        recurso_tipo: str | None = None,
+        recurso_id: UUID | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> AuditoriaPlataforma:
+        """Registra un evento sin municipio (bootstrap, jobs, plataforma).
+
+        `auditoria_plataforma` no es multi-municipio; con el rol restringido
+        solo admite INSERT (append-only). Los eventos de tenant usan log_event.
+        """
+        event = AuditoriaPlataforma(
             usuario_id=usuario_id,
             actor_id=actor_id,
             evento_tipo=evento_tipo,

@@ -43,9 +43,15 @@ Datos: volumen `prometheus_data`. Config: `infra/monitoring/prometheus.yml` (mon
 | `PostgresConnectionsSaturation` | warning | conexiones > 80% de `max_connections` por 5m | Placeholder: requiere `postgres_exporter` (no desplegado) |
 | `DiskSpaceLow` | warning | filesystem < 10% libre por 10m | Placeholder: requiere `node_exporter` (no desplegado) |
 
-Todas las reglas parsean con `promtool check config`. Las dos últimas son placeholders intencionales: no dispararán hasta que existan los exporters correspondientes.
+Todas las reglas parsean con `promtool check config`. **Las dos últimas alertas fueron retiradas** (2026-10-21, auditoría): referían métricas de exporters inexistentes y nunca podían dispararse; reactivarlas junto con sus exporters (migración 020 del monitoring pendiente).
 
-## 4. Validación de configuración
+## 4. Bearer token y Alertmanager (auditoría 2026-10-21)
+
+- **Scrape autenticado:** cuando `METRICS_TOKEN` está configurado, el backend exige `Authorization: Bearer <token>` en `/metrics`. El servicio `prometheus` escribe el token a `/etc/prometheus/metrics_token` en su entrypoint (compose local/prod) y el scrape config lo lee vía `bearer_token_file`. En despliegues sin token, la cabecera extra es ignorada por el backend.
+- **Alertmanager:** servicio `alertmanager` (perfil `monitoring`, puertos `127.0.0.1:9093`) con `infra/monitoring/alertmanager.yml`; `prometheus.yml` con bloque `alerting:` → `alertmanager:9093`. ANTES de producción: sustituir los placeholders SMTP del `alertmanager.yml` (Alertmanager no hace sustitución de variables de entorno).
+- Los composes local/prod levantan ambos servicios con `--profile monitoring`.
+
+## 5. Validación de configuración
 
 ```bash
 docker run --rm -v <ruta-del-repo>/infra/monitoring:/etc/prometheus prom/prometheus:latest promtool check config /etc/prometheus/prometheus.yml
@@ -53,7 +59,7 @@ docker run --rm -v <ruta-del-repo>/infra/monitoring:/etc/prometheus prom/prometh
 
 ## 5. Qué falta (documentado, no implementado)
 
-- Endpoint `/metrics` en el backend (agente Backend).
-- `postgres_exporter` y `node_exporter` para alertas de saturación de BD y disco.
-- Canal de notificación (Alertmanager/correo) — sin él, las alertas solo se ven en la UI.
+- Endpoint `/metrics` en el backend (agente Backend) — ✅ implementado.
+- `postgres_exporter` y `node_exporter` para alertas de saturación de BD y disco (las alertas correspondientes se retiraron hasta que existan los agentes).
+- Canales reales en `alertmanager.yml` (placeholders SMTP). — ✅ Alertmanager desplegado (sustituir SMTP).
 - Grafana / dashboards.
